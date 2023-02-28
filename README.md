@@ -13,7 +13,7 @@ You could use our library to:
 - Analyze website traffic data to identify the most effective marketing channels for your business.
 - Classify images based on their visual features to create more accurate and efficient image recognition systems.
 
-## Comprehensive Insights
+## Insights
 
 By using our library to build and analyze a random forest, you can gain deep insights into the patterns and relationships within your data. This can help you identify hidden trends and make better-informed decisions, leading to more successful outcomes for your business.
 

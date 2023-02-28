@@ -1,0 +1,7 @@
+README.md
+setup.py
+pyctogram.egg-info/PKG-INFO
+pyctogram.egg-info/SOURCES.txt
+pyctogram.egg-info/dependency_links.txt
+pyctogram.egg-info/requires.txt
+pyctogram.egg-info/top_level.txt

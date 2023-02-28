@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: pyctogram
+Version: 0.0.1
+Summary: A comprehensive library for describing and analyzing data insights via AI
+Home-page: https://github.com/jcval94/pyctogram.git
+Author: Jose Carlos Del Valle
+Author-email: jcval94@gmail.com
+License: MIT
+Description-Content-Type: text/markdown
+
+Pyctogram provides a comprehensive AI solution for identifying and describing categories within your data, allowing you to gain valuable insights and make data-driven decisions.
