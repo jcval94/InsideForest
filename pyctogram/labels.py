@@ -1,7 +1,6 @@
 import numpy as np
 
 
-
 class labels:
   def round_values(self, lst):
     variance = np.var(lst)
