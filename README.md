@@ -23,7 +23,7 @@ By using our library to build and analyze a random forest, you can gain deep ins
 You can install MILIBRERIA using pip:
 
 ```python
-pip install MILIBRERIA
+pip install pyctogram
 ```
 
 ## Dependencies
