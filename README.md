@@ -1,6 +1,6 @@
-# Pyctogram
+# InsideForest
 
-Pyctogram provides a comprehensive AI solution for identifying and describing categories within your data, allowing you to gain valuable insights and make data-driven decisions.
+InsideForest provides a comprehensive AI solution for identifying and describing categories within your data, allowing you to gain valuable insights and make data-driven decisions.
 
 Whether you're working with customer data, sales figures, or any other type of information, our library can help you better understand your data and make informed decisions.
 
@@ -23,7 +23,7 @@ By using our library to build and analyze a random forest, you can gain deep ins
 You can install MILIBRERIA using pip:
 
 ```python
-pip install pyctogram
+pip install InsideForest
 ```
 
 ## Dependencies
@@ -45,7 +45,7 @@ The following packages are required to use MILIBRERIA:
 Here is an example of how to import the `get_summary` function from the `trees` class:
 
 ```python
-from pyctogram.trees import get_summary
+from InsideForest.trees import get_summary
 ```
 
 
