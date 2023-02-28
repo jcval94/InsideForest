@@ -1,5 +1,10 @@
 README.md
 setup.py
+InsideForest/__init__.py
+InsideForest/labels.py
+InsideForest/models.py
+InsideForest/regions.py
+InsideForest/trees.py
 InsideForest.egg-info/PKG-INFO
 InsideForest.egg-info/SOURCES.txt
 InsideForest.egg-info/dependency_links.txt
