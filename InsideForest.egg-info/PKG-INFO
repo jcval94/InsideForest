@@ -1,10 +1,9 @@
 Metadata-Version: 2.1
 Name: InsideForest
-Version: 0.0.1
+Version: 0.0.2
 Summary: A comprehensive library for describing and analyzing data insights via AI
 Home-page: https://github.com/jcval94/InsideForest.git
-Author: Jose Carlos Del Valle
-Author-email: jcval94@gmail.com
+Author: [('Jose Carlos Del Valle', 'jcval94@gmail.com'), ('ChatGPT', 'chat.openai.com/chat')]
 License: MIT
 Description-Content-Type: text/markdown
 
