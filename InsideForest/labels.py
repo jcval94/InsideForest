@@ -74,6 +74,8 @@ class labels:
       ramas_ = [self.get_branch(df, df_ppr, i) for i in range(1,etq_max+1)]
       scores_pob = [(x[var_obj].mean(), x[var_obj].count()) for x in ramas_ if x is not None]
       poblacion_objetivo = [x[x[var_obj]==0] for x in ramas_ if x is not None]
+      if len(poblacion_objetivo)==0:
+        continue
       dicci = {etq_:[sc_, po_]for po_, sc_, etq_ in zip(poblacion_objetivo, scores_pob, descripcion_vrs) if po_.shape[0]>0}
       etiquetas_list.append(dicci)
 
