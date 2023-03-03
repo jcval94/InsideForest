@@ -38,27 +38,11 @@ class labels:
     df = df.drop(altura_columns, axis=1)
     return df
 
-  def get_labels(self,df, df_reres, var_obj, etq_max = 9,ramas = 10):
-    # etq_max es la cantidad máxima de etiquetas que se quieran extraer por rama
-    # ramas es la cantidad de ramas que se quieran explorar
-    new_var = etq_max
-    etiquetas_list = []
-    for j in range(ramas-1):
-      if j>len(df_reres):
-        continue
-      descripcion_vrs = self.get_intervals(df_reres[j].head(new_var))
-      ramas_ = [self.get_branch(df, df_reres[j], i) for i in range(1,new_var+1)]
-      scores_pob = [(x[var_obj].mean(), x[var_obj].count()) for x in ramas_ if x is not None]
-      poblacion_objetivo = [x[x[var_obj]==0] for x in ramas_ if x is not None]
-      dicci = {etq_:[sc_, po_]for po_, sc_, etq_ in 
-               zip(poblacion_objetivo, scores_pob, descripcion_vrs) if po_.shape[0]>0}
-      etiquetas_list.append(dicci)
-
-    return etiquetas_list
-  
   def get_branch(self,df, df_sub, i):
-    # 3 >= 
-    if i-1>= len(df_sub):
+    
+    df_sub.reset_index(inplace=True,drop=True)
+
+    if i >= len(df_sub):
       return None
     limitador_inf = df_sub.loc[i,'linf'].copy()
     limitador_sup = df_sub.loc[i,'lsup'].copy()
@@ -76,3 +60,22 @@ class labels:
             variable_cd = variable_cd & condicion
 
     return df[variable_cd]
+
+
+  def get_labels(self,df_reres, df, var_obj, etq_max = 9,ramas = 10):
+    
+    etiquetas_list = []
+    for j in range(ramas-1):
+      if j>len(df_reres):
+        continue
+      df_ppr = df_reres[j].copy()
+      df_ppr = df_ppr[[(a, b) for a, b in df_ppr.columns if 'altura' != b]]
+      descripcion_vrs = self.get_intervals(df_ppr.head(etq_max))
+      ramas_ = [self.get_branch(df, df_ppr, i) for i in range(1,etq_max+1)]
+      scores_pob = [(x[var_obj].mean(), x[var_obj].count()) for x in ramas_ if x is not None]
+      poblacion_objetivo = [x[x[var_obj]==0] for x in ramas_ if x is not None]
+      dicci = {etq_:[sc_, po_]for po_, sc_, etq_ in zip(poblacion_objetivo, scores_pob, descripcion_vrs) if po_.shape[0]>0}
+      etiquetas_list.append(dicci)
+
+    return etiquetas_list
+  
