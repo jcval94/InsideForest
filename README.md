@@ -1,6 +1,8 @@
 ![Descripción de la imagen](./data/inside_f1_1.jpeg)
 
-InsideForest provides a comprehensive AI solution for identifying and describing categories within your data, allowing you to gain valuable insights and make data-driven decisions.
+InsideForest is a Supervised Clustering technique which provides a comprehensive AI solution for identifying and describing categories within data, allowing to gain valuable insights and make data-driven decisions.
+
+Supervised clustering definition: A machine learning technique that uses labeled data to group them into different clusters, with the aim that the clustering patterns are consistent with the previously assigned labels. Instead of letting the clustering algorithm find the clustering patterns on its own, supervised information is provided to guide its clustering process.
 
 Whether you're working with customer data, sales figures, or any other type of information, our library can help you better understand your data and make informed decisions.
 
