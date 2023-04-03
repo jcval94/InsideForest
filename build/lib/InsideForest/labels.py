@@ -71,7 +71,7 @@ class labels:
       df_ppr = df_reres[j].copy()
       df_ppr = df_ppr[[(a, b) for a, b in df_ppr.columns if 'altura' != b]]
       descripcion_vrs = self.get_intervals(df_ppr.head(etq_max))
-      ramas_ = [self.get_branch(df, df_ppr, i) for i in range(1,etq_max+1)]
+      ramas_ = [self.get_branch(df, df_ppr, i) for i in range(0,etq_max+1)]
       scores_pob = [(x[var_obj].mean(), x[var_obj].count()) for x in ramas_ if x is not None]
       poblacion_objetivo = [x[x[var_obj]==0] for x in ramas_ if x is not None]
       if len(poblacion_objetivo)==0:
