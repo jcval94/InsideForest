@@ -3,12 +3,12 @@ from sklearn.cluster import DBSCAN
 
 import pandas as pd
 import numpy as np
+import copy
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
 from matplotlib.patches import Rectangle
-
 from collections import Counter
 
 
