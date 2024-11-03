@@ -7,6 +7,63 @@ from sklearn.tree import export_text
 
 
 class trees:
+
+  def __init__(self, lang='python'):
+    self.lang = lang
+
+
+  def transform_tree_structure(self, tree_str):
+    # Separar el string en árboles individuales
+    trees = tree_str.strip().split('\n  Tree')
+    tree_dict = {}
+
+    for i, tree in enumerate(trees):
+      if i == 0:
+        # Ignorar la primera línea si es la descripción del modelo
+        if tree.startswith('RandomForestClassificationModel'):
+          continue
+
+      if not tree.strip():
+        continue
+
+      lines = tree.strip().split('\n')
+      tree_name = "Tree " + lines[0].split('(')[0].strip()
+
+      # Determinar el número de espacios a eliminar basado en las líneas después de la línea "Tree"
+      min_indent = min((len(line) - len(line.lstrip())) for line in lines[1:] if line.strip())
+
+      # Inicializar la lista que contendrá la estructura transformada
+      transformed_lines = []
+
+      for line in lines[1:]:
+
+        # Eliminar la indentación mínima determinada
+        adjusted_line = line[min_indent:]
+
+        # Reemplazar los espacios iniciales por "|   "
+
+        for i, s in enumerate(adjusted_line):
+            if s != ' ':
+                break
+
+        indent = i * '|   '
+        stripped_line = adjusted_line.strip()
+
+        # print(adjusted_line, i)
+
+        # Reemplazar "If" y "Else" por "|---"
+        if stripped_line.startswith('If') or stripped_line.startswith('Else'):
+          condition = stripped_line.split('(')[1].split(')')[0]
+          transformed_lines.append(f"{indent}|--- {condition}")
+        elif stripped_line.startswith('Predict'):
+          prediction = stripped_line.split(': ')[1]
+          transformed_lines.append(f"{indent}|--- class: {prediction}")
+
+      # Guardar el árbol transformado en el diccionario
+      tree_dict[tree_name] = '\n'.join(transformed_lines).replace('feature ','feature_')
+
+    return tree_dict
+
   def get_path(self, estructura_iter):
     for i, valor in enumerate(estructura_iter):
       if not(('value: ' in valor) or ('class: ' in valor)):
@@ -15,11 +72,27 @@ class trees:
       estructura_iter.pop(i)
       estructura_iter.pop(i-1)
       return estructura_iter, camino
-  
+
   def get_rangos(self, regr, data1):
+    # print('Obteniendo Rangos')
+
+    if self.lang=='pyspark':
+      arboles_estimadores = self.transform_tree_structure(regr.toDebugString)
+      arboles_estimadores = [a for a in arboles_estimadores.values()]
+      # print(arboles_estimadores[0])
+    else:
+      arboles_estimadores = regr.estimators_
+      # print(export_text(arboles_estimadores[0]))
+
     df_info = []
-    for n_estimador in range(len(regr.estimators_)):
-      r = export_text(regr.estimators_[n_estimador])
+    n_estimador = 0
+    for arbol_individual in arboles_estimadores:
+      if self.lang=='pyspark':
+        r = arbol_individual
+        # print('lalalang')
+      else:
+        r = export_text(arbol_individual)
+
       columnas_nombres = list(data1.columns)
       columnas_nombres.reverse()
       for i, feat in enumerate(columnas_nombres):
@@ -45,14 +118,17 @@ class trees:
       estructuras_maximizadoras = [[pa[0],val] for pa, val in zip(paths,valores) if val>= percent_]
       importanc = []
       for n_path in range(len(estructuras_maximizadoras)):
-        importanc += [[v.replace('|---','').replace('|   ','')[1:], 
-                      2/((v.count('|'))+1), n_path, n_estimador] 
+        importanc += [[v.replace('|---','').replace('|   ','')[1:],
+                      2/((v.count('|'))+1), n_path, n_estimador]
                       for v in estructuras_maximizadoras[n_path][0]]
       asdf = pd.DataFrame(importanc, columns = ['Regla', 'Importancia', 'N_regla','N_arbol'])
       asdf['Va_Obj_minima'] = percent_
       df_info.append(asdf)
+
+      n_estimador+=1
+
     return pd.concat(df_info)
-  
+
   def get_fro(self, df_full_arboles):
     df_full_arboles['feature'] = df_full_arboles['Regla'].\
     apply(lambda x: re.split(', |>|<=', x)[0][:-1])
@@ -60,11 +136,14 @@ class trees:
     apply(lambda x: float(re.split(', |>|<=', x)[1]))
     df_full_arboles['operador'] = [a[len(b):(len(b)+3)].replace(' ','') for a, b in zip(df_full_arboles['Regla'], df_full_arboles['feature'])]
     return df_full_arboles
-  
+
+
   def get_summary(self, data1, df_full_arboles, var_obj, verbose):
-    agrupacion = pd.pivot_table(df_full_arboles, 
+    agrupacion = pd.pivot_table(df_full_arboles,
                                 index=['N_regla','N_arbol','feature', 'operador'],
-                                values=['rangos','Importancia'], aggfunc=['min','max','mean'])
+                                values=['rangos','Importancia'],
+                                aggfunc=['min','max','mean'])
+
     agrupacion_min = agrupacion['min'].reset_index()
     agrupacion_min = agrupacion_min[agrupacion_min['operador']=='<=']
     agrupacion_max = agrupacion['max'].reset_index()
@@ -99,7 +178,7 @@ class trees:
     agrupacion = pd.concat(reglas)
     agrupacion = agrupacion.sort_values(by=['ef_sample','n_sample'], ascending=False)
     return agrupacion
-  
+
   def get_rect_coords(self, df):
     limits = {}
     for i, row in df.iterrows():
@@ -118,7 +197,7 @@ class trees:
                 limits[feature][0] = max(limits[feature][0], rango)
     rectangle_coordinates = [(key, limits[key]) for key in sorted(limits.keys())]
     return rectangle_coordinates
-  
+
   def rect_l_to_df(self, separacion_dim, llave):
     registros__ = []
     for i, sublista in enumerate(separacion_dim[llave]):
@@ -129,49 +208,59 @@ class trees:
             registros__.append([i + 1, rectangulo, linf, lsup,ponde_[1]])
     df = pd.DataFrame(registros__, columns=['rectangulo', 'dimension', 'linf', 'lsup','ponderador'])
     return df
-  
+
   def generate_key(self, r):
     r = r[1]
     ndims_ = len(r)
     dimensiones__ = '*'.join(sorted([r[i][0] for i in range(ndims_)][:-1]))
     return dimensiones__
-  
+
   def get_dfs_dim(self, rectangles_):
     l_rectangles_ = list(rectangles_.values())
     llaves = [(self.generate_key(r)) for  r in (rectangles_.items())]
     ponderadores = [(self.generate_key(r)) for  r in (rectangles_.items())]
     llaves_unicas = list(set(llaves))
-    separacion_dim = {lun:[l_rectangles_[i] for i in 
+    separacion_dim = {lun:[l_rectangles_[i] for i in
                            [i for i, llave in enumerate(llaves) if llave==lun]]
     for lun in llaves_unicas}
     separacion_dim = [self.rect_l_to_df(separacion_dim, k) for k, v in separacion_dim.items()]
     return separacion_dim
-  
+
   def extract_rectangles(self, df_summ):
+    print(df_summ)
     grouped = df_summ[(df_summ['n_sample']>0)&
                       (df_summ['ef_sample']>0)].groupby(['N_arbol', 'N_regla'])
+
     rectangles_ = {}
     for name, group in grouped:
         rectangles_[name] = self.get_rect_coords(group)
-    agrupacion_media = grouped.mean()
+        # print('Rectángulo ',rectangles_)
+
+    try:
+      agrupacion_media = grouped.mean()
+    except:
+      agrupacion_media = grouped[['n_sample', 'ef_sample']].mean()
+
     agrupacion_media['ponderacion'] = (agrupacion_media['n_sample']\
     /agrupacion_media['n_sample'].max())+agrupacion_media['ef_sample']*5
     agrupacion_media.sort_values('ponderacion')
     for k in rectangles_.keys():
       rectangles_[k] += [('ponderador',agrupacion_media.loc[k,'ponderacion'])]
+
     separacion_dim = self.get_dfs_dim(rectangles_)
     return separacion_dim
 
   def get_branches(self,df, var_obj, regr):
     X = df.drop(columns=[var_obj]).fillna(0)
     # y = df[var_obj]
-    df_full_arboles = self.get_rangos(regr, X)
+    df_full_arboles = self.get_rangos(regr, X) # A prueba de Spark
 
-    # La variable N_regla indica el número de regla que se está utilizando para realizar la clasificación. 
+    # La variable N_regla indica el número de regla que se está utilizando para realizar la clasificación.
     # Si N_regla es igual a 0, significa que se está utilizando la primera regla, y si es igual a 1, significa que se está utilizando la segunda regla.
     df_full_arboles = self.get_fro(df_full_arboles)
-
+    # print('get fro sobrepasado')
     df_summ = self.get_summary(df, df_full_arboles,var_obj, False)
+    # print('get Summ sobrepasado')
 
     separacion_dim = self.extract_rectangles(df_summ)
 
