@@ -84,7 +84,6 @@ plt.show()
 
 ![Descripción de la imagen](./data/iris_ds.png)
 
-
 ### Part 2
 
 Now we prepare the data for training a Random Forest classifier. We split the data into training and testing sets, and define the parameter grid to perform cross-validation and obtain the best estimator. Then, we use the best estimator to obtain data insights.
