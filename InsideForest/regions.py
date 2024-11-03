@@ -171,7 +171,7 @@ class regions:
       ax.add_patch(Rectangle(eis_[i], ders_[i], arrs_[i], alpha=0.15, color='#0099FF'))
     # Remove the legend and add a colorbar
     ax.get_legend().remove()
-    ax.figure.colorbar(sm)
+    ax.figure.colorbar(sm, ax=ax)
 
     
   def plot_scatter3d(self,df_r,df, ax, var_obj):
@@ -247,3 +247,188 @@ class regions:
       ddimee = dimensiss.tolist()
       eje_x, eje_y, eje_z = ddimee[0], ddimee[1], ddimee[1]
 
+
+
+  def asignar_ids_unicos(self, lista_reglas):
+    cluster_id = 0
+    for df in lista_reglas:
+      n_reglas = len(df)
+      df = df.reset_index(drop=True)
+      df['cluster'] = range(cluster_id, cluster_id + n_reglas)
+      cluster_id += n_reglas
+    return lista_reglas
+
+  def generar_descripcion_clusters(self, df_reglas):
+    cluster_descripciones = []
+
+    for idx, row in df_reglas.iterrows():
+      cluster_id = row['cluster']
+      linf = row['linf'].dropna()
+      lsup = row['lsup'].dropna()
+
+      # Generar descripción de la regla
+      descripcion_partes = []
+      for var in linf.index:
+        linf_val = linf[var]
+        lsup_val = lsup[var]
+        descripcion_partes.append(f"{linf_val} <= {var} <= {lsup_val}")
+      descripcion = " AND ".join(descripcion_partes)
+
+      # Añadir ponderador si es relevante
+      ponderador = row['ponderador'].mean()
+
+      cluster_descripciones.append({
+        'cluster': cluster_id.values[0],
+        # 'id': cluster_id,
+        'cluster_descripcion': descripcion,
+        'cluster_ponderador': ponderador
+      })
+
+    df_clusters_descripcion = pd.DataFrame(cluster_descripciones)
+
+    return df_clusters_descripcion
+
+  def asignar_clusters_a_datos(self, df_datos, df_reglas):
+    n_datos = len(df_datos)
+    clusters_datos = np.full(n_datos, -1)  # -1 para datos que no cumplen ninguna regla
+    ponderador_datos = np.full(n_datos, -np.inf)
+
+    # Extraer información de las reglas
+    reglas_info = []
+    for idx, row in df_reglas.iterrows():
+      linf = row['linf'].dropna()
+      lsup = row['lsup'].dropna()
+      variables = linf.index.tolist()
+      ponderador = row['ponderador'].mean()
+      cluster = row['cluster']
+
+      reglas_info.append({
+        'variables': variables,
+        'linf': linf.to_dict(),
+        'lsup': lsup.to_dict(),
+        'ponderador': ponderador,
+        'cluster': cluster,
+      })
+
+    # Verificar para cada dato qué reglas cumple
+    for regla in reglas_info:
+      variables = regla['variables']
+      linf = regla['linf']
+      lsup = regla['lsup']
+      ponderador = regla['ponderador']
+      cluster = regla['cluster']
+
+      # Extraer las columnas relevantes del dataframe de datos
+      X_datos = df_datos[variables]
+
+      # Verificar si los datos cumplen la regla
+      cumple_regla = np.ones(n_datos, dtype=bool)
+      for var in variables:
+        cumple_regla &= (X_datos[var] >= linf[var]) & (X_datos[var] <= lsup[var])
+
+      # Actualizar clusters y ponderadores para los datos que cumplen la regla
+      actualizar = (cumple_regla) & (ponderador > ponderador_datos)
+      clusters_datos[actualizar] = cluster
+      ponderador_datos[actualizar] = ponderador
+
+    # Asignar clusters al dataframe de datos
+    df_datos_clusterizados = df_datos.copy()
+    df_datos_clusterizados['cluster'] = clusters_datos
+
+    # Generar descripciones de los clusters
+    df_clusters_descripcion = self.generar_descripcion_clusters(df_reglas)
+
+    return df_datos_clusterizados, df_clusters_descripcion
+
+  def eliminar_reglas_redundantes(self, lista_reglas):
+    # Concatenar todos los dataframes en uno solo
+    df_reglas = pd.concat(lista_reglas, ignore_index=True)
+
+    # Asegurarse de que los nombres de los niveles sean consistentes
+    if df_reglas.columns.names != [None, 'dimension']:
+      df_reglas.columns.names = [None, 'dimension']
+
+    n_reglas = len(df_reglas)
+
+    # Inicializar listas para almacenar información de cada regla
+    reglas_info = []
+
+    for idx, row in df_reglas.iterrows():
+      # Obtener las variables para las que esta regla tiene límites
+      linf = row['linf']
+      lsup = row['lsup']
+      ponderador = row['ponderador'].mean()  # Promedio si hay varios ponderadores
+
+      variables = linf.dropna().index.tolist()  # Variables con linf definido
+
+      # Crear diccionarios para linf y lsup
+      linf_dict = linf.to_dict()
+      lsup_dict = lsup.to_dict()
+
+      reglas_info.append({
+        'idx': idx,
+        'variables': set(variables),
+        'linf': linf_dict,
+        'lsup': lsup_dict,
+        'ponderador': ponderador,
+      })
+
+    # Marcar reglas redundantes
+    reglas_redundantes = set()
+
+    for i in range(n_reglas):
+      regla_i = reglas_info[i]
+      if regla_i['idx'] in reglas_redundantes:
+        continue  # Ya marcada como redundante
+
+      for j in range(n_reglas):
+        if i == j:
+          continue
+
+        regla_j = reglas_info[j]
+
+        # Condición 1: variables_j ⊆ variables_i
+        if not regla_j['variables'].issubset(regla_i['variables']):
+          continue
+
+        # Condición 2: linf_i >= linf_j y lsup_i <= lsup_j para variables comunes
+        es_contenida = True
+        for var in regla_j['variables']:
+          if (regla_i['linf'][var] >= regla_j['linf'][var]) and (regla_i['lsup'][var] <= regla_j['lsup'][var]):
+            continue
+          else:
+            es_contenida = False
+            break
+
+        if not es_contenida:
+          continue
+
+        # Condición 3: ponderador_j >= ponderador_i
+        if regla_j['ponderador'] >= regla_i['ponderador']:
+          # Marcar regla_i como redundante
+          reglas_redundantes.add(regla_i['idx'])
+          break  # No es necesario comparar con más reglas
+
+    # Conservar solo las reglas no redundantes
+    df_reglas_importantes = df_reglas.drop(index=reglas_redundantes).reset_index(drop=True)
+
+    return df_reglas_importantes
+
+  def labels(self, df, df_reres, include_desc=True):
+    lista_reglas = copy.deepcopy(df_reres)
+
+    # Asignar IDs únicos a las reglas
+    lista_reglas = self.asignar_ids_unicos(lista_reglas)
+
+    # Eliminar reglas redundantes
+    df_reglas_importantes = self.eliminar_reglas_redundantes(lista_reglas)
+
+    df_reglas_importantes = df_reglas_importantes.reset_index()
+    df_reglas_importantes.rename(columns={'index': 'cluster'}, inplace=True)
+    
+    # Asignar clusters a los datos utilizando las reglas importantes
+    df_datos_clusterizados, df_clusters_descripcion = self.asignar_clusters_a_datos(df, df_reglas_importantes)
+    if include_desc:
+      df_datos_clusterizados = df_datos_clusterizados.merge(df_clusters_descripcion, on='cluster', how='left')
+    
+    return df_datos_clusterizados
