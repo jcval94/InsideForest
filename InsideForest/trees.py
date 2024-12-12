@@ -129,12 +129,32 @@ class trees:
 
     return pd.concat(df_info)
 
-  def get_fro(self, df_full_arboles):
-    df_full_arboles['feature'] = df_full_arboles['Regla'].\
-    apply(lambda x: re.split(', |>|<=', x)[0][:-1])
-    df_full_arboles['rangos'] = df_full_arboles['Regla'].\
-    apply(lambda x: float(re.split(', |>|<=', x)[1]))
-    df_full_arboles['operador'] = [a[len(b):(len(b)+3)].replace(' ','') for a, b in zip(df_full_arboles['Regla'], df_full_arboles['feature'])]
+
+  def get_fro(self, df_full_arboles): 
+    # Expresión regular que busca:
+    # Grupo 1: un texto sin espacios (la feature)
+    # Grupo 2: un operador entre <=, >=, < o >
+    # Grupo 3: un número (posiblemente decimal)
+    pattern = re.compile(r'^(\S+)\s*(<=|>=|<|>)\s*([0-9.]+)$')
+
+    def parse_regla(regla):
+        match = pattern.search(regla)
+        if match:
+            feature = match.group(1)
+            operador = match.group(2)
+            rangos = float(match.group(3))
+            return feature, operador, rangos
+        else:
+            return None, None, None
+
+    # Aplicamos la función de parseo a cada fila de 'Regla'
+    df_full_arboles[['feature', 'operador', 'rangos']] = df_full_arboles['Regla'].apply(
+        lambda x: parse_regla(x)
+    ).apply(pd.Series)
+
+    # Remover las filas que no se pudieron parsear
+    df_full_arboles = df_full_arboles.dropna(subset=['operador', 'rangos'])
+
     return df_full_arboles
 
 
