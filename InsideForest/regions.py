@@ -1,5 +1,5 @@
-from sklearn.preprocessing import StandardScaler
-from sklearn.cluster import DBSCAN
+from sklearn.preprocessing import StandardScaler, MultiLabelBinarizer
+from sklearn.cluster import DBSCAN, KMeans
 
 import pandas as pd
 import numpy as np
@@ -288,57 +288,132 @@ class regions:
 
     return df_clusters_descripcion
 
-  def asignar_clusters_a_datos(self, df_datos, df_reglas):
-    n_datos = len(df_datos)
-    clusters_datos = np.full(n_datos, -1)  # -1 para datos que no cumplen ninguna regla
-    ponderador_datos = np.full(n_datos, -np.inf)
 
-    # Extraer información de las reglas
-    reglas_info = []
-    for idx, row in df_reglas.iterrows():
-      linf = row['linf'].dropna()
-      lsup = row['lsup'].dropna()
-      variables = linf.index.tolist()
-      ponderador = row['ponderador'].mean()
-      cluster = row['cluster']
 
-      reglas_info.append({
-        'variables': variables,
-        'linf': linf.to_dict(),
-        'lsup': lsup.to_dict(),
-        'ponderador': ponderador,
-        'cluster': cluster,
-      })
+  def asignar_clusters_a_datos(self, df_datos, df_reglas, keep_all_clusters=True):
+      """
+      Asigna clusters a los datos en base a reglas.
 
-    # Verificar para cada dato qué reglas cumple
-    for regla in reglas_info:
-      variables = regla['variables']
-      linf = regla['linf']
-      lsup = regla['lsup']
-      ponderador = regla['ponderador']
-      cluster = regla['cluster']
+      Parámetros
+      ----------
+      df_datos : pd.DataFrame
+          Dataframe con los datos a asignar a clusters.
+      df_reglas : pd.DataFrame
+          Dataframe con la definición de las reglas (linf, lsup, ponderador, etc.)
+      keep_all_clusters : bool, optional (default=True)
+          Si es True, se añadirán cuatro columnas adicionales:
+            - 'n_clusters': número de clusters en los que cae el registro.
+            - 'clusters_list': lista de todos los clusters a los que pertenece ese registro.
+            - 'ponderadores_list': lista de los ponderadores de los clusters a los que pertenece.
+            - 'ponderador_mean': media de los ponderadores de los clusters a los que pertenece.
+          Si es False, se comportará como la función original, asignando sólo el cluster
+          de mayor ponderador (sin columnas extras).
 
-      # Extraer las columnas relevantes del dataframe de datos
-      X_datos = df_datos[variables]
+      Returns
+      -------
+      df_datos_clusterizados : pd.DataFrame
+          Dataframe de entrada con la columna 'cluster' asignada.
+          Si keep_all_clusters=True, además se incluyen 'n_clusters', 'clusters_list',
+          'ponderadores_list' y 'ponderador_mean'.
+      df_clusters_descripcion : pd.DataFrame
+          Dataframe con la descripción (o métricas) de cada cluster.
+      """
 
-      # Verificar si los datos cumplen la regla
-      cumple_regla = np.ones(n_datos, dtype=bool)
-      for var in variables:
-        cumple_regla &= (X_datos[var] >= linf[var]) & (X_datos[var] <= lsup[var])
+      import numpy as np
 
-      # Actualizar clusters y ponderadores para los datos que cumplen la regla
-      actualizar = (cumple_regla) & (ponderador > ponderador_datos)
-      clusters_datos[actualizar] = cluster
-      ponderador_datos[actualizar] = ponderador
+      n_datos = len(df_datos)
+      # Array para almacenar el cluster "principal" (mayor ponderador)
+      clusters_datos = np.full(n_datos, -1, dtype=float)
+      # Array para almacenar el ponderador del cluster principal
+      ponderador_datos = np.full(n_datos, -np.inf, dtype=float)
 
-    # Asignar clusters al dataframe de datos
-    df_datos_clusterizados = df_datos.copy()
-    df_datos_clusterizados['cluster'] = clusters_datos
+      # Si vamos a guardar todos los clusters por registro, inicializamos estructuras
+      if keep_all_clusters:
+          clusters_datos_all = [[] for _ in range(n_datos)]
+          ponderadores_datos_all = [[] for _ in range(n_datos)]
 
-    # Generar descripciones de los clusters
-    df_clusters_descripcion = self.generar_descripcion_clusters(df_reglas)
+      # --- 1) Extraer información de las reglas y normalizarla ---
+      reglas_info = []
+      for idx, row in df_reglas.iterrows():
+          linf = row['linf'].dropna()
+          lsup = row['lsup'].dropna()
 
-    return df_datos_clusterizados, df_clusters_descripcion
+          variables = linf.index.tolist()  # las mismas variables en linf y lsup
+          # En caso de que 'ponderador' sea un valor o iterable, asumimos la media como en tu código
+          ponderador = row['ponderador'].mean() if hasattr(row['ponderador'], '__iter__') else row['ponderador']
+
+          # row['cluster'] a veces viene como Serie de un solo valor. Convertirlo a float si es el caso.
+          # Por ejemplo: dimension    0.0
+          #             Name: 0, dtype: float64
+          cluster_raw = row['cluster']
+          # Si cluster_raw es Serie con un solo valor, obtenemos ese valor:
+          if hasattr(cluster_raw, 'values') and len(cluster_raw.values) == 1:
+              cluster_raw = float(cluster_raw.values[0])
+          else:
+              # Asumir que es un float/entero directamente
+              cluster_raw = float(cluster_raw)
+
+          reglas_info.append({
+              'variables': variables,
+              'linf': linf.to_dict(),
+              'lsup': lsup.to_dict(),
+              'ponderador': ponderador,
+              'cluster': cluster_raw,
+          })
+
+      # --- 2) Verificar para cada dato qué reglas cumple ---
+      for regla in reglas_info:
+          variables = regla['variables']
+          linf = regla['linf']
+          lsup = regla['lsup']
+          ponderador = regla['ponderador']
+          cluster = regla['cluster']
+
+          # Extraer las columnas relevantes para evaluar la regla
+          X_datos = df_datos[variables]
+
+          # Verificar fila a fila si cumple la regla
+          cumple_regla = np.ones(n_datos, dtype=bool)
+          for var in variables:
+              cumple_regla &= (X_datos[var] >= linf[var]) & (X_datos[var] <= lsup[var])
+
+          # Si queremos mantener el listado de todos los clusters que cumple
+          if keep_all_clusters:
+              # Para cada fila que cumpla la regla, agregamos el cluster y su ponderador a sus listas
+              indices_cumple = np.where(cumple_regla)[0]
+              for i in indices_cumple:
+                  clusters_datos_all[i].append(cluster)
+                  ponderadores_datos_all[i].append(ponderador)
+
+          # Independiente de keep_all_clusters, mantenemos la lógica de "un solo cluster final"
+          # usando el de mayor ponderador
+          actualizar = (cumple_regla) & (ponderador > ponderador_datos)
+          clusters_datos[actualizar] = cluster
+          ponderador_datos[actualizar] = ponderador
+
+      # --- 3) Construir dataframe de salida ---
+      df_datos_clusterizados = df_datos.copy()
+      df_datos_clusterizados['cluster'] = clusters_datos  # cluster final (mayor ponderador)
+
+      # Si se solicitó conservar todos los clusters, agregamos las 4 columnas
+      if keep_all_clusters:
+          # Número de clusters por registro
+          df_datos_clusterizados['n_clusters'] = [len(lst) for lst in clusters_datos_all]
+          # Lista de clusters por registro
+          df_datos_clusterizados['clusters_list'] = clusters_datos_all
+          # Lista de ponderadores por registro
+          df_datos_clusterizados['ponderadores_list'] = ponderadores_datos_all
+          # Media de los ponderadores por registro (maneja registros sin clusters)
+          df_datos_clusterizados['ponderador_mean'] = [
+              np.mean(lst) if lst else np.nan for lst in ponderadores_datos_all
+          ]
+
+      # --- 4) Generar la descripción de clusters (tal como en tu código original) ---
+      df_clusters_descripcion = self.generar_descripcion_clusters(df_reglas)
+      # return df_datos_clusterizados
+      return df_datos_clusterizados, df_clusters_descripcion
+
+
 
   def eliminar_reglas_redundantes(self, lista_reglas):
     # Concatenar todos los dataframes en uno solo
@@ -414,6 +489,311 @@ class regions:
 
     return df_reglas_importantes
 
+
+##-----Incorporar clusters simplificado
+
+
+  def expandir_clusters_binario(self, df, columna_clusters, prefijo='cluster_'):
+      """
+      Expande una columna de listas de clusters en múltiples columnas binarias.
+      
+      Parámetros
+      ----------
+      df : pd.DataFrame
+          DataFrame que contiene la columna a expandir.
+      columna_clusters : str
+          Nombre de la columna que contiene las listas de clusters.
+      prefijo : str, opcional
+          Prefijo para los nombres de las nuevas columnas. Por defecto es 'cluster_'.
+      
+      Retorna
+      -------
+      pd.DataFrame
+          DataFrame original unido con las nuevas columnas binarias de clusters.
+      """
+      # Asegurar que la columna de clusters contiene listas o sets
+      if not df[columna_clusters].apply(lambda x: isinstance(x, (list, set))).all():
+          raise ValueError(f"La columna '{columna_clusters}' debe contener listas o sets de clusters.")
+      
+      # Inicializar el binarizador
+      mlb = MultiLabelBinarizer()
+      
+      # Aplicar el binarizador a la columna de clusters
+      clusters_binarizados = mlb.fit_transform(df[columna_clusters])
+      
+      # Crear nombres de columnas con el prefijo y el identificador del cluster
+      nombres_columnas = [f"{prefijo}{cluster}" for cluster in mlb.classes_]
+      
+      # Crear un DataFrame con las columnas binarizadas
+      df_clusters_bin = pd.DataFrame(clusters_binarizados, columns=nombres_columnas, index=df.index)
+      
+      # Unir las nuevas columnas binarias al DataFrame original
+      df_final = pd.concat([df, df_clusters_bin], axis=1)
+      
+      return df_final
+
+  def apply_clustering_and_similarity(self, df, cluster_columns, dbscan_params=None, kmeans_params=None):
+      """
+      Aplica DBSCAN y KMeans a las columnas de clusters seleccionadas, agrega las etiquetas
+      de clustering al DataFrame y encuentra las columnas que más se parecen a cada
+      conjunto de etiquetas de clustering.
+      
+      Parámetros
+      ----------
+      df : pd.DataFrame
+          DataFrame que contiene las columnas de clusters seleccionadas.
+      cluster_columns : list of str
+          Lista de nombres de columnas binarias a usar para el clustering.
+      dbscan_params : dict, optional
+          Parámetros para el algoritmo DBSCAN. Si no se proporciona, se usarán los valores por defecto.
+      kmeans_params : dict, optional
+          Parámetros para el algoritmo KMeans. Si no se proporciona, se usarán los valores por defecto.
+      
+      Retorna
+      -------
+      df : pd.DataFrame
+          DataFrame original con columnas adicionales:
+              - 'db_labels': etiquetas de cluster de DBSCAN
+              - 'km_labels': etiquetas de cluster de KMeans
+              - 'db_most_similar_cluster': nombre de la columna más similar a 'db_labels'
+              - 'km_most_similar_cluster': nombre de la columna más similar a 'km_labels'
+      correlation_df : pd.DataFrame
+          DataFrame con las correlaciones entre los cluster labels y las columnas de clusters.
+      """
+      # Validar que las columnas existen
+      for col in cluster_columns:
+          if col not in df.columns:
+              raise ValueError(f"La columna '{col}' no existe en el DataFrame.")
+      
+      # Preparar los datos para clustering
+      X = df[cluster_columns].values
+      
+      # Aplicar DBSCAN
+      if dbscan_params is None:
+          dbscan_params = {'eps': 0.5, 'min_samples': 2}
+      dbscan = DBSCAN(**dbscan_params)
+      db_labels = dbscan.fit_predict(X)
+      df['db_labels'] = db_labels
+      
+      # Aplicar KMeans
+      if kmeans_params is None:
+          # Elegir n_clusters de KMeans, aquí se usa 2 por defecto
+          kmeans_params = {'n_clusters': 2, 'random_state': 42}
+      kmeans = KMeans(**kmeans_params)
+      km_labels = kmeans.fit_predict(X)
+      df['km_labels'] = km_labels
+      
+      # Calcular correlaciones entre db_labels y cluster_columns
+      # Usamos correlación de Pearson
+      correlation_db = df[cluster_columns].apply(lambda col: df['db_labels'].corr(col))
+      correlation_km = df[cluster_columns].apply(lambda col: df['km_labels'].corr(col))
+      
+      # Encontrar las columnas más similares
+      db_most_similar_cluster = correlation_db.abs().idxmax()
+      km_most_similar_cluster = correlation_km.abs().idxmax()
+      
+      # Agregar las columnas de similitud al DataFrame
+      df['db_most_similar_cluster'] = db_most_similar_cluster
+      df['km_most_similar_cluster'] = km_most_similar_cluster
+      
+      # Crear un DataFrame de correlaciones
+      correlation_df = pd.DataFrame({
+          'cluster_column': cluster_columns,
+          'db_corr': correlation_db,
+          'km_corr': correlation_km
+      })
+      
+      return df, correlation_df
+
+  def get_last_increasing_inflexion_point(self, data, bins=15):
+      """
+      Encuentra el último punto de inflexión creciente en un histograma.
+
+      Args:
+          data (list or array-like): Los datos originales.
+          bins (int): Número de bins para el histograma.
+
+      Returns:
+          float: El valor del borde del bin donde ocurre el último punto de inflexión creciente.
+      """
+      # Generar el histograma
+      hist, bin_edges = np.histogram(data, bins=bins)
+      
+      # Calcular la derivada de la frecuencia del histograma
+      first_derivative = np.diff(hist)
+      
+      # Encontrar los índices donde la derivada es positiva (crecimiento)
+      increasing_points = np.where(first_derivative > 0)[0]
+      
+      if len(increasing_points) == 0:
+          raise ValueError("No se encontró un punto de inflexión creciente.")
+      
+      # Tomar el último punto de inflexión creciente
+      last_increasing_index = increasing_points[-1]
+      
+      # Obtener el borde derecho del bin correspondiente al último punto de inflexión creciente
+      last_inflexion_point = bin_edges[last_increasing_index + 1]
+      
+      return last_inflexion_point
+
+
+  def get_first_decreasing_inflexion_point(self, data, bins=10):
+      """
+      Encuentra el primer punto de inflexión decreciente en un histograma.
+
+      Args:
+          data (list or array-like): Los datos originales.
+          bins (int): Número de bins para el histograma.
+
+      Returns:
+          float: El valor del borde del bin donde ocurre el primer punto de inflexión decreciente.
+      """
+      # Generar el histograma
+      hist, bin_edges = np.histogram(data, bins=bins)
+      
+      # Calcular la derivada de la frecuencia del histograma
+      first_derivative = np.diff(hist)
+      
+      # Encontrar los índices donde la derivada es negativa (decrecimiento)
+      decreasing_points = np.where(first_derivative < 0)[0]
+      
+      if len(decreasing_points) == 0:
+          raise ValueError("No se encontró un punto de inflexión decreciente.")
+      
+      # Tomar el primer punto de inflexión decreciente
+      first_decreasing_index = decreasing_points[0]
+      
+      # Obtener el borde derecho del bin correspondiente al primer punto de inflexión decreciente
+      first_inflexion_point = bin_edges[first_decreasing_index + 1]
+      
+      return first_inflexion_point
+
+
+  def add_active_clusters(self, df, cluster_prefix='cluster_', new_column='active_clusters'):
+      """
+      Agrega una nueva columna al DataFrame que contiene una lista de clusters activos (valor = 1) para cada fila.
+      
+      Parámetros:
+      - df (pd.DataFrame): El DataFrame de entrada que contiene las columnas de clusters.
+      - cluster_prefix (str, opcional): Prefijo que identifica las columnas de clusters. Por defecto es 'cluster_'.
+      - new_column (str, opcional): Nombre de la nueva columna a crear. Por defecto es 'active_clusters'.
+      
+      Retorna:
+      - pd.DataFrame: El DataFrame original con la nueva columna agregada.
+      """
+      
+      # Identificar las columnas que corresponden a los clusters
+      cluster_columns = [col for col in df.columns if col.startswith(cluster_prefix)]
+      
+      # Verificar si se encontraron columnas de clusters
+      if not cluster_columns:
+          raise ValueError(f"No se encontraron columnas que comiencen con el prefijo '{cluster_prefix}'.")
+      
+      # Extraer los números de los clusters y crear un mapeo de columna a número
+      cluster_mapping = {}
+      for col in cluster_columns:
+          try:
+              # Asumiendo que el nombre de la columna es algo como 'cluster_3.0'
+              cluster_number = col.split('_')[1].split('.')[0]
+              cluster_mapping[col] = int(cluster_number)
+          except (IndexError, ValueError):
+              raise ValueError(f"El formato de la columna '{col}' no es válido. Esperado 'cluster_<número>.0'.")
+      
+      # Utilizar una lista por comprensión para obtener los clusters activos por fila
+      df[new_column] = [
+          [cluster_mapping[col] for col in cluster_columns if row[col] == 1]
+          for _, row in df.iterrows()
+      ]
+      
+      return df
+
+
+  def convert_list_to_string(self, df, list_column, sorted=False, delimiter=',', new_key_column='clusters_key'):
+      """
+      Convierte una columna de listas en cadenas de texto (opcionalmente ordenadas) para usarlas como llaves de unión.
+
+      Parámetros:
+      - df (pd.DataFrame): DataFrame de entrada.
+      - list_column (str): Nombre de la columna que contiene las listas.
+      - sorted (bool): Si se debe ordenar la lista antes de convertirla a cadena.
+      - delimiter (str): Delimitador para concatenar los elementos de la lista.
+      - new_key_column (str): Nombre de la nueva columna que contendrá las cadenas.
+
+      Retorna:
+      - pd.DataFrame: DataFrame con la nueva columna de llaves.
+      """
+      if sorted: # Changed variable name
+          df[new_key_column] = df[list_column].apply(lambda x: delimiter.join(map(str, sorted(x))))
+      else:
+          df[new_key_column] = df[list_column].apply(lambda x: delimiter.join(map(str, x)))
+      return df
+
+
+
+
+  def get_clusters_importantes(self, df_clusterizado):
+    df_clusterizado_diff = df_clusterizado[['clusters_list']].drop_duplicates()
+    df_clusterizado_diff['n_ls'] = df_clusterizado_diff.apply(lambda x: len(x['clusters_list']), axis=1)
+    df_clusterizado_diff_sub = df_clusterizado_diff
+
+    df_expanded = self.expandir_clusters_binario(df_clusterizado_diff_sub,'clusters_list','cluster_')
+    cluster_cols = [x for x in df_expanded.columns if 'cluster_' in x]
+
+    sample_size = int(np.sqrt(df_clusterizado_diff_sub.shape[0])*3)
+    eps_su = self.get_eps_multiple_groups_opt(df_expanded[cluster_cols].sample(sample_size))
+
+    # Obtener clusters
+    df_clustered, _ = self.apply_clustering_and_similarity(df_expanded, cluster_cols, 
+                                                                dbscan_params={'eps': eps_su, 'min_samples': 2},
+                                                                kmeans_params={'n_clusters': 6, 'random_state': 42})
+
+
+    df_custers__vc = df_clustered[['db_labels','km_labels']].value_counts()
+    values_up = np.sqrt(df_custers__vc.head(1)).values[0]
+    df_custers__vc_ = df_custers__vc[df_custers__vc>values_up]
+
+    # Extraer clsuters en el core
+    pd_cluster_sun = []
+    for db_, km_ in df_custers__vc_.index:
+      
+      df_clustered_subcluster = df_clustered[(df_clustered['db_labels']==db_)&(df_clustered['km_labels']==km_)].copy()#[cluster_cols]
+
+      df_lista_ms_min = df_clustered_subcluster[df_clustered_subcluster['n_ls']==df_clustered_subcluster['n_ls'].min()]['clusters_list']
+      lista_menor = df_lista_ms_min.values[0]
+
+      df_clustered_subcluster_suma_clust = df_clustered_subcluster[cluster_cols].sum(axis=0)
+
+      df_cl_inf = self.get_last_increasing_inflexion_point(df_clustered_subcluster_suma_clust)
+      clusters_comunes = df_clustered_subcluster_suma_clust[df_clustered_subcluster_suma_clust>df_cl_inf]
+
+      df_cl_value_counts = df_clustered[list(clusters_comunes.index)].value_counts()
+
+
+      grupo_s_ = df_cl_value_counts[df_cl_value_counts>self.get_first_decreasing_inflexion_point(df_cl_value_counts)].reset_index()
+      grupo_s_ = self.add_active_clusters(grupo_s_).drop(columns='count')
+
+      cols_keys = list(grupo_s_.columns[:-1])
+      df_clustered_subcluster_agg = df_clustered_subcluster.merge(grupo_s_, on=cols_keys, how='left')
+
+
+      pd_cluster_sun.append(df_clustered_subcluster_agg)
+      
+    df_clustered_subcluster_agg_all = pd.concat(pd_cluster_sun)
+
+    df_clusterizado = self.convert_list_to_string(df_clusterizado, 'clusters_list', 
+                                            sorted=False, delimiter=',', new_key_column='clusters_key')
+    
+    df_clustered_subcluster_agg_all = self.convert_list_to_string(df_clustered_subcluster_agg_all, 'clusters_list', 
+                                                            sorted=False, delimiter=',', new_key_column='clusters_key')
+
+    df_clusterizado_add = df_clusterizado.merge(df_clustered_subcluster_agg_all[['clusters_key','active_clusters']], 
+                                                on='clusters_key', how='left')
+    
+    return df_clusterizado_add.drop(columns='clusters_key')
+
+
+
+
   def labels(self, df, df_reres, include_desc=True):
     lista_reglas = copy.deepcopy(df_reres)
 
@@ -428,7 +808,12 @@ class regions:
     
     # Asignar clusters a los datos utilizando las reglas importantes
     df_datos_clusterizados, df_clusters_descripcion = self.asignar_clusters_a_datos(df, df_reglas_importantes)
+    
+    df_clusterizado_extra = self.get_clusters_importantes(df_datos_clusterizados)
+    
     if include_desc:
       df_datos_clusterizados = df_datos_clusterizados.merge(df_clusters_descripcion, on='cluster', how='left')
+      return df_datos_clusterizados
     
-    return df_datos_clusterizados
+    return df_datos_clusterizados, df_clusters_descripcion
+  

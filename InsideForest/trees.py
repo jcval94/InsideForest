@@ -8,8 +8,10 @@ from sklearn.tree import export_text
 
 class trees:
 
-  def __init__(self, lang='python'):
+  def __init__(self, lang='python',n_sample_multiplier=1, ef_sample_multiplier=5):
     self.lang = lang
+    self.n_sample_multiplier = n_sample_multiplier
+    self.ef_sample_multiplier = ef_sample_multiplier
 
 
   def transform_tree_structure(self, tree_str):
@@ -262,7 +264,9 @@ class trees:
       agrupacion_media = grouped[['n_sample', 'ef_sample']].mean()
 
     agrupacion_media['ponderacion'] = (agrupacion_media['n_sample']\
-    /agrupacion_media['n_sample'].max())+agrupacion_media['ef_sample']*5
+    /agrupacion_media['n_sample'].max())*self.n_sample_multiplier\
+      +agrupacion_media['ef_sample']*self.ef_sample_multiplier
+
     agrupacion_media.sort_values('ponderacion')
     for k in rectangles_.keys():
       rectangles_[k] += [('ponderador',agrupacion_media.loc[k,'ponderacion'])]
