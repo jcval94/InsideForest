@@ -1,7 +1,150 @@
-import os
 import re
 from openai import OpenAI
 import pandas as pd
+import copy
+import numpy as np
+from scipy.signal import savgol_filter
+from sklearn.preprocessing import StandardScaler
+import re
+
+
+def primer_punto_inflexion_decreciente(data, bins=10, window_length=5, polyorder=2):
+    """
+    Encuentra el primer punto de inflexión decreciente en un histograma.
+
+    Parámetros:
+    - data: array-like, los datos para construir el histograma.
+    - bins: int o sequence, número de bins o los bordes de los bins.
+    - window_length: int, longitud de la ventana para el filtro Savitzky-Golay.
+    - polyorder: int, orden del polinomio para el filtro Savitzky-Golay.
+
+    Retorna:
+    - punto_inflexion: valor del bin donde ocurre el primer punto de inflexión decreciente.
+    """
+
+    # Calcular el histograma
+    counts, bin_edges = np.histogram(data, bins=bins)
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+    # Suavizar el histograma para reducir ruido
+    # Asegurarse de que window_length es impar y menor que el tamaño de counts
+    if window_length >= len(counts):
+        window_length = len(counts) - 1 if len(counts) % 2 == 0 else len(counts)
+    if window_length % 2 == 0:
+        window_length += 1
+    if window_length < polyorder + 2:
+        window_length = polyorder + 2 if (polyorder + 2) % 2 != 0 else polyorder + 3
+
+    counts_smooth = savgol_filter(counts, window_length=window_length, polyorder=polyorder)
+
+    # Calcular la segunda derivada
+    second_derivative = np.gradient(np.gradient(counts_smooth))
+
+    # Encontrar los puntos de inflexión donde la segunda derivada cambia de signo
+    # De positivo a negativo indica un cambio de concavidad hacia abajo (punto de inflexión decreciente)
+    sign_changes = np.diff(np.sign(second_derivative))
+    # Un cambio de +1 a -1 en la segunda derivada
+    inflection_indices = np.where(sign_changes < 0)[0] + 1  # +1 para corregir el desplazamiento de diff
+
+    if len(inflection_indices) == 0:
+        return None  # No se encontró un punto de inflexión decreciente
+
+    # Seleccionar el primer punto de inflexión decreciente
+    primer_inflexion = bin_centers[inflection_indices[0]]
+
+    return primer_inflexion
+
+def replace_with_dict(df, columns, var_rename):
+    """
+    Reemplaza valores en columnas especificadas de un DataFrame usando un diccionario.
+    Reemplaza coincidencias exactas y subcadenas que contienen las claves del diccionario.
+
+    Parámetros
+    ----------
+    df : pd.DataFrame
+        El DataFrame original.
+    columns : list of str
+        Lista de nombres de columnas donde se aplicarán los reemplazos.
+    var_rename : dict
+        Diccionario donde las claves son los valores a reemplazar y los valores son los nuevos valores.
+
+    Retorna
+    -------
+    df_replaced : pd.DataFrame
+        DataFrame con los reemplazos realizados en las columnas especificadas.
+    replace_info : dict
+        Información necesaria para revertir los reemplazos.
+    """
+    df_replaced = df.copy()
+    replace_info = {}
+    
+    # Ordenar las claves por longitud descendente para evitar conflictos en subcadenas
+    sorted_keys = sorted(var_rename.keys(), key=len, reverse=True)
+    escaped_keys = [re.escape(k) for k in sorted_keys]
+    pattern = re.compile('|'.join(escaped_keys))
+    
+    for col in columns:
+        if col not in df_replaced.columns:
+            print(f"Advertencia: La columna '{col}' no se encontró en el DataFrame.")
+            continue
+        
+        # Almacenar información de reemplazo por columna
+        replace_info[col] = {
+            'var_rename': var_rename.copy()
+        }
+        
+        # Definir la función de reemplazo
+        def repl(match):
+            return var_rename[match.group(0)]
+        
+        # Aplicar el reemplazo usando expresiones regulares
+        df_replaced[col] = df_replaced[col].astype(str).str.replace(pattern, repl, regex=True)
+    
+    return df_replaced, replace_info
+
+
+
+def get_descripciones_valiosas(df_datos_descript,df_datos_clusterizados, TARGETS, var_rename):
+
+    df_datos_descript = df_datos_descript.sort_values('cluster_ponderador', ascending=False)
+    # descrip_generales = [x for x in df_datos_descript['cluster_descripcion'].unique().tolist() if type('')==type(x)]
+    df_datos_clusterizados_desc = df_datos_clusterizados.merge(df_datos_descript, on='cluster', how='left')
+    stacked_data = df_datos_clusterizados_desc.groupby([TARGETS[0], 'cluster']).size().unstack(fill_value=0)
+    # best_clusters = df_datos_descript['cluster'].head(10).values.tolist()
+
+    proporcion_real = df_datos_clusterizados_desc[TARGETS[0]].value_counts(normalize=True).loc[1]
+    stacked_data_total = stacked_data.sum(axis=0)
+    proprcin_ = (stacked_data/stacked_data.sum(axis=0)).loc[1]
+    los_custers = pd.concat([proprcin_/proporcion_real, stacked_data_total], axis=1).sort_values(0, ascending=False)
+    los_custers_valiosos = los_custers[los_custers[1]>1].copy()
+
+    los_custers_valiosos_original = copy.deepcopy(los_custers_valiosos)
+    # Selecciona las columnas numéricas para la estandarización
+    numeric_cols = los_custers_valiosos.select_dtypes(include=np.number).columns
+    # Crea un StandardScaler
+    scaler = StandardScaler()
+    # Ajusta y transforma las columnas numéricas
+    los_custers_valiosos[numeric_cols] = scaler.fit_transform(los_custers_valiosos[numeric_cols])
+
+    los_custers_valiosos_original['importancia'] =los_custers_valiosos.sum(axis=1)
+    los_custers_valiosos_original.sort_values('importancia', ascending=False)
+
+    punto = primer_punto_inflexion_decreciente(los_custers_valiosos_original[0], bins=20, window_length=5, polyorder=2)
+    punto_1 = primer_punto_inflexion_decreciente(los_custers_valiosos_original[1], bins=20, window_length=5, polyorder=2)
+
+    los_custers_valiosos_original_cond = los_custers_valiosos_original[0]>punto*.4
+    los_custers_valiosos_original_cond_1 = los_custers_valiosos_original[0]>punto_1
+
+    los_custers_valiosos_original = los_custers_valiosos_original[los_custers_valiosos_original_cond|los_custers_valiosos_original_cond_1]
+
+    df_datos_descript_valiosas = df_datos_descript[df_datos_descript['cluster'].isin(los_custers_valiosos_original.index.tolist())]
+
+    df_datos_descript_valiosas,_ = replace_with_dict(df_datos_descript_valiosas, ['cluster_descripcion'], var_rename)
+    df_datos_descript_valiosas = df_datos_descript_valiosas.merge(proprcin_.reset_index(), on='cluster', how='left')
+    df_datos_descript_valiosas = df_datos_descript_valiosas.merge(los_custers.reset_index(), on='cluster', how='left')
+    df_datos_descript_valiosas = df_datos_descript_valiosas.rename(columns={'1_x':'Probabilidad','1_y':'N_probabilidad',0:'Soporte'})
+    return df_datos_descript_valiosas.drop(columns=['cluster_ponderador']), stacked_data
+
 
 def generate_descriptions(condition_list, language='en', OPENAI_API_KEY=None, default_params=None):
 
