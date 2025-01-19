@@ -19,6 +19,7 @@ You could use our library to:
 
 By using our library to build and analyze a random forest, you can gain deep insights into the patterns and relationships within your data. This can help you identify hidden trends and make better-informed decisions, leading to more successful outcomes for your business.
 
+[CASO DE USO](https://colab.research.google.com/drive/11VGeB0V6PLMlQ8Uhba91fJ4UN1Bfbs90?usp=sharing)
 
 ## Installation
 

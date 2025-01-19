@@ -794,7 +794,7 @@ class regions:
 
 
 
-  def labels(self, df, df_reres, include_desc=True):
+  def labels(self, df, df_reres, include_desc=False):
     lista_reglas = copy.deepcopy(df_reres)
 
     # Asignar IDs únicos a las reglas
