@@ -809,8 +809,11 @@ class regions:
     # Asignar clusters a los datos utilizando las reglas importantes
     df_datos_clusterizados, df_clusters_descripcion = self.asignar_clusters_a_datos(df, df_reglas_importantes)
     
-    df_clusterizado_extra = self.get_clusters_importantes(df_datos_clusterizados)
+    df_datos_clusterizados = self.get_clusters_importantes(df_datos_clusterizados)
+    df_datos_clusterizados.drop(columns=['clusters_key'], inplace=True)
     
+    df_datos_clusterizados = df_datos_clusterizados.rename(columns={'cluster_descripcion':'best_cluster_descripcion','cluster_ponderador':'best_cluster_ponderador','cluster':'best_cluster'})
+
     if include_desc:
       df_datos_clusterizados = df_datos_clusterizados.merge(df_clusters_descripcion, on='cluster', how='left')
       return df_datos_clusterizados

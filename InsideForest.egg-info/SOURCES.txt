@@ -1,6 +1,7 @@
 README.md
 setup.py
 InsideForest/__init__.py
+InsideForest/descrip.py
 InsideForest/labels.py
 InsideForest/models.py
 InsideForest/regions.py
