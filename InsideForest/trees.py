@@ -249,7 +249,7 @@ class trees:
     return separacion_dim
 
   def extract_rectangles(self, df_summ):
-    print(df_summ)
+    # print(df_summ)
     grouped = df_summ[(df_summ['n_sample']>0)&
                       (df_summ['ef_sample']>0)].groupby(['N_arbol', 'N_regla'])
 

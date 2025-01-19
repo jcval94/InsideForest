@@ -810,13 +810,13 @@ class regions:
     df_datos_clusterizados, df_clusters_descripcion = self.asignar_clusters_a_datos(df, df_reglas_importantes)
     
     df_datos_clusterizados = self.get_clusters_importantes(df_datos_clusterizados)
-    df_datos_clusterizados.drop(columns=['clusters_key'], inplace=True)
-    
-    df_datos_clusterizados = df_datos_clusterizados.rename(columns={'cluster_descripcion':'best_cluster_descripcion','cluster_ponderador':'best_cluster_ponderador','cluster':'best_cluster'})
 
     if include_desc:
       df_datos_clusterizados = df_datos_clusterizados.merge(df_clusters_descripcion, on='cluster', how='left')
+      
+      df_datos_clusterizados = df_datos_clusterizados.rename(columns={'cluster_descripcion':'best_cluster_descripcion','cluster_ponderador':'best_cluster_ponderador','cluster':'best_cluster'})
+      
       return df_datos_clusterizados
-    
+
     return df_datos_clusterizados, df_clusters_descripcion
   

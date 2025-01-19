@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='InsideForest',
-    version='0.1.5',
+    version='0.2.0',
     packages=find_packages(),
     license='MIT',
     author=[('Jose Carlos Del Valle', 'jcval94@gmail.com'),
