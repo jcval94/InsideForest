@@ -1,3 +1,4 @@
 {
-    "editor.guides.indentation": false
+    "editor.guides.indentation": false,
+    "editor.autoIndent": "none"
 }
