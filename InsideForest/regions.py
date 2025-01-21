@@ -34,7 +34,7 @@ class regions:
     m_medios = [(df_p1.iloc[i] + df_p2.iloc[i]) / 2 for i in range(len(df_p1))]
     return pd.DataFrame(m_medios)
   
-  def mean_distance_ndim_fast(df_sep_dm_agg,verbose):
+  def mean_distance_ndim_fast(self, df_sep_dm_agg, verbose):
       """
       Versión optimizada de mean_distance_ndim que calcula (linf + lsup)/2
       en forma vectorizada usando NumPy.
@@ -124,7 +124,7 @@ class regions:
                     (index[0], col_name)] = value
     return pd.concat([df_lilu, df_sep_dm[['ponderador']]], axis=1)
 
-  def fill_na_pond_fastest(df_sep_dm, df, features_val, verbose):
+  def fill_na_pond_fastest(self, df_sep_dm, df, features_val, verbose):
       """
       Versión ultra-optimizada de fill_na_pond para reemplazar -inf e inf usando operaciones vectorizadas avanzadas.
       
