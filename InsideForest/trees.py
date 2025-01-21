@@ -2,7 +2,6 @@ import re
 import pandas as pd
 import numpy as np
 
-from sklearn import tree
 from sklearn.tree import export_text
 from tqdm import tqdm
 
