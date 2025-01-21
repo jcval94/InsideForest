@@ -249,6 +249,81 @@ class trees:
 
 
 
+  def get_summary_optimizado(self, data1, df_full_arboles, var_obj, no_branch_lim=100, verbose=0):
+      # 1) Calculamos el pivot que resume por N_regla, N_arbol, feature, operador, etc.
+      agrupacion = pd.pivot_table(
+          df_full_arboles,
+          index=['N_regla', 'N_arbol', 'feature', 'operador'],
+          values=['rangos', 'Importancia'],
+          aggfunc=['min', 'max', 'mean']
+      )
+      
+      # 2) Extraemos los valores de min, max y mean
+      agrupacion_min = agrupacion['min'].reset_index()
+      agrupacion_min = agrupacion_min[agrupacion_min['operador'] == '<=']
+
+      agrupacion_max = agrupacion['max'].reset_index()
+      agrupacion_max = agrupacion_max[agrupacion_max['operador'] == '>']
+
+      # (Podríamos usar agrupacion_mean si lo necesitas luego; en el ejemplo no se reusa directamente)
+      agrupacion_mean = agrupacion['mean'].reset_index()
+
+      # 3) Concatenamos las filas con operador <= y >, y ordenamos
+      agrupacion = pd.concat([agrupacion_min, agrupacion_max]).sort_values(['N_arbol', 'N_regla'])
+
+      # 4) Seleccionamos los top 100 árboles
+      top_100_arboles = agrupacion['N_arbol'].unique()[:no_branch_lim]
+
+      # 5) Iteramos por cada árbol y regla para construir una única máscara booleana por regla
+      reglas = []
+
+      for arbol_num in tqdm(top_100_arboles, disable=(verbose == 0), desc="Procesando ramas"):
+          # Imprimimos (opcional) según el valor de verbose
+          if arbol_num % 50 == 0 and verbose == 1:
+              print(f"Procesando rama del árbol: {arbol_num}")
+
+          # Subconjunto del pivot para este árbol
+          ag_arbol = agrupacion[agrupacion['N_arbol'] == arbol_num]
+
+          # Recorremos cada regla de ese árbol
+          for regla_num in ag_arbol['N_regla'].unique():
+              ag_regla = ag_arbol[ag_arbol['N_regla'] == regla_num]
+
+              # Obtenemos pares (feature, valor) según operador
+              men_ = ag_regla[ag_regla['operador'] == '<='][['feature', 'rangos']].values
+              may_ = ag_regla[ag_regla['operador'] == '>'][['feature', 'rangos']].values
+
+              # Construimos la máscara booleana para filtrar data1 en un único paso
+              mask = np.ones(len(data1), dtype=bool)
+
+              # Agregamos condiciones de <=
+              for col, val in men_:
+                  mask &= (data1[col] <= val)
+
+              # Agregamos condiciones de >
+              for col, val in may_:
+                  mask &= (data1[col] > val)
+
+              # Calculamos n_sample y ef_sample
+              n_sample = mask.sum()  # número de filas que cumplen todas las condiciones
+              # Evitamos error en caso de n_sample = 0
+              ef_sample = data1.loc[mask, var_obj].mean() if n_sample > 0 else 0
+
+              # Creamos una copia para esa regla, asignando los valores calculados
+              ag_regla_copy = ag_regla.copy()
+              ag_regla_copy['n_sample'] = n_sample
+              ag_regla_copy['ef_sample'] = ef_sample
+
+              reglas.append(ag_regla_copy)
+
+      # 6) Concatenamos todos los resultados y ordenamos por las métricas solicitadas
+      resultado = pd.concat(reglas, ignore_index=True)
+      resultado = resultado.sort_values(by=['ef_sample', 'n_sample'], ascending=False)
+      
+      return resultado
+
+
+
   def get_rect_coords(self, df):
     limits = {}
     for i, row in df.iterrows():
@@ -322,7 +397,7 @@ class trees:
     separacion_dim = self.get_dfs_dim(rectangles_)
     return separacion_dim
 
-  def get_branches(self, df, var_obj, regr, verbose=0):
+  def get_branches(self, df, var_obj, regr, no_trees_search=100, verbose=0):
     """
     Función principal para extraer los rectángulos (reglas) de los árboles.
     :param df: DataFrame original
@@ -346,11 +421,13 @@ class trees:
     if verbose==1:
        print("Obtenemos un resumen de los  árboles")
     
-    df_summ = self.get_summary(df, df_full_arboles, var_obj, verbose)
-
+    # df_summ = self.get_summary(df, df_full_arboles, var_obj, verbose)
+    df_summ = self.get_summary_optimizado(df, df_full_arboles, var_obj, no_trees_search, verbose)
+    
     if verbose==1:
        print("Generamos el df final con forma de rectángulo")
     # Extraemos las reglas (extract_rectangles)
     separacion_dim = self.extract_rectangles(df_summ)
 
     return separacion_dim
+  

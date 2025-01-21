@@ -34,6 +34,36 @@ class regions:
     m_medios = [(df_p1.iloc[i] + df_p2.iloc[i]) / 2 for i in range(len(df_p1))]
     return pd.DataFrame(m_medios)
   
+  def mean_distance_ndim_fast(df_sep_dm_agg,verbose):
+      """
+      Versión optimizada de mean_distance_ndim que calcula (linf + lsup)/2
+      en forma vectorizada usando NumPy.
+
+      Parámetros:
+      - df_sep_dm_agg: DataFrame con índices multi-nivel que permiten extraer
+        'linf' y 'lsup' usando xs.
+
+      Retorna:
+      - DataFrame con la media de linf y lsup por fila y dimensión.
+      """
+
+      # Extraemos linf y lsup
+      df_p1 = df_sep_dm_agg.xs('linf', axis=1, level=0)
+      df_p2 = df_sep_dm_agg.xs('lsup', axis=1, level=0)
+
+      # Operación vectorizada con NumPy:
+      # (df_p1 + df_p2) / 2
+      m_medios_values = (df_p1.values + df_p2.values) / 2.0
+
+      # Reconstruimos el DataFrame con el mismo índice y columnas que df_p1
+      df_result = pd.DataFrame(
+          m_medios_values,
+          index=df_p1.index,
+          columns=df_p1.columns
+      )
+
+      return df_result
+
   def posiciones_valores_frecuentes(self, lista):
     frecuentes = Counter(lista).most_common()
     if len(set(lista)) == len(lista):
@@ -94,15 +124,78 @@ class regions:
                     (index[0], col_name)] = value
     return pd.concat([df_lilu, df_sep_dm[['ponderador']]], axis=1)
 
+  def fill_na_pond_fastest(df_sep_dm, df, features_val, verbose):
+      """
+      Versión ultra-optimizada de fill_na_pond para reemplazar -inf e inf usando operaciones vectorizadas avanzadas.
+      
+      Parámetros:
+      - df_sep_dm: DataFrame con columnas multi-nivel ('linf', 'lsup', 'ponderador', etc.).
+      - df: DataFrame original para extraer límites de cada dimensión.
+      - features_val: Lista de características/dimensiones presentes en df.
+      
+      Retorna:
+      - DataFrame con los mismos valores que el original, pero reemplazando -inf e inf
+        por los límites correspondientes en las columnas 'linf' y 'lsup'.
+        Incluye la columna 'ponderador'.
+      """
+      # Extraer las columnas 'linf' y 'lsup'
+      df_lilu = df_sep_dm[['linf', 'lsup']].copy()
+      
+      # Calcular los límites de reemplazo para cada dimensión
+      lsup_limit = df[features_val].max() + 1  # Límite superior
+      linf_limit = df[features_val].min() - 1  # Límite inferior
+      
+      # Asegurarse de que el orden de features_val coincide con el orden de las columnas
+      # Obtener los nombres de las dimensiones desde las columnas MultiIndex
+      linf_features = df_lilu['linf'].columns.tolist()
+      lsup_features = df_lilu['lsup'].columns.tolist()
+      
+      # Crear DataFrames de reemplazo alineados con las columnas
+      # Cada columna tendrá un único valor de reemplazo correspondiente
+      # Reemplazamos todos los -inf y inf en una sola operación vectorizada
+      
+      # Para 'linf' columns
+      linf_repl_df = pd.DataFrame(
+          np.tile(linf_limit.values, (df_lilu['linf'].shape[0], 1)),
+          columns=df_lilu['linf'].columns,
+          index=df_lilu.index
+      )
+      
+      # Para 'lsup' columns
+      lsup_repl_df = pd.DataFrame(
+          np.tile(lsup_limit.values, (df_lilu['lsup'].shape[0], 1)),
+          columns=df_lilu['lsup'].columns,
+          index=df_lilu.index
+      )
+      
+      # Crear máscaras para identificar dónde están los -inf y inf
+      mask_linf = np.isinf(df_lilu['linf'].values)
+      mask_lsup = np.isinf(df_lilu['lsup'].values)
+      
+      # Aplicar las máscaras y reemplazar los valores
+      # Usamos donde para asignar los valores de reemplazo donde la máscara es True
+      df_lilu['linf'] = np.where(mask_linf, linf_repl_df.values, df_lilu['linf'].values)
+      df_lilu['lsup'] = np.where(mask_lsup, lsup_repl_df.values, df_lilu['lsup'].values)
+      
+      # Concatenar la columna 'ponderador' de vuelta al DataFrame
+      df_replaced = pd.concat([df_lilu, df_sep_dm[['ponderador']]], axis=1)
+      
+      return df_replaced
+
+
     
   def get_agg_regions(self, df_eval, df, verbose=False):
     features_val = sorted(df_eval['dimension'].unique())
     aleatorio1 = features_val[0]
     df_sep_dm = pd.pivot_table(df_eval, index='rectangulo', columns='dimension')
 
-    df_sep_dm = self.fill_na_pond(df_sep_dm, df, features_val)
+    # df_sep_dm = self.fill_na_pond(df_sep_dm, df, features_val)
+
+    df_sep_dm = self.fill_na_pond_fastest(df_sep_dm, df, features_val,None)
     
-    df_m_medios = self.mean_distance_ndim(df_sep_dm)
+    # df_m_medios = self.mean_distance_ndim(df_sep_dm)
+    df_m_medios = self.mean_distance_ndim_fast(df_sep_dm, None)
+
     scaler = StandardScaler()
     X_feat = scaler.fit_transform(df_m_medios.values)
     epsil = self.get_eps_multiple_groups_opt(X_feat)
@@ -140,13 +233,18 @@ class regions:
       df_sep_outl.loc[:,'ponderador'] = df_sep_outl.loc[:,'ponderador'].values*max_l_val
       return pd.concat([df_sep_dm_agg,df_sep_outl])
   
-  def prio_ranges(self, separacion_dim, df):
+  def prio_ranges(self, separacion_dim, df, verbose=0):
     # aquí se usa DBS
+    if verbose==1:
+       print("Agregando regiones con DBSCAN")
     df_res = [self.get_agg_regions(df_, df) for df_ in separacion_dim]
+
     prio_ = [df_['ponderador'].values[0][0] for df_ in df_res]
+    
     df_reres = [x[0] for x in sorted([(a, b) for a,b in zip(df_res,prio_)],
                      key=lambda x: -x[1])]
-    cols_ = [df_['linf'].columns.tolist() for df_ in df_reres]
+    # cols_ = [df_['linf'].columns.tolist() for df_ in df_reres]
+
     return df_reres
 
 
