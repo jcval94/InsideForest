@@ -104,7 +104,8 @@ def replace_with_dict(df, columns, var_rename):
 
 
 
-def get_descripciones_valiosas(df_datos_descript,df_datos_clusterizados, TARGETS, var_rename):
+def get_descripciones_valiosas(df_datos_descript,df_datos_clusterizados, TARGETS, var_rename, 
+                               inflex_pond_sup = .4, inflex_pond_inf=.5):
 
     df_datos_descript = df_datos_descript.sort_values('cluster_ponderador', ascending=False)
     # descrip_generales = [x for x in df_datos_descript['cluster_descripcion'].unique().tolist() if type('')==type(x)]
@@ -132,10 +133,16 @@ def get_descripciones_valiosas(df_datos_descript,df_datos_clusterizados, TARGETS
     punto = primer_punto_inflexion_decreciente(los_custers_valiosos_original[0], bins=20, window_length=5, polyorder=2)
     punto_1 = primer_punto_inflexion_decreciente(los_custers_valiosos_original[1], bins=20, window_length=5, polyorder=2)
 
-    los_custers_valiosos_original_cond = los_custers_valiosos_original[0]>punto*.4
-    los_custers_valiosos_original_cond_1 = los_custers_valiosos_original[0]>punto_1
+    los_custers_valiosos_original_cond = los_custers_valiosos_original[0]>punto*inflex_pond_sup
 
-    los_custers_valiosos_original = los_custers_valiosos_original[los_custers_valiosos_original_cond|los_custers_valiosos_original_cond_1]
+    los_custers_valiosos_original_cond_1 = los_custers_valiosos_original[1]>punto_1
+
+    los_custers_valiosos_original_cond_2 = los_custers_valiosos_original[0]<inflex_pond_inf
+    
+
+    los_custers_valiosos_original = los_custers_valiosos_original[los_custers_valiosos_original_cond\
+                                                                  |los_custers_valiosos_original_cond_1\
+                                                                    |los_custers_valiosos_original_cond_2]
 
     df_datos_descript_valiosas = df_datos_descript[df_datos_descript['cluster'].isin(los_custers_valiosos_original.index.tolist())]
 
@@ -143,6 +150,7 @@ def get_descripciones_valiosas(df_datos_descript,df_datos_clusterizados, TARGETS
     df_datos_descript_valiosas = df_datos_descript_valiosas.merge(proprcin_.reset_index(), on='cluster', how='left')
     df_datos_descript_valiosas = df_datos_descript_valiosas.merge(los_custers.reset_index(), on='cluster', how='left')
     df_datos_descript_valiosas = df_datos_descript_valiosas.rename(columns={'1_x':'Probabilidad','1_y':'N_probabilidad',0:'Soporte'})
+
     return df_datos_descript_valiosas.drop(columns=['cluster_ponderador']), stacked_data
 
 

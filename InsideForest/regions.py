@@ -792,9 +792,7 @@ class regions:
     return df_clusterizado_add.drop(columns='clusters_key')
 
 
-
-
-  def labels(self, df, df_reres, include_desc=False):
+  def labels(self, df, df_reres, include_desc=False, include_summary_cluster=True):
     lista_reglas = copy.deepcopy(df_reres)
 
     # Asignar IDs únicos a las reglas
@@ -809,12 +807,15 @@ class regions:
     # Asignar clusters a los datos utilizando las reglas importantes
     df_datos_clusterizados, df_clusters_descripcion = self.asignar_clusters_a_datos(df, df_reglas_importantes)
     
-    df_datos_clusterizados = self.get_clusters_importantes(df_datos_clusterizados)
+    if include_summary_cluster:
+      df_datos_clusterizados = self.get_clusters_importantes(df_datos_clusterizados)
 
     if include_desc:
       df_datos_clusterizados = df_datos_clusterizados.merge(df_clusters_descripcion, on='cluster', how='left')
       
-      df_datos_clusterizados = df_datos_clusterizados.rename(columns={'cluster_descripcion':'best_cluster_descripcion','cluster_ponderador':'best_cluster_ponderador','cluster':'best_cluster'})
+      df_datos_clusterizados = df_datos_clusterizados.rename(columns={'cluster_descripcion':'best_cluster_descripcion',
+                                                                      'cluster_ponderador':'best_cluster_ponderador',
+                                                                      'cluster':'best_cluster'})
       
       return df_datos_clusterizados
 
