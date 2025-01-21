@@ -4,7 +4,7 @@ import numpy as np
 
 from sklearn import tree
 from sklearn.tree import export_text
-
+from tqdm import tqdm
 
 class trees:
 
@@ -75,59 +75,96 @@ class trees:
       estructura_iter.pop(i-1)
       return estructura_iter, camino
 
-  def get_rangos(self, regr, data1):
-    # print('Obteniendo Rangos')
 
-    if self.lang=='pyspark':
+  def get_rangos(self, regr, data1, verbose=0):
+    # Esta función puede tardar mucho, añadimos tqdm para el bucle principal.
+
+    if self.lang == 'pyspark':
       arboles_estimadores = self.transform_tree_structure(regr.toDebugString)
       arboles_estimadores = [a for a in arboles_estimadores.values()]
-      # print(arboles_estimadores[0])
     else:
       arboles_estimadores = regr.estimators_
-      # print(export_text(arboles_estimadores[0]))
 
     df_info = []
     n_estimador = 0
-    for arbol_individual in arboles_estimadores:
-      if self.lang=='pyspark':
+
+    # Usamos tqdm en el for, si verbose=0, disable=True, si verbose=1, disable=False
+    for arbol_individual in tqdm(arboles_estimadores, disable=(verbose == 0), desc="Procesando árboles"):
+      if self.lang == 'pyspark':
         r = arbol_individual
-        # print('lalalang')
       else:
         r = export_text(arbol_individual)
 
       columnas_nombres = list(data1.columns)
       columnas_nombres.reverse()
+
+      # Reemplazo de feature indices por nombres
       for i, feat in enumerate(columnas_nombres):
-        r = r.replace('feature_'+str(len(columnas_nombres)-i-1), feat)
+        r = r.replace('feature_' + str(len(columnas_nombres) - i - 1), feat)
+
       estructura = r.split('\n')
       estructura_iter = estructura.copy()
       paths = []
+
       for i, valor in enumerate(estructura):
-        if not(('value: ' in valor) or ('class: ' in valor)):
+        if not (('value: ' in valor) or ('class: ' in valor)):
           continue
         estructura_iter, path_ = self.get_path(estructura_iter)
         estructura_rep = [v.count('|') for v in path_[0]]
-        if len(estructura_rep)!=len(set(estructura_rep)):
-          posiciones_ = []
-          for i, valor in enumerate(estructura_rep):
-            posiciones = [k for k, v in enumerate(estructura_rep) if valor == v]
-            posiciones_ += [x for x in posiciones if x != max(posiciones)]
-          path_aux = [i for j, i in enumerate(path_[0]) if j not in set(posiciones_)]
-          path_[0] = path_aux
+        
+        # if len(estructura_rep) != len(set(estructura_rep)):
+        #   posiciones_ = []
+        #   for i_pos, valor_pos in enumerate(estructura_rep):
+        #     posiciones = [k for k, v in enumerate(estructura_rep) if v == valor_pos]
+        #     posiciones_ += [x for x in posiciones if x != max(posiciones)]
+        #   path_aux = [val for j, val in enumerate(path_[0]) if j not in set(posiciones_)]
+        #   path_[0] = path_aux
+
+        if len(estructura_rep) != len(set(estructura_rep)):
+          seen = set()
+          new_path = []
+          # Recorremos path_[0] en orden inverso
+          for elem in reversed(path_[0]):
+            # Conteo de '|' en el elemento actual
+            bc = elem.count('|')
+            
+            # Si no lo hemos visto aún, lo añadimos (porque es la última vez que aparece)
+            if bc not in seen:
+              new_path.append(elem)
+              seen.add(bc)
+          
+          # new_path está invertido, lo devolvemos a su orden natural
+          new_path.reverse()
+          
+          # Reemplazamos el path original
+          path_[0] = new_path
+
         paths.append([x for x in path_ if x != ''])
-      valores = [float(path[1].split(': ')[1].replace(']','')) for path in paths]
-      percent_ = np.percentile(valores,90)
-      estructuras_maximizadoras = [[pa[0],val] for pa, val in zip(paths,valores) if val>= percent_]
+
+      valores = [float(path[1].split(': ')[1].replace(']', '')) for path in paths]
+      percent_ = np.percentile(valores, 90)
+      estructuras_maximizadoras = [[pa[0], val] for pa, val in zip(paths, valores) if val >= percent_]
+
       importanc = []
       for n_path in range(len(estructuras_maximizadoras)):
-        importanc += [[v.replace('|---','').replace('|   ','')[1:],
-                      2/((v.count('|'))+1), n_path, n_estimador]
-                      for v in estructuras_maximizadoras[n_path][0]]
-      asdf = pd.DataFrame(importanc, columns = ['Regla', 'Importancia', 'N_regla','N_arbol'])
+        importanc += [
+          [
+            v.replace('|---', '').replace('|   ', '')[1:],
+            2 / ((v.count('|')) + 1),
+            n_path,
+            n_estimador
+          ]
+          for v in estructuras_maximizadoras[n_path][0]
+        ]
+
+      asdf = pd.DataFrame(importanc, columns=['Regla', 'Importancia', 'N_regla', 'N_arbol'])
       asdf['Va_Obj_minima'] = percent_
       df_info.append(asdf)
 
-      n_estimador+=1
+      n_estimador += 1
+
+      if verbose == 1 and n_estimador % 10 == 0:
+        print(f"Procesados {n_estimador} árboles")
 
     return pd.concat(df_info)
 
@@ -160,46 +197,58 @@ class trees:
     return df_full_arboles
 
 
-  def get_summary(self, data1, df_full_arboles, var_obj, verbose):
-    agrupacion = pd.pivot_table(df_full_arboles,
-                                index=['N_regla','N_arbol','feature', 'operador'],
-                                values=['rangos','Importancia'],
-                                aggfunc=['min','max','mean'])
+  def get_summary(self, data1, df_full_arboles, var_obj, verbose=0):
+    agrupacion = pd.pivot_table(
+      df_full_arboles,
+      index=['N_regla', 'N_arbol', 'feature', 'operador'],
+      values=['rangos', 'Importancia'],
+      aggfunc=['min', 'max', 'mean']
+    )
 
     agrupacion_min = agrupacion['min'].reset_index()
-    agrupacion_min = agrupacion_min[agrupacion_min['operador']=='<=']
+    agrupacion_min = agrupacion_min[agrupacion_min['operador'] == '<=']
     agrupacion_max = agrupacion['max'].reset_index()
-    agrupacion_max = agrupacion_max[agrupacion_max['operador']=='>']
+    agrupacion_max = agrupacion_max[agrupacion_max['operador'] == '>']
     agrupacion_mean = agrupacion['mean'].reset_index()
-    agrupacion = pd.concat([agrupacion_min,agrupacion_max]).sort_values(['N_arbol','N_regla'])
+
+    agrupacion = pd.concat([agrupacion_min, agrupacion_max]).sort_values(['N_arbol', 'N_regla'])
     top_100_ramas = agrupacion.N_arbol.unique()[:100]
+
     reglas = []
-    for arbol_num in top_100_ramas:
-      if arbol_num%50==0 and verbose:
-        print(arbol_num)
-      ag_arbol = agrupacion[(agrupacion['N_arbol']==arbol_num)]
+
+    # Añadimos tqdm sobre top_100_ramas para ver progreso
+    for arbol_num in tqdm(top_100_ramas, disable=(verbose == 0), desc="Procesando ramas"):
+      # Mantenemos este print pero lo hacemos condicional
+      if arbol_num % 50 == 0 and verbose == 1:
+        print(f"Procesando rama del árbol: {arbol_num}")
+
+      ag_arbol = agrupacion[(agrupacion['N_arbol'] == arbol_num)]
       for regla_num in ag_arbol.N_regla.unique():
         data1_ = data1.copy()
-        ag_regla = ag_arbol[(ag_arbol['N_regla']==regla_num)]
-        men_ = ag_regla[(ag_regla['operador']=='<=')][['feature','rangos']].values
-        may_ = ag_regla[(ag_regla['operador']=='>')][['feature','rangos']].values
-        if len(men_)>0:
+        ag_regla = ag_arbol[(ag_arbol['N_regla'] == regla_num)]
+        men_ = ag_regla[(ag_regla['operador'] == '<=')][['feature', 'rangos']].values
+        may_ = ag_regla[(ag_regla['operador'] == '>')][['feature', 'rangos']].values
+        if len(men_) > 0:
           for col, valor in men_:
-            data1_ = data1_.loc[data1_[col]<=valor,:]
-            for col, valor in may_:
-              data1_ = data1_.loc[data1_[col]>valor,:]
+            data1_ = data1_.loc[data1_[col] <= valor, :]
+            for col2, valor2 in may_:
+              data1_ = data1_.loc[data1_[col2] > valor2, :]
         else:
           for col, valor in may_:
-              data1_ = data1_.loc[data1_[col]>valor,:]
-              for col, valor in men_:
-                data1_ = data1_.loc[data1_[col]<=valor,:]
+            data1_ = data1_.loc[data1_[col] > valor, :]
+            for col2, valor2 in men_:
+              data1_ = data1_.loc[data1_[col2] <= valor2, :]
+
         ag_regla_copy = ag_regla.copy()
         ag_regla_copy.loc[:, 'n_sample'] = len(data1_)
         ag_regla_copy.loc[:, 'ef_sample'] = data1_[var_obj].mean()
         reglas.append(ag_regla_copy)
+
     agrupacion = pd.concat(reglas)
-    agrupacion = agrupacion.sort_values(by=['ef_sample','n_sample'], ascending=False)
+    agrupacion = agrupacion.sort_values(by=['ef_sample', 'n_sample'], ascending=False)
     return agrupacion
+
+
 
   def get_rect_coords(self, df):
     limits = {}
@@ -274,18 +323,35 @@ class trees:
     separacion_dim = self.get_dfs_dim(rectangles_)
     return separacion_dim
 
-  def get_branches(self,df, var_obj, regr):
+  def get_branches(self, df, var_obj, regr, verbose=0):
+    """
+    Función principal para extraer los rectángulos (reglas) de los árboles.
+    :param df: DataFrame original
+    :param var_obj: Nombre de la columna objetivo
+    :param regr: Modelo (RandomForest u otro) entrenado
+    :param verbose: 0 = sin prints ni barra de progreso, 1 = con prints y tqdm
+    :return: Lista de DataFrames con los rectángulos separados por dimensión
+    """
+    # Separamos X e ignoramos la columna objetivo
     X = df.drop(columns=[var_obj]).fillna(0)
-    # y = df[var_obj]
-    df_full_arboles = self.get_rangos(regr, X) # A prueba de Spark
 
-    # La variable N_regla indica el número de regla que se está utilizando para realizar la clasificación.
-    # Si N_regla es igual a 0, significa que se está utilizando la primera regla, y si es igual a 1, significa que se está utilizando la segunda regla.
+    if verbose==1:
+       print("Llamamos a get_rangos para extraer limites de los arboles")
+    df_full_arboles = self.get_rangos(regr, X, verbose)
+
+    if verbose==1:
+       print("Extraer las reglas con regex")
+    
     df_full_arboles = self.get_fro(df_full_arboles)
-    # print('get fro sobrepasado')
-    df_summ = self.get_summary(df, df_full_arboles,var_obj, False)
-    # print('get Summ sobrepasado')
 
+    if verbose==1:
+       print("Obtenemos un resumen de los  árboles")
+    
+    df_summ = self.get_summary(df, df_full_arboles, var_obj, verbose)
+
+    if verbose==1:
+       print("Generamos el df final con forma de rectángulo")
+    # Extraemos las reglas (extract_rectangles)
     separacion_dim = self.extract_rectangles(df_summ)
 
     return separacion_dim
