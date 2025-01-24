@@ -6,7 +6,7 @@ import numpy as np
 from scipy.signal import savgol_filter
 from sklearn.preprocessing import StandardScaler
 import re
-
+from .regions import expandir_clusters_binario
 
 def primer_punto_inflexion_decreciente(data, bins=10, window_length=5, polyorder=2):
     """
@@ -251,3 +251,62 @@ def categorize_conditions(condition_list, df=None):
     # Return a dictionary with the responses
     result = {'respuestas': descriptions}
     return result
+
+
+def get_corr_clust(df_datos_clusterizados):
+    df_clusterizado_diff = df_datos_clusterizados[['clusters_list']].drop_duplicates()
+    df_clusterizado_diff['n_ls'] = df_clusterizado_diff.apply(lambda x: len(x['clusters_list']), axis=1)
+    df_expanded = expandir_clusters_binario(df_clusterizado_diff,'clusters_list','cluster_')
+    cluster_cols = [x for x in df_expanded.columns if 'cluster_' in x]
+
+    df_corr=df_expanded[cluster_cols].corr()
+
+    return df_corr
+
+def obtener_clusters(df_clust, cluster_objetivo, n=5, direccion='ambos'):
+    """
+    Retorna los clusters más cercanos o menos correlacionados con el cluster objetivo según la dirección especificada.
+
+    Parámetros:
+    - corr_matrix (pd.DataFrame): Matriz de correlación de los clusters.
+    - cluster_objetivo (str): Nombre del cluster para el cual se buscan correlaciones.
+    - n (int): Número de clusters a retornar.
+    - direccion (str): Dirección de interés para la correlación. Puede ser:
+        - 'arriba': Para las correlaciones más positivas.
+        - 'abajo': Para las correlaciones más negativas.
+        - 'ambos': Para considerar ambas direcciones (positiva y negativa).
+        - 'bottom': Para las correlaciones más cercanas a cero (menos correlacionadas).
+
+    Retorna:
+    - pd.Series: Series con los nombres de los clusters y sus valores de correlación.
+    """
+    corr_matrix = get_corr_clust(df_clust)
+
+    if cluster_objetivo not in corr_matrix.columns:
+        raise ValueError(f"El cluster '{cluster_objetivo}' no se encuentra en la matriz de correlación.")
+    
+    # Obtener la serie de correlaciones para el cluster objetivo y eliminar la autocorrelación
+    correlaciones = corr_matrix[cluster_objetivo].drop(labels=[cluster_objetivo])
+    
+    if direccion == 'arriba':
+        # Ordenar de mayor a menor (correlaciones positivas más fuertes)
+        correlaciones_ordenadas = correlaciones.sort_values(ascending=False)
+        top_n = correlaciones_ordenadas.head(n)
+    elif direccion == 'abajo':
+        # Ordenar de menor a mayor (correlaciones negativas más fuertes)
+        correlaciones_ordenadas = correlaciones.sort_values(ascending=True)
+        top_n = correlaciones_ordenadas.head(n)
+    elif direccion == 'ambos':
+        # Obtener las top n positivas y las top n negativas
+        top_n_arriba = correlaciones.sort_values(ascending=False).head(n)
+        top_n_abajo = correlaciones.sort_values(ascending=True).head(n)
+        top_n = pd.concat([top_n_arriba, top_n_abajo])
+    elif direccion == 'bottom':
+        # Obtener las n correlaciones más cercanas a cero
+        correlaciones_ordenadas = correlaciones.reindex(correlaciones.abs().sort_values(ascending=True).index)
+        top_n = correlaciones_ordenadas.head(n)
+    else:
+        raise ValueError("El parámetro 'direccion' debe ser 'arriba', 'abajo', 'ambos' o 'bottom'.")
+    
+    return top_n.sort_values(ascending=False)
+
