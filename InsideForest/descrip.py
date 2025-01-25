@@ -103,53 +103,135 @@ def replace_with_dict(df, columns, var_rename):
 
 
 
-def get_descripciones_valiosas(df_datos_descript,df_datos_clusterizados, TARGETS, var_rename, 
-                               inflex_pond_sup = .4, inflex_pond_inf=.5):
 
+def get_descripciones_valiosas(
+    df_datos_descript,
+    df_datos_clusterizados,
+    TARGETS,
+    var_rename,
+    inflex_pond_sup=0.4,
+    inflex_pond_inf=0.5
+):
+    """
+    Versión modificada donde NO se filtra el resultado final, 
+    sino que se agrega una columna 'buenos' con valor 1 u 0 
+    según los mismos criterios de inflexión usados en la versión anterior.
+    """
+
+    # --- 1) Ordenamos df_datos_descript ---
     df_datos_descript = df_datos_descript.sort_values('cluster_ponderador', ascending=False)
-    # descrip_generales = [x for x in df_datos_descript['cluster_descripcion'].unique().tolist() if type('')==type(x)]
-    df_datos_clusterizados_desc = df_datos_clusterizados.merge(df_datos_descript, on='cluster', how='left')
-    stacked_data = df_datos_clusterizados_desc.groupby([TARGETS[0], 'cluster']).size().unstack(fill_value=0)
-    # best_clusters = df_datos_descript['cluster'].head(10).values.tolist()
 
+    # --- 2) Merge para tener descripciones en df clusterizados ---
+    df_datos_clusterizados_desc = df_datos_clusterizados.merge(
+        df_datos_descript, on='cluster', how='left'
+    )
+    
+    # --- 3) Generamos la matriz (unstack) para conteo de TARGETS[0] vs cluster ---
+    stacked_data = df_datos_clusterizados_desc.groupby(
+        [TARGETS[0], 'cluster']
+    ).size().unstack(fill_value=0)
+    
+    # Proporción real de la clase 1 en todo el dataset
     proporcion_real = df_datos_clusterizados_desc[TARGETS[0]].value_counts(normalize=True).loc[1]
+    
+    # Conteo total por cada cluster
     stacked_data_total = stacked_data.sum(axis=0)
-    proprcin_ = (stacked_data/stacked_data.sum(axis=0)).loc[1]
-    los_custers = pd.concat([proprcin_/proporcion_real, stacked_data_total], axis=1).sort_values(0, ascending=False)
-    los_custers_valiosos = los_custers[los_custers[1]>1].copy()
+    
+    # Proporción de la clase 1 en cada cluster respecto a su total
+    # (es decir, #1 en cluster / total cluster)
+    proprcin_ = (stacked_data / stacked_data.sum(axis=0)).loc[1]
+    
+    # --- 4) Creamos un dataframe con la razón y el soporte ---
+    #     Los índices son los clusters. En la col[0] = (proporcion cluster / proporcion_real)
+    #     En la col[1] = total de ese cluster
+    los_custers = pd.concat([proprcin_ / proporcion_real, stacked_data_total], axis=1)
+    # Ordenamos por la primera columna (índice 0), de mayor a menor
+    los_custers = los_custers.sort_values(by=0, ascending=False)
+    
+    # --- 5) Hacemos una copia de los_custers para usarla completa,
+    #     y luego generamos la versión "valiosos" (con [1] > 1).
+    los_custers_original = los_custers.copy()
+    los_custers_valiosos = los_custers_original[los_custers_original[1] > 1].copy()
 
-    los_custers_valiosos_original = copy.deepcopy(los_custers_valiosos)
-    # Selecciona las columnas numéricas para la estandarización
+    # --- 6) Escalamos las columnas numéricas en "los_custers_valiosos" ---
     numeric_cols = los_custers_valiosos.select_dtypes(include=np.number).columns
-    # Crea un StandardScaler
     scaler = StandardScaler()
-    # Ajusta y transforma las columnas numéricas
     los_custers_valiosos[numeric_cols] = scaler.fit_transform(los_custers_valiosos[numeric_cols])
 
-    los_custers_valiosos_original['importancia'] =los_custers_valiosos.sum(axis=1)
-    los_custers_valiosos_original.sort_values('importancia', ascending=False)
+    # --- 7) Hacemos una copia del DF ya escalado para calcular 'importancia' y puntos de inflexión ---
+    los_custers_valiosos_original = copy.deepcopy(los_custers_valiosos)
 
-    punto = primer_punto_inflexion_decreciente(los_custers_valiosos_original[0], bins=20, window_length=5, polyorder=2)
-    punto_1 = primer_punto_inflexion_decreciente(los_custers_valiosos_original[1], bins=20, window_length=5, polyorder=2)
+    # Sumamos todas las columnas como "importancia" (en este caso col 0 y col 1, ya escaladas)
+    los_custers_valiosos_original['importancia'] = los_custers_valiosos.sum(axis=1)
+    # (No se usa el sort_values("importancia") para filtrar nada, pero lo dejamos si deseas inspeccionarlo)
+    # los_custers_valiosos_original = los_custers_valiosos_original.sort_values('importancia', ascending=False)
 
-    los_custers_valiosos_original_cond = los_custers_valiosos_original[0]>punto*inflex_pond_sup
+    # --- 8) Calculamos los puntos de inflexión sobre las columnas 0 y 1 (ya escaladas) ---
+    #     Aquí se asume que la función "primer_punto_inflexion_decreciente" está definida fuera.
+    punto = primer_punto_inflexion_decreciente(
+        los_custers_valiosos_original[0], bins=20, window_length=5, polyorder=2
+    )
+    punto_1 = primer_punto_inflexion_decreciente(
+        los_custers_valiosos_original[1], bins=20, window_length=5, polyorder=2
+    )
 
-    los_custers_valiosos_original_cond_1 = los_custers_valiosos_original[1]>punto_1
+    # --- 9) Definimos la condición que ANTES se usaba para filtrar ---
+    # Recordar que en el código original, primero se exigía (los_custers[1] > 1)
+    # para siquiera entrar en "valiosos". Por coherencia, mantenemos esa lógica.
+    # Es decir: un cluster es "bueno" si:
+    #   1) [1] > 1 (es decir, si su conteo total es > 1)
+    #   2) Y además (0 > punto*inflex_pond_sup) ó (1 > punto_1) ó (0 < inflex_pond_inf)
+    #
+    # Observa que "los_custers" tiene dos columnas (indexadas como 0 y 1).
+    #   - Col 0 = (proporción cluster / proporción_global)
+    #   - Col 1 = conteo total del cluster
+    #
+    # NOTA: usaremos "los_custers_original" (pre-escalado) para que
+    #       los umbrales "punto" y "punto_1" se comparen en escalas consistentes.
+    #       Si quisieras comparar en la escala escalada, deberías cambiar
+    #       la comparación a "los_custers_valiosos_original".  
 
-    los_custers_valiosos_original_cond_2 = los_custers_valiosos_original[0]<inflex_pond_inf
-    
+    cond_buenos = (
+        (los_custers_original[1] > 1) & (  # (1) total > 1
+            (los_custers_original[0] > (punto * inflex_pond_sup)) |  # (2a)
+            (los_custers_original[1] > punto_1)                    |  # (2b)
+            (los_custers_original[0] < inflex_pond_inf)               # (2c)
+        )
+    )
 
-    los_custers_valiosos_original = los_custers_valiosos_original[los_custers_valiosos_original_cond\
-                                                                  |los_custers_valiosos_original_cond_1\
-                                                                    |los_custers_valiosos_original_cond_2]
+    # Creamos la columna "buenos" en los_custers_original
+    los_custers_original['buenos'] = np.where(cond_buenos, 1, 0)
 
-    df_datos_descript_valiosas = df_datos_descript[df_datos_descript['cluster'].isin(los_custers_valiosos_original.index.tolist())]
+    # --- 10) Armamos ahora el dataframe final con TODAS las filas y la nueva columna ---
+    # 1) Hacemos copia de df_datos_descript para no tocar el original
+    df_datos_descript_valiosas = df_datos_descript.copy()
 
-    df_datos_descript_valiosas,_ = replace_with_dict(df_datos_descript_valiosas, ['cluster_descripcion'], var_rename)
-    df_datos_descript_valiosas = df_datos_descript_valiosas.merge(proprcin_.reset_index(), on='cluster', how='left')
-    df_datos_descript_valiosas = df_datos_descript_valiosas.merge(los_custers.reset_index(), on='cluster', how='left')
-    df_datos_descript_valiosas = df_datos_descript_valiosas.rename(columns={'1_x':'Probabilidad','1_y':'N_probabilidad',0:'Soporte'})
+    # 2) Reemplazamos (si aplica) los textos de "cluster_descripcion" según var_rename
+    df_datos_descript_valiosas, _ = replace_with_dict(
+        df_datos_descript_valiosas, ['cluster_descripcion'], var_rename
+    )
 
+    # 3) Mergeamos la probabilidad (proprcin_) => col 0 = (prop. cluster / proporción_global)
+    #    NOTA: en la salida final lo renombraremos a "Soporte" o el nombre que gustes
+    df_datos_descript_valiosas = df_datos_descript_valiosas.merge(
+        proprcin_.reset_index(), on='cluster', how='left'
+    )
+
+    # 4) Mergeamos los_custers_original para obtener col[0], col[1] y la nueva col 'buenos'
+    df_datos_descript_valiosas = df_datos_descript_valiosas.merge(
+        los_custers_original.reset_index(), on='cluster', how='left'
+    )
+
+    # 5) Renombramos las columnas que vienen duplicadas en el merge
+    df_datos_descript_valiosas = df_datos_descript_valiosas.rename(
+        columns={
+            '1_x': 'Probabilidad',      # Proporción de la clase 1 en ese cluster
+            '1_y': 'N_probabilidad',    # Conteo total del cluster
+            0:     'Soporte',           # Ratio (prop.cluster / prop.global)
+        }
+    )
+
+    # 6) Retornamos el DF final (ya con 'buenos') y la tabla stacked_data
     return df_datos_descript_valiosas.drop(columns=['cluster_ponderador']), stacked_data
 
 
