@@ -249,7 +249,7 @@ class trees:
 
 
 
-  def get_summary_optimizado(self, data1, df_full_arboles, var_obj, no_branch_lim=100, verbose=0):
+  def get_summary_optimizado(self, data1, df_full_arboles, var_obj, no_branch_lim=500, verbose=0):
       # 1) Calculamos el pivot que resume por N_regla, N_arbol, feature, operador, etc.
       agrupacion = pd.pivot_table(
           df_full_arboles,
@@ -346,12 +346,15 @@ class trees:
   def rect_l_to_df(self, separacion_dim, llave):
     registros__ = []
     for i, sublista in enumerate(separacion_dim[llave]):
-        rectangulo_m = sublista[:-1]
-        ponde_ = sublista[-1]
+        rectangulo_m = sublista[:-3]
+        ponde_ = sublista[-3]
+        effe_ = sublista[-2]
+        nsamp_ = sublista[-1]
+
         for rectangulo, intervalo in rectangulo_m:
             linf, lsup = intervalo
-            registros__.append([i + 1, rectangulo, linf, lsup,ponde_[1]])
-    df = pd.DataFrame(registros__, columns=['rectangulo', 'dimension', 'linf', 'lsup','ponderador'])
+            registros__.append([i + 1, rectangulo, linf, lsup, ponde_[1], effe_[1], nsamp_[1]])
+    df = pd.DataFrame(registros__, columns=['rectangulo', 'dimension', 'linf', 'lsup','ponderador','ef_sample','n_sample'])
     return df
 
   def generate_key(self, r):
@@ -363,23 +366,24 @@ class trees:
   def get_dfs_dim(self, rectangles_):
     l_rectangles_ = list(rectangles_.values())
     llaves = [(self.generate_key(r)) for  r in (rectangles_.items())]
-    ponderadores = [(self.generate_key(r)) for  r in (rectangles_.items())]
+    
     llaves_unicas = list(set(llaves))
     separacion_dim = {lun:[l_rectangles_[i] for i in
                            [i for i, llave in enumerate(llaves) if llave==lun]]
     for lun in llaves_unicas}
-    separacion_dim = [self.rect_l_to_df(separacion_dim, k) for k, v in separacion_dim.items()]
+    separacion_dim = [self.rect_l_to_df(separacion_dim, k) for k, v in 
+                      separacion_dim.items()]
+    
     return separacion_dim
 
   def extract_rectangles(self, df_summ):
-    # print(df_summ)
-    grouped = df_summ[(df_summ['n_sample']>0)&
-                      (df_summ['ef_sample']>0)].groupby(['N_arbol', 'N_regla'])
+    
+    grouped = df_summ[(df_summ['n_sample']>=0)&
+                      (df_summ['ef_sample']>=0)].groupby(['N_arbol', 'N_regla'])
 
     rectangles_ = {}
     for name, group in grouped:
         rectangles_[name] = self.get_rect_coords(group)
-        # print('Rectángulo ',rectangles_)
 
     try:
       agrupacion_media = grouped.mean()
@@ -393,11 +397,13 @@ class trees:
     agrupacion_media.sort_values('ponderacion')
     for k in rectangles_.keys():
       rectangles_[k] += [('ponderador',agrupacion_media.loc[k,'ponderacion'])]
+      rectangles_[k] += [('ef_sample',agrupacion_media.loc[k,'ef_sample'])]
+      rectangles_[k] += [('n_sample',agrupacion_media.loc[k,'n_sample'])]
 
     separacion_dim = self.get_dfs_dim(rectangles_)
     return separacion_dim
 
-  def get_branches(self, df, var_obj, regr, no_trees_search=100, verbose=0):
+  def get_branches(self, df, var_obj, regr, no_trees_search=500, verbose=0):
     """
     Función principal para extraer los rectángulos (reglas) de los árboles.
     :param df: DataFrame original
@@ -421,12 +427,11 @@ class trees:
     if verbose==1:
        print("Obtenemos un resumen de los  árboles")
     
-    # df_summ = self.get_summary(df, df_full_arboles, var_obj, verbose)
     df_summ = self.get_summary_optimizado(df, df_full_arboles, var_obj, no_trees_search, verbose)
     
     if verbose==1:
        print("Generamos el df final con forma de rectángulo")
-    # Extraemos las reglas (extract_rectangles)
+       
     separacion_dim = self.extract_rectangles(df_summ)
 
     return separacion_dim

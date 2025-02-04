@@ -175,22 +175,6 @@ def get_descripciones_valiosas(
         los_custers_valiosos_original[1], bins=20, window_length=5, polyorder=2
     )
 
-    # --- 9) Definimos la condición que ANTES se usaba para filtrar ---
-    # Recordar que en el código original, primero se exigía (los_custers[1] > 1)
-    # para siquiera entrar en "valiosos". Por coherencia, mantenemos esa lógica.
-    # Es decir: un cluster es "bueno" si:
-    #   1) [1] > 1 (es decir, si su conteo total es > 1)
-    #   2) Y además (0 > punto*inflex_pond_sup) ó (1 > punto_1) ó (0 < inflex_pond_inf)
-    #
-    # Observa que "los_custers" tiene dos columnas (indexadas como 0 y 1).
-    #   - Col 0 = (proporción cluster / proporción_global)
-    #   - Col 1 = conteo total del cluster
-    #
-    # NOTA: usaremos "los_custers_original" (pre-escalado) para que
-    #       los umbrales "punto" y "punto_1" se comparen en escalas consistentes.
-    #       Si quisieras comparar en la escala escalada, deberías cambiar
-    #       la comparación a "los_custers_valiosos_original".  
-
     cond_buenos = (
         (los_custers_original[1] > 1) & (  # (1) total > 1
             (los_custers_original[0] > (punto * inflex_pond_sup)) |  # (2a)
