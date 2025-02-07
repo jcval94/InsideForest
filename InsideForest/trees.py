@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 class trees:
 
-  def __init__(self, lang='python',n_sample_multiplier=1, ef_sample_multiplier=5):
+  def __init__(self, lang='python',n_sample_multiplier=2, ef_sample_multiplier=3):
     self.lang = lang
     self.n_sample_multiplier = n_sample_multiplier
     self.ef_sample_multiplier = ef_sample_multiplier
@@ -390,9 +390,9 @@ class trees:
     except:
       agrupacion_media = grouped[['n_sample', 'ef_sample']].mean()
 
-    agrupacion_media['ponderacion'] = (agrupacion_media['n_sample']\
-    /agrupacion_media['n_sample'].max())*self.n_sample_multiplier\
-      +agrupacion_media['ef_sample']*self.ef_sample_multiplier
+    agrupacion_media['ponderacion'] = ((agrupacion_media['n_sample']+1)\
+    /(agrupacion_media['n_sample'].max()+1))*self.n_sample_multiplier\
+      +((agrupacion_media['ef_sample']+1)/(agrupacion_media['ef_sample'].max()+1))*self.ef_sample_multiplier
 
     agrupacion_media.sort_values('ponderacion')
     for k in rectangles_.keys():
