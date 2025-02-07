@@ -11,6 +11,8 @@ import matplotlib.colors as mcolors
 from matplotlib.patches import Rectangle
 from collections import Counter
 
+from scipy.spatial.distance import pdist, squareform
+from scipy.cluster.hierarchy import linkage, fcluster
 
 
 class regions:
@@ -124,6 +126,136 @@ class regions:
                     (index[0], col_name)] = value
     return pd.concat([df_lilu, df_sep_dm[['ponderador']]], axis=1)
 
+  # def fill_na_pond_fastest(self, df_sep_dm, df, features_val, verbose):
+  #     """
+  #     Versión ultra-optimizada de fill_na_pond para reemplazar -inf e inf usando operaciones vectorizadas avanzadas.
+      
+  #     Parámetros:
+  #     - df_sep_dm: DataFrame con columnas multi-nivel ('linf', 'lsup', 'ponderador', etc.).
+  #     - df: DataFrame original para extraer límites de cada dimensión.
+  #     - features_val: Lista de características/dimensiones presentes en df.
+      
+  #     Retorna:
+  #     - DataFrame con los mismos valores que el original, pero reemplazando -inf e inf
+  #       por los límites correspondientes en las columnas 'linf' y 'lsup'.
+  #       Incluye la columna 'ponderador'.
+  #     """
+  #     # Extraer las columnas 'linf' y 'lsup'
+  #     df_lilu = df_sep_dm[['linf', 'lsup']].copy()
+      
+  #     # Calcular los límites de reemplazo para cada dimensión
+  #     lsup_limit = df[features_val].max() + 1  # Límite superior
+  #     linf_limit = df[features_val].min() - 1  # Límite inferior
+      
+  #     # Asegurarse de que el orden de features_val coincide con el orden de las columnas
+  #     # Obtener los nombres de las dimensiones desde las columnas MultiIndex
+  #     linf_features = df_lilu['linf'].columns.tolist()
+  #     lsup_features = df_lilu['lsup'].columns.tolist()
+      
+  #     # Crear DataFrames de reemplazo alineados con las columnas
+  #     # Cada columna tendrá un único valor de reemplazo correspondiente
+  #     # Reemplazamos todos los -inf y inf en una sola operación vectorizada
+      
+  #     # Para 'linf' columns
+  #     linf_repl_df = pd.DataFrame(
+  #         np.tile(linf_limit.values, (df_lilu['linf'].shape[0], 1)),
+  #         columns=df_lilu['linf'].columns,
+  #         index=df_lilu.index
+  #     )
+      
+  #     # Para 'lsup' columns
+  #     lsup_repl_df = pd.DataFrame(
+  #         np.tile(lsup_limit.values, (df_lilu['lsup'].shape[0], 1)),
+  #         columns=df_lilu['lsup'].columns,
+  #         index=df_lilu.index
+  #     )
+      
+  #     # Crear máscaras para identificar dónde están los -inf y inf
+  #     mask_linf = np.isinf(df_lilu['linf'].values)
+  #     mask_lsup = np.isinf(df_lilu['lsup'].values)
+      
+  #     # Aplicar las máscaras y reemplazar los valores
+  #     # Usamos donde para asignar los valores de reemplazo donde la máscara es True
+  #     df_lilu['linf'] = np.where(mask_linf, linf_repl_df.values, df_lilu['linf'].values)
+  #     df_lilu['lsup'] = np.where(mask_lsup, lsup_repl_df.values, df_lilu['lsup'].values)
+      
+  #     # Concatenar la columna 'ponderador' de vuelta al DataFrame
+  #     df_replaced = pd.concat([df_lilu, df_sep_dm[['ponderador','ef_sample','n_sample']]], axis=1)
+      
+  #     return df_replaced
+    
+  # def get_agg_regions(self, df_eval, df, verbose=False):
+  #   features_val = sorted(df_eval['dimension'].unique())
+  #   aleatorio1 = features_val[0]
+  #   df_sep_dm = pd.pivot_table(df_eval, index='rectangulo', columns='dimension')
+
+  #   # df_sep_dm = self.fill_na_pond(df_sep_dm, df, features_val)
+
+  #   df_sep_dm = self.fill_na_pond_fastest(df_sep_dm, df, features_val,None)
+    
+  #   # df_m_medios = self.mean_distance_ndim(df_sep_dm)
+  #   df_m_medios = self.mean_distance_ndim_fast(df_sep_dm, None)
+
+  #   scaler = StandardScaler()
+  #   X_feat = scaler.fit_transform(df_m_medios.values)
+  #   epsil = self.get_eps_multiple_groups_opt(X_feat)
+  #   if epsil<=0:
+  #       epsil = 0.05
+  #   if verbose:
+  #     print(epsil)
+  #   dbscan = DBSCAN(eps=epsil, min_samples=2)
+  #   df_sep_dm['cluster'] = dbscan.fit_predict(X_feat)
+  #   df_m_medios['cluster'] = dbscan.fit_predict(X_feat)
+  #   col_dim_names = {x:([len,'mean','std']) if i == 0 else ['mean','std'] 
+  #                   for i, x in enumerate(df_sep_dm.columns) if x[0] not in ['cluster',
+  #                                                                             'ponderador',
+  #                                                                             'ef_sample',
+  #                                                                             'n_sample']}
+    
+  #   col_dim_names[('ponderador', aleatorio1)] = ['mean']
+  #   col_dim_names[('ef_sample', aleatorio1)] = ['mean']
+  #   col_dim_names[('n_sample', aleatorio1)] = ['mean']
+
+
+  #   df_sep_outl = df_sep_dm[df_sep_dm['cluster']==-1]
+  #   df_sep_noutl = df_sep_dm[df_sep_dm['cluster']!=-1]
+  #   if df_sep_noutl.shape[0]==0:
+  #     df_sep_dm_agg = df_sep_outl.drop(columns=['cluster'])
+  #     return df_sep_dm_agg
+  #   else:
+  #     df_sep_dm_agg = pd.pivot_table(df_sep_noutl,
+  #                                   index='cluster',
+  #                                   values = [x for x in df_sep_noutl.columns if x[0]!='cluster'],
+  #                                   aggfunc=col_dim_names)
+  #     ln_col_ = [x for x in df_sep_dm_agg.columns if 'len' in list(x)]
+  #     df_sep_dm_aggl = df_sep_dm_agg[ln_col_[0]]
+  #     max_l_val = 1/df_sep_dm_aggl.max()
+  #     df_sep_dm_aggl = df_sep_dm_aggl*max_l_val
+  #     df_sep_dm_agg['ponderador'] = df_sep_dm_agg['ponderador'].values*1
+  #     df_sep_dm_agg = df_sep_dm_agg.sort_values(by=[('ponderador', aleatorio1,'mean'),
+  #                                   ('linf', aleatorio1,'len')], ascending=False)
+  #     df_sep_dm_agg = df_sep_dm_agg.xs('mean', axis=1, level=2)
+  #     df_sep_dm_aggl = df_sep_dm_aggl/df_sep_dm_aggl.max()
+  #     df_sep_outl = df_sep_outl[df_sep_dm_agg.columns]
+  #     df_sep_outl.loc[:,'ponderador'] = df_sep_outl.loc[:,'ponderador'].values*max_l_val
+  #     return pd.concat([df_sep_dm_agg,df_sep_outl])
+  
+  # def prio_ranges(self, separacion_dim, df, verbose=0):
+  #   # aquí se usa DBS
+  #   if verbose==1:
+  #      print("Agregando regiones con DBSCAN")
+  #   df_res = [self.get_agg_regions(df_, df) for df_ in separacion_dim]
+
+  #   prio_ = [df_['ponderador'].values[0][0] for df_ in df_res]
+    
+  #   df_reres = [x[0] for x in sorted([(a, b) for a,b in zip(df_res,prio_)],
+  #                    key=lambda x: -x[1])]
+
+  #   return df_reres
+
+
+
+
   def fill_na_pond_fastest(self, df_sep_dm, df, features_val, verbose):
       """
       Versión ultra-optimizada de fill_na_pond para reemplazar -inf e inf usando operaciones vectorizadas avanzadas.
@@ -150,10 +282,6 @@ class regions:
       linf_features = df_lilu['linf'].columns.tolist()
       lsup_features = df_lilu['lsup'].columns.tolist()
       
-      # Crear DataFrames de reemplazo alineados con las columnas
-      # Cada columna tendrá un único valor de reemplazo correspondiente
-      # Reemplazamos todos los -inf y inf en una sola operación vectorizada
-      
       # Para 'linf' columns
       linf_repl_df = pd.DataFrame(
           np.tile(linf_limit.values, (df_lilu['linf'].shape[0], 1)),
@@ -178,74 +306,207 @@ class regions:
       df_lilu['lsup'] = np.where(mask_lsup, lsup_repl_df.values, df_lilu['lsup'].values)
       
       # Concatenar la columna 'ponderador' de vuelta al DataFrame
-      df_replaced = pd.concat([df_lilu, df_sep_dm[['ponderador']]], axis=1)
+      df_replaced = pd.concat([df_lilu, df_sep_dm[['ponderador','ef_sample','n_sample']]], axis=1)
       
       return df_replaced
 
+  def group_by_cluster(self, df: pd.DataFrame, cluster_col: str = "cluster") -> pd.DataFrame:
+      """
+      Agrupa un DataFrame por la columna 'cluster', conservando el primer valor de las demás columnas.
+      Para las columnas que contienen 'ef_sample' o 'n_sample', solo se utiliza la primera columna encontrada.
+      Se maneja el caso en el que la columna de agrupación se repita, evitando duplicados en la selección final.
+      
+      :param df: DataFrame de entrada.
+      :param cluster_col: Nombre de la columna por la que se agrupará (por defecto 'cluster').
+      :return: DataFrame agrupado.
+      """
+      
+      # Verificar si la columna 'cluster' contiene valores no escalares (listas, sets, dicts, etc.)
+      if df[cluster_col].apply(lambda x: isinstance(x, (list, tuple, set, dict))).any():
+          df = df.copy()  # Para evitar SettingWithCopyWarning
+          df[cluster_col] = df[cluster_col].apply(
+              lambda x: tuple(x) if isinstance(x, (list, set)) else x
+          )
+      
+      # Identificar las columnas que contienen 'ef_sample' y 'n_sample'
+      ef_sample_cols = [col for col in df.columns if "ef_sample" in col]
+      n_sample_cols = [col for col in df.columns if "n_sample" in col]
+      ponderador_cols = [col for col in df.columns if "ponderador" in col]
 
-    
-  def get_agg_regions(self, df_eval, df, verbose=False):
+      # Seleccionar la primera columna de cada tipo, si existen
+      first_ef_sample = ef_sample_cols[0] if ef_sample_cols else None
+      first_n_sample = n_sample_cols[0] if n_sample_cols else None
+      ponderador_sample = ponderador_cols[0] if ponderador_cols else None
+
+      # Construir la lista de columnas a conservar:
+      # - Se incluye la columna de cluster de forma explícita.
+      # - Se añaden todas las columnas que no sean parte de las listas de ef_sample o n_sample
+      #   ni la propia columna cluster (para evitar duplicados).
+      cols_to_keep = [cluster_col] + [
+          col for col in df.columns if col not in (ef_sample_cols + n_sample_cols + ponderador_cols + [cluster_col])
+      ]
+      
+      # Agregar la primera columna 'ef_sample' y 'n_sample', si existen
+      if first_ef_sample:
+          cols_to_keep.append(first_ef_sample)
+      if first_n_sample:
+          cols_to_keep.append(first_n_sample)
+      if ponderador_sample:
+          cols_to_keep.append(ponderador_sample)
+      
+      # Eliminar duplicados en 'cols_to_keep' preservando el orden
+      cols_to_keep = list(dict.fromkeys(cols_to_keep))
+      
+      # Agrupar por la columna 'cluster' y conservar el primer valor de cada columna seleccionada
+      df_grouped = df[cols_to_keep].groupby(cluster_col, as_index=False).first()
+      df_grouped_c = df[cols_to_keep[:2]].groupby(cluster_col, as_index=False).count()
+      df_grouped_c = df_grouped_c.rename(columns={cols_to_keep[1]:'count'})
+      
+      return df_grouped.merge(df_grouped_c, how='left', on='cluster')
+
+
+  def get_agg_regions_j(self, df_eval, df):
+
     features_val = sorted(df_eval['dimension'].unique())
-    aleatorio1 = features_val[0]
     df_sep_dm = pd.pivot_table(df_eval, index='rectangulo', columns='dimension')
-
-    # df_sep_dm = self.fill_na_pond(df_sep_dm, df, features_val)
-
     df_sep_dm = self.fill_na_pond_fastest(df_sep_dm, df, features_val,None)
-    
-    # df_m_medios = self.mean_distance_ndim(df_sep_dm)
-    df_m_medios = self.mean_distance_ndim_fast(df_sep_dm, None)
 
-    scaler = StandardScaler()
-    X_feat = scaler.fit_transform(df_m_medios.values)
-    epsil = self.get_eps_multiple_groups_opt(X_feat)
-    if epsil<=0:
-        epsil = 0.05
-    if verbose:
-      print(epsil)
-    dbscan = DBSCAN(eps=epsil*.95, min_samples=2)
-    df_sep_dm['cluster'] = dbscan.fit_predict(X_feat)
-    df_m_medios['cluster'] = dbscan.fit_predict(X_feat)
-    col_dim_names = {x:([len,'mean','std']) if i == 0 else ['mean','std'] 
-                    for i, x in enumerate(df_sep_dm.columns) if x[0] not in ['cluster',
-                                                                              'ponderador']}
-    col_dim_names[('ponderador', aleatorio1)] = ['mean']
-    df_sep_outl = df_sep_dm[df_sep_dm['cluster']==-1]
-    df_sep_noutl = df_sep_dm[df_sep_dm['cluster']!=-1]
-    if df_sep_noutl.shape[0]==0:
-      df_sep_dm_agg = df_sep_outl.drop(columns=['cluster'])
-      return df_sep_dm_agg
-    else:
-      df_sep_dm_agg = pd.pivot_table(df_sep_noutl,
-                                    index='cluster',
-                                    values = [x for x in df_sep_noutl.columns if x[0]!='cluster'],
-                                    aggfunc=col_dim_names)
-      ln_col_ = [x for x in df_sep_dm_agg.columns if 'len' in list(x)]
-      df_sep_dm_aggl = df_sep_dm_agg[ln_col_[0]]
-      max_l_val = 1/df_sep_dm_aggl.max()
-      df_sep_dm_aggl = df_sep_dm_aggl*max_l_val
-      df_sep_dm_agg['ponderador'] = df_sep_dm_agg['ponderador'].values*1
-      df_sep_dm_agg = df_sep_dm_agg.sort_values(by=[('ponderador', aleatorio1,'mean'),
-                                    ('linf', aleatorio1,'len')], ascending=False)
-      df_sep_dm_agg = df_sep_dm_agg.xs('mean', axis=1, level=2)
-      df_sep_dm_aggl = df_sep_dm_aggl/df_sep_dm_aggl.max()
-      df_sep_outl = df_sep_outl[df_sep_dm_agg.columns]
-      df_sep_outl.loc[:,'ponderador'] = df_sep_outl.loc[:,'ponderador'].values*max_l_val
-      return pd.concat([df_sep_dm_agg,df_sep_outl])
-  
-  def prio_ranges(self, separacion_dim, df, verbose=0):
-    # aquí se usa DBS
-    if verbose==1:
-       print("Agregando regiones con DBSCAN")
-    df_res = [self.get_agg_regions(df_, df) for df_ in separacion_dim]
+    # Si ya tienes el MultiIndex, puedes aplanarlo:
+    df_sep_dm.columns = [f"{col[1].strip()}&&{col[0]}" for col in df_sep_dm.columns]
+    df_raw = df_sep_dm
 
-    prio_ = [df_['ponderador'].values[0][0] for df_ in df_res]
-    
-    df_reres = [x[0] for x in sorted([(a, b) for a,b in zip(df_res,prio_)],
-                     key=lambda x: -x[1])]
-    # cols_ = [df_['linf'].columns.tolist() for df_ in df_reres]
+    # Lista de dimensiones (extraídas de los nombres de columnas)
+    dims = sorted(set(col.split('&&')[0] for col in df_raw.columns))
 
-    return df_reres
+    # Función para calcular IoU entre dos hipercubos
+    def iou_hypercube(row1, row2, dims):
+        inter_vol = 1
+        vol1 = 1
+        vol2 = 1
+
+        for dim in dims:
+            low1, high1 = row1[f"{dim}&&linf"], row1[f"{dim}&&lsup"]
+            low2, high2 = row2[f"{dim}&&linf"], row2[f"{dim}&&lsup"]
+
+            inter_low = max(low1, low2)
+            inter_high = min(high1, high2)
+
+            if inter_low >= inter_high:
+                return 0.0  # No hay intersección
+
+            inter_vol *= (inter_high - inter_low)
+            vol1 *= (high1 - low1)
+            vol2 *= (high2 - low2)
+
+        union_vol = vol1 + vol2 - inter_vol
+        return inter_vol / union_vol if union_vol != 0 else 0.0
+
+    # Crear matriz de distancias basada en IoU (1 - IoU para que sea una distancia)
+    n = len(df_raw)
+    distance_matrix = np.zeros((n, n))
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            distance_matrix[i, j] = 1 - iou_hypercube(df_raw.iloc[i], df_raw.iloc[j], dims)
+            distance_matrix[j, i] = distance_matrix[i, j]  # Simétrica
+
+    # Convertir matriz en formato de lista de distancias para clustering
+    dist_vector = squareform(distance_matrix)
+
+    # Aplicar clustering jerárquico
+    Z = linkage(dist_vector, method='average')  # Método de enlace promedio
+
+    # Determinar número de clusters (ajustar umbral según necesites)
+
+    for tr in [tr/100 for tr in range(65,5,-1)]:
+      clusters = fcluster(Z, tr, criterion='distance')
+      if len(set(clusters))*2>len(distance_matrix):
+        break
+
+    # Agregar la asignación de clusters al DataFrame
+    df_raw["cluster"] = clusters
+
+    n_sample_col = [col for col in df_raw.columns if 'n_sample' in col][0]
+    eff_sample_col = [col for col in df_raw.columns if 'ef_sample' in col][0]
+
+    df_raw.sort_values(by=['cluster', n_sample_col, eff_sample_col], ascending=False, inplace=True)
+
+    df_raw_agg = self.group_by_cluster(df_raw)
+
+    return df_raw_agg
+
+
+  def set_multiindex(self, df: pd.DataFrame, cluster_col: str = "cluster") -> pd.DataFrame:
+      """
+      Transforma el DataFrame para:
+        - Usar la columna `cluster` como índice.
+        - Convertir las demás columnas en un MultiIndex a partir del separador "&&".
+      
+      Reglas:
+        1. Si una columna contiene "&&", se separa en:
+            left  = nombre_medida
+            right = identificador
+        2. Si right es una palabra especial (ef_sample, n_sample, ponderador, count):
+              primer nivel = "metrics"
+              segundo nivel = right
+        3. Si right no es especial:
+              primer nivel = right
+              segundo nivel = left
+        4. Si la columna no contiene "&&":
+            - Si contiene alguna palabra especial, se asigna ("metrics", <nombre completo>).
+            - De lo contrario, se asigna (None, <nombre completo>).
+      
+      El MultiIndex resultante tiene nombres de niveles: [None, 'dimension'].
+      
+      :param df: DataFrame de entrada.
+      :param cluster_col: Nombre de la columna que se usará como índice (por defecto "cluster").
+      :return: DataFrame con índice `cluster` y columnas con MultiIndex.
+      """
+      # Definir las palabras especiales.
+      special_words = {"ef_sample", "n_sample", "ponderador", "count"}
+      new_cols = []
+      
+      # Procesar cada columna (exceptuando la columna de cluster)
+      for col in df.columns:
+          if col == cluster_col:
+              continue  # Se usará como índice.
+          if "&&" in col:
+              # Separamos en left y right
+              left, right = col.split("&&", 1)
+              left = left.strip()
+              right = right.strip()
+              if right in special_words:
+                  # Para columnas especiales: ("metrics", <nombre especial>), es decir, right.
+                  new_label = ("metrics", right)
+              else:
+                  # Para columnas no especiales: (identificador, nombre_medida)
+                  new_label = (right, left)
+          else:
+              # Columnas sin separador "&&"
+              if any(sw in col for sw in special_words):
+                  new_label = ("metrics", col)
+              else:
+                  new_label = (None, col)
+          new_cols.append(new_label)
+      
+      # Crear el MultiIndex con nombres de niveles [None, 'dimension']
+      multi_cols = pd.MultiIndex.from_tuples(new_cols, names=[None, "dimension"])
+      
+      # Establecer la columna cluster como índice y asignar el nuevo MultiIndex a las columnas.
+      df_new = df.set_index(cluster_col).copy()
+      df_new.columns = multi_cols
+      return df_new
+
+  def prio_ranges(self, separacion_dim, df):
+
+    df_res = [self.set_multiindex(self.get_agg_regions_j(df_, df)) 
+              for df_ in separacion_dim]
+
+    df_res = [df.sort_values(by=[('metrics', 'n_sample'), 
+                                ('metrics', 'count'), 
+                                ('metrics', 'ef_sample')], ascending=False) for df in df_res]
+
+    return df_res
 
 
   def plot_bidim(self, df,df_sep_dm_agg, eje_x, eje_y, var_obj):
