@@ -245,7 +245,11 @@ class regions:
 
     # Si ya tienes el MultiIndex, puedes aplanarlo:
     df_sep_dm.columns = [f"{col[1].strip()}&&{col[0]}" for col in df_sep_dm.columns]
-    df_raw = df_sep_dm
+    df_raw = df_sep_dm.copy()
+
+    if len(df_raw) == 1:
+        df_raw["cluster"] = 1
+        return self.group_by_cluster(df_raw)
 
     # Lista de dimensiones (extraídas de los nombres de columnas)
     dims = sorted(set(col.split('&&')[0] for col in df_raw.columns))
@@ -426,7 +430,7 @@ class regions:
 
   def plot_rect3d(self,df_r,i, ax):
     # Obtenemos los valores de los límites del rectángulo
-    x1, y1, z1, x2, y2, z2 = df_r.drop(columns=['ponderador']).iloc[i,:].values.flatten()
+    x1, y1, z1, x2, y2, z2 = df_r.drop(columns=['metrics']).iloc[i,:].values.flatten()
 
     # Generamos los puntos del rectángulo
     X = np.array([[x1, x2, x2, x1, x1], [x1, x2, x2, x1, x1]])
