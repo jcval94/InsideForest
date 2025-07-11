@@ -1,4 +1,3 @@
-import re
 from openai import OpenAI
 import pandas as pd
 import copy
@@ -267,52 +266,141 @@ def generate_descriptions(condition_list, language='en', OPENAI_API_KEY=None, de
     return result
 
 
-def categorize_conditions(condition_list, df=None):
+# def categorize_conditions(condition_list, df=None):
+#     descriptions = []
+
+#     # If df is provided, calculate thresholds using quantiles
+#     if df is not None:
+#         thresholds = {}
+#         for column in df.columns:
+#             # Calculate quantiles for low, medium, high categories
+#             low = df[column].quantile(0.33)
+#             high = df[column].quantile(0.66)
+#             thresholds[column] = {'low': low, 'high': high}
+
+#     for condition in condition_list:
+#         features = {}
+#         # Regex pattern to extract variable ranges
+#         pattern = r'(\d+\.?\d*) <= (\w+) <= (\d+\.?\d*)'
+#         matches = re.findall(pattern, condition)
+
+#         for match in matches:
+#             min_value, feature_name, max_value = match
+#             min_value = float(min_value)
+#             max_value = float(max_value)
+#             # Calculate average value
+#             avg_value = (min_value + max_value) / 2
+#             # Categorize based on thresholds
+#             if feature_name in thresholds:
+#                 low = thresholds[feature_name]['low']
+#                 high = thresholds[feature_name]['high']
+#                 # Determine category based on where the average value falls within the thresholds
+#                 if avg_value <= low:
+#                     category = 'BAJO'
+#                 elif avg_value <= high:
+#                     category = 'MEDIO'
+#                 else:
+#                     category = 'ALTO'
+#                 features[feature_name] = category
+#             else:
+#                 features[feature_name] = 'N/A'
+
+#         # Create description using the categories
+#         description_parts = []
+#         for feature, category in features.items():
+#             description_parts.append(f"{feature} es {category}")
+#         description = ', '.join(description_parts) + '.'
+#         descriptions.append(description)
+
+#     # Return a dictionary with the responses
+#     result = {'respuestas': descriptions}
+#     return result
+
+def categorize_conditions(condition_list, df, n_groups=2):
+    """
+    Generaliza una lista de condiciones en descripciones de texto, categorizando
+    los valores de las características en 'n_groups' niveles.
+
+    Args:
+        condition_list (list): Una lista de strings, donde cada string representa
+                               una condición con rangos de variables.
+                               Ej: ['0.0 <= Var1 <= 10.0 and 5.0 <= Var2 <= 15.0']
+        df (pd.DataFrame): El DataFrame que contiene los datos de referencia para
+                           calcular los umbrales de los cuantiles.
+        n_groups (int): El número de grupos en los que se dividirán los datos.
+                        Debe ser 2 o mayor.
+
+    Returns:
+        dict: Un diccionario que contiene una clave 'respuestas' con una lista de
+              las descripciones generadas. O un diccionario con un error si los
+              parámetros son inválidos.
+    """
+    # --- Validación de Entradas ---
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        return {'error': 'Se requiere un DataFrame de pandas válido y no vacío.'}
+    if not isinstance(n_groups, int) or n_groups < 2:
+        return {'error': 'n_groups debe ser un entero igual o mayor a 2.'}
+
+    # --- Definición de Etiquetas de Categoría ---
+    labels = []
+    if n_groups <= 5:
+        # Mapeo predefinido para 2 a 5 grupos
+        label_map = {
+            2: ['BAJO', 'ALTO'],
+            3: ['BAJO', 'MEDIO', 'ALTO'],
+            4: ['MUY BAJO', 'BAJO', 'ALTO', 'MUY ALTO'],
+            5: ['MUY BAJO', 'BAJO', 'MEDIO', 'ALTO', 'MUY ALTO']
+        }
+        labels = label_map.get(n_groups)
+    else:
+        # Etiquetas genéricas para más de 5 grupos
+        labels = [f'NIVEL_{i+1}' for i in range(n_groups)]
+
+    # --- Cálculo de Umbrales (Quantiles) ---
+    thresholds = {}
+    # Puntos de corte para los cuantiles. Ej: para n_groups=4, queremos [0.25, 0.5, 0.75]
+    quantile_points = [i / n_groups for i in range(1, n_groups)]
+
+    for column in df.columns:
+        # Se calcula un umbral por cada punto de corte
+        thresholds[column] = df[column].quantile(quantile_points).tolist()
+
+    # --- Procesamiento de Condiciones ---
     descriptions = []
-
-    # If df is provided, calculate thresholds using quantiles
-    if df is not None:
-        thresholds = {}
-        for column in df.columns:
-            # Calculate quantiles for low, medium, high categories
-            low = df[column].quantile(0.33)
-            high = df[column].quantile(0.66)
-            thresholds[column] = {'low': low, 'high': high}
-
     for condition in condition_list:
         features = {}
-        # Regex pattern to extract variable ranges
-        pattern = r'(\d+\.?\d*) <= (\w+) <= (\d+\.?\d*)'
+        # Patrón Regex para extraer nombre de variable y sus rangos
+        pattern = r'(\d+\.?\d*)\s*<=\s*(\w+)\s*<=\s*(\d+\.?\d*)'
         matches = re.findall(pattern, condition)
 
         for match in matches:
-            min_value, feature_name, max_value = match
-            min_value = float(min_value)
-            max_value = float(max_value)
-            # Calculate average value
+            min_value_str, feature_name, max_value_str = match
+            min_value = float(min_value_str)
+            max_value = float(max_value_str)
+            
+            # Se usa el valor promedio del rango para la categorización
             avg_value = (min_value + max_value) / 2
-            # Categorize based on thresholds
+
             if feature_name in thresholds:
-                low = thresholds[feature_name]['low']
-                high = thresholds[feature_name]['high']
-                # Determine category based on where the average value falls within the thresholds
-                if avg_value <= low:
-                    category = 'BAJO'
-                elif avg_value <= high:
-                    category = 'MEDIO'
-                else:
-                    category = 'ALTO'
+                feature_thresholds = thresholds[feature_name]
+                
+                # Se busca en qué intervalo cae el valor promedio
+                # np.searchsorted encuentra el índice donde el elemento debería insertarse
+                # para mantener el orden. Esto nos da directamente el índice de la categoría.
+                category_index = np.searchsorted(feature_thresholds, avg_value)
+                
+                # Asignamos la etiqueta correspondiente
+                category = labels[category_index]
                 features[feature_name] = category
             else:
+                # Si la variable de la condición no está en el DataFrame
                 features[feature_name] = 'N/A'
 
-        # Create description using the categories
-        description_parts = []
-        for feature, category in features.items():
-            description_parts.append(f"{feature} es {category}")
+        # Se construye la descripción final para la condición
+        description_parts = [f"{feature} es {category}" for feature, category in features.items()]
         description = ', '.join(description_parts) + '.'
         descriptions.append(description)
 
-    # Return a dictionary with the responses
+    # --- Retorno de Resultados ---
     result = {'respuestas': descriptions}
     return result

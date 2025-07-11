@@ -1086,6 +1086,10 @@ class regions:
 
 
       grupo_s_ = df_cl_value_counts[df_cl_value_counts>self.get_first_decreasing_inflexion_point(df_cl_value_counts)].reset_index()
+      try:
+          grupo_s_ = grupo_s_.rename(columns={0:'count'})
+      except:
+         pass
       grupo_s_ = self.add_active_clusters(grupo_s_).drop(columns='count')
 
       cols_keys = list(grupo_s_.columns[:-1])
