@@ -1,3 +1,4 @@
+LICENSE
 README.md
 setup.py
 InsideForest/__init__.py
@@ -10,3 +11,4 @@ InsideForest.egg-info/PKG-INFO
 InsideForest.egg-info/SOURCES.txt
 InsideForest.egg-info/dependency_links.txt
 InsideForest.egg-info/top_level.txt
+tests/test_descrip.py

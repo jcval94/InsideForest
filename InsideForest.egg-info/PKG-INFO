@@ -1,16 +1,18 @@
 Metadata-Version: 2.4
 Name: InsideForest
-Version: 0.2.14
+Version: 0.2.15
 Summary: A comprehensive library for describing and analyzing data insights via AI
 Home-page: https://github.com/jcval94/InsideForest.git
 Author: Jose Carlos Del Valle
 License: MIT
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Dynamic: author
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: summary
 
 InsideForest provides a comprehensive AI solution for identifying and describing categories within your data, allowing you to gain valuable insights and make data-driven decisions.
