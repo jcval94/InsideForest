@@ -1,138 +1,112 @@
-![Descripción de la imagen](./data/inside_f1_1.jpeg)
+![InsideForest](./data/inside_f1_1.jpeg)
 
-InsideForest is a Supervised Clustering technique which provides a comprehensive AI solution for identifying and describing categories within data, allowing to gain valuable insights and make data-driven decisions.
+# InsideForest
 
-Supervised clustering definition: A machine learning technique that uses labeled data to group them into different clusters, with the aim that the clustering patterns are consistent with the previously assigned labels. Instead of letting the clustering algorithm find the clustering patterns on its own, supervised information is provided to guide its clustering process.
+InsideForest es una técnica de **clustering supervisado** que se apoya en bosques de decisión para identificar y describir categorías dentro de un conjunto de datos. Permite descubrir regiones relevantes, asignar etiquetas y generar descripciones interpretables de forma sencilla.
 
-Whether you're working with customer data, sales figures, or any other type of information, our library can help you better understand your data and make informed decisions.
+El *clustering supervisado* consiste en agrupar observaciones utilizando información de la variable objetivo para guiar el proceso de segmentación. En lugar de dejar que el algoritmo encuentre los grupos por sí mismo, las etiquetas existentes orientan la búsqueda de patrones coherentes.
 
-## Examples
+Sea que trabajes con datos de clientes, ventas u otra fuente de información, la biblioteca te ayudará a comprender mejor tus datos y tomar decisiones informadas.
 
-You could use our library to:
+## Ejemplos de uso
 
-- Analyze customer data to identify the most profitable customer segments for your business based on their buying patterns and demographics.
-- Classify patients based on their medical history and symptoms to better understand their health risks and needs.
-- Analyze website traffic data to identify the most effective marketing channels for your business.
-- Classify images based on their visual features to create more accurate and efficient image recognition systems.
+- Analizar el comportamiento de clientes para identificar segmentos rentables.
+- Clasificar pacientes según su historial médico y síntomas.
+- Evaluar canales de marketing a partir del tráfico de un sitio web.
+- Generar sistemas de reconocimiento de imágenes más precisos.
 
-## Insights
+## Beneficios
 
-By using our library to build and analyze a random forest, you can gain deep insights into the patterns and relationships within your data. This can help you identify hidden trends and make better-informed decisions, leading to more successful outcomes for your business.
+Al construir y analizar un bosque aleatorio con InsideForest puedes identificar tendencias ocultas y obtener **insights** que faciliten tus decisiones de negocio.
 
 [CASO DE USO](https://colab.research.google.com/drive/11VGeB0V6PLMlQ8Uhba91fJ4UN1Bfbs90?usp=sharing)
 
-## Installation
+## Instalación
 
-You can install InsideForest using pip:
-
-```python
+```bash
 pip install InsideForest
 ```
 
-## Dependencies
-
-The following packages are required to use InsideForest:
-
+## Dependencias principales
 - scikit-learn
 - numpy
 - pandas
-- collections
 - matplotlib
-- re
-- glob
-- random
 - seaborn
 - openai
 
-## Using OpenAI for Text Descriptions
-
-`generate_descriptions` from `InsideForest.descrip` relies on the `openai` library
-to create short textual labels. The function expects an API key either through
-the `OPENAI_API_KEY` argument or the environment variable with the same name.
-You may also override the API call parameters with the optional
-`default_params` dictionary.
+## Uso de OpenAI para descripciones
+`generate_descriptions` de `InsideForest.descrip` utiliza la librería `openai`. Se requiere una API key en el argumento `OPENAI_API_KEY` o mediante la variable de entorno del mismo nombre.
 
 ```python
-import os
 from InsideForest.descrip import generate_descriptions
+import os
 
 os.environ["OPENAI_API_KEY"] = "sk-your-key"
 conds = ["0 <= Var1 <= 10"]
 result = generate_descriptions(conds, OPENAI_API_KEY=os.getenv("OPENAI_API_KEY"))
 ```
 
-## Example usage (Iris dataset)
+## Caso de uso (Iris)
+A continuación se muestra un resumen del flujo utilizado en el [notebook de ejemplo](https://colab.research.google.com/drive/11VGeB0V6PLMlQ8Uhba91fJ4UN1Bfbs90?usp=sharing).
 
-### Part 1
-
-Here, we load the Iris dataset and create a DataFrame with the features and target variable. We modify the target variable to have binary values and plot the first two features.
+### 1. Preparación del modelo
 
 ```python
-from InsideForest import *
-arboles = Trees()
-modelos = Models()
-regiones = Regions()
-descript = Labels()
-```
+from pyspark.sql import SparkSession
+from sklearn.datasets import load_iris
+from pyspark.ml.feature import VectorAssembler, StringIndexer
+from pyspark.ml.classification import RandomForestClassifier
 
-How is our data?
+spark = SparkSession.builder.appName('Iris').getOrCreate()
+
+# Cargar datos en Spark
+iris = load_iris()
+df = pd.DataFrame(iris.data, columns=iris.feature_names)
+df['species'] = iris.target
+```
 
 ```python
 import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.datasets import load_iris
 
-iris = load_iris()
-iris_df = pd.DataFrame(iris.data, columns=iris.feature_names)
-iris_df['target'] = pd.Series(iris.target).apply(lambda x: 0 if x==1 else 1)
-iris_df.head(5)
-
-df = iris_df.copy()
-var_obj = 'target'
-
-# Plot
-sns.set(style="darkgrid")
-sns.scatterplot(x=df.columns[0], y=df.columns[1], hue=var_obj, data=df, palette="coolwarm")
-
-plt.title('Scatter Plot of Iris Dataset')
-plt.xlabel(df.columns[0])
-plt.ylabel(df.columns[1])
-
+sns.scatterplot(x=df.columns[0], y=df.columns[1], hue='species', data=df,
+                palette='coolwarm')
 plt.show()
 ```
 
-![Descripción de la imagen](./data/iris_ds.png)
-
-### Part 2
-
-Now we prepare the data for training a Random Forest classifier. We split the data into training and testing sets, and define the parameter grid to perform cross-validation and obtain the best estimator. Then, we use the best estimator to obtain data insights.
+![Dataset](./data/iris_ds.png)
 
 ```python
-X = df.drop(columns=[var_obj]).fillna(0)
-y = df[var_obj]
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=161803)
-param_grid = {'n_estimators':range(50,450,100),'max_depth':range(2,11,2)}
-
-cv_model = modelos.get_cvRF(X_train, y_train, param_grid)
-regr = cv_model.best_estimator_
-
-separacion_dim = arboles.get_branches(df, var_obj, regr)
-df_reres = regiones.prio_ranges(separacion_dim,df)
-
-for i, df_r in enumerate(df_reres[:3]):
-  if len(df_r['linf'].columns.tolist())>3:
-    continue
-  regiones.plot_multi_dims(df_r, df, var_obj)
-  plt.show()
+from InsideForest import Trees, Regions, Labels
+arbolesSP = Trees('pyspark', n_sample_multiplier=0.05, ef_sample_multiplier=10)
+regiones = Regions()
+descript = Labels()
 ```
 
-![Descripción de la imagen](./data/plot_1.png)
+### 2. Obtención de ramas y clusters
 
-![Descripción de la imagen](./data/plot_2.png)
+```python
+pyspark_mod = arbolesSP.get_branches(df, 'species', model)
+df_reres = regiones.prio_ranges(pyspark_mod, df)
+clusterizados, descriptivos = regiones.labels(df, df_reres, False)
+```
 
-The blue regions depict several branches within the Random Forest, showing the most relevant areas where the target is located.
+### 3. Visualización
 
-## License
+```python
+for df_r in df_reres[:3]:
+    if len(df_r['linf'].columns) > 3:
+        continue
+    regiones.plot_multi_dims(df_r, df, 'species')
+```
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+![Plot 1](./data/plot_1.png)
 
+![Plot 2](./data/plot_2.png)
+
+Las zonas azules representan las ramas más relevantes del bosque y permiten interpretar dónde se concentra la variable objetivo.
+
+## Licencia
+
+Este proyecto se distribuye bajo la licencia MIT. Consulta el archivo [LICENSE](LICENSE) para más información.
