@@ -42,6 +42,24 @@ The following packages are required to use InsideForest:
 - glob
 - random
 - seaborn
+- openai
+
+## Using OpenAI for Text Descriptions
+
+`generate_descriptions` from `InsideForest.descrip` relies on the `openai` library
+to create short textual labels. The function expects an API key either through
+the `OPENAI_API_KEY` argument or the environment variable with the same name.
+You may also override the API call parameters with the optional
+`default_params` dictionary.
+
+```python
+import os
+from InsideForest.descrip import generate_descriptions
+
+os.environ["OPENAI_API_KEY"] = "sk-your-key"
+conds = ["0 <= Var1 <= 10"]
+result = generate_descriptions(conds, OPENAI_API_KEY=os.getenv("OPENAI_API_KEY"))
+```
 
 ## Example usage (Iris dataset)
 
