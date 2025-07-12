@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='InsideForest',
-    version='0.2.15',
+    version='0.2.16',
     packages=find_packages(),
     license='MIT',
     license_files=['LICENSE'],

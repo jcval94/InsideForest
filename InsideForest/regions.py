@@ -18,7 +18,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class regions:
+class Regions:
     
   def search_original_tree(self,df_clusterizado, separacion_dim):
             

@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
-class trees:
+class Trees:
 
   def __init__(self, lang='python',n_sample_multiplier=2, ef_sample_multiplier=3):
     self.lang = lang

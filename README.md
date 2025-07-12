@@ -51,10 +51,10 @@ Here, we load the Iris dataset and create a DataFrame with the features and targ
 
 ```python
 from InsideForest import *
-arboles = trees()
-modelos = models()
-regiones = regions()
-descript = labels()
+arboles = Trees()
+modelos = Models()
+regiones = Regions()
+descript = Labels()
 ```
 
 How is our data?
