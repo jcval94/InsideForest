@@ -4,7 +4,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class labels:
+class Labels:
   def round_values(self, lst):
     variance = np.var(lst)
     if variance >= 0.01 and len(lst)>1:

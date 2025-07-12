@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class models:
+class Models:
   def get_knn_rows(self, df, target_col, criterio_fp=True, min_obs = 5):
     if target_col not in df.columns:
       raise KeyError(f"La columna objetivo '{target_col}' no existe en el DataFrame")
