@@ -5,6 +5,9 @@ import numpy as np
 from scipy.signal import savgol_filter
 from sklearn.preprocessing import StandardScaler
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 def primer_punto_inflexion_decreciente(data, bins=10, window_length=5, polyorder=2):
     """
@@ -20,9 +23,17 @@ def primer_punto_inflexion_decreciente(data, bins=10, window_length=5, polyorder
     - punto_inflexion: valor del bin donde ocurre el primer punto de inflexión decreciente.
     """
 
-    # Calcular el histograma
-    counts, bin_edges = np.histogram(data, bins=bins)
-    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+    if len(data) == 0:
+        logger.error("La lista de datos está vacía")
+        return None
+
+    try:
+        # Calcular el histograma
+        counts, bin_edges = np.histogram(data, bins=bins)
+        bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+    except Exception as exc:
+        logger.exception("Error al calcular el histograma: %s", exc)
+        return None
 
     # Suavizar el histograma para reducir ruido
     # Asegurarse de que window_length es impar y menor que el tamaño de counts
@@ -33,7 +44,11 @@ def primer_punto_inflexion_decreciente(data, bins=10, window_length=5, polyorder
     if window_length < polyorder + 2:
         window_length = polyorder + 2 if (polyorder + 2) % 2 != 0 else polyorder + 3
 
-    counts_smooth = savgol_filter(counts, window_length=window_length, polyorder=polyorder)
+    try:
+        counts_smooth = savgol_filter(counts, window_length=window_length, polyorder=polyorder)
+    except Exception as exc:
+        logger.exception("Error aplicando savgol_filter: %s", exc)
+        return None
 
     # Calcular la segunda derivada
     second_derivative = np.gradient(np.gradient(counts_smooth))
@@ -73,6 +88,9 @@ def replace_with_dict(df, columns, var_rename):
     replace_info : dict
         Información necesaria para revertir los reemplazos.
     """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("df debe ser un DataFrame de pandas")
+
     df_replaced = df.copy()
     replace_info = {}
     
@@ -83,7 +101,9 @@ def replace_with_dict(df, columns, var_rename):
     
     for col in columns:
         if col not in df_replaced.columns:
-            print(f"Advertencia: La columna '{col}' no se encontró en el DataFrame.")
+            logger.warning(
+                f"Advertencia: La columna '{col}' no se encontró en el DataFrame."
+            )
             continue
         
         # Almacenar información de reemplazo por columna
@@ -95,8 +115,11 @@ def replace_with_dict(df, columns, var_rename):
         def repl(match):
             return var_rename[match.group(0)]
         
-        # Aplicar el reemplazo usando expresiones regulares
-        df_replaced[col] = df_replaced[col].astype(str).str.replace(pattern, repl, regex=True)
+        try:
+            df_replaced[col] = df_replaced[col].astype(str).str.replace(pattern, repl, regex=True)
+        except Exception as exc:
+            logger.exception("Error al reemplazar valores en la columna %s: %s", col, exc)
+            continue
     
     return df_replaced, replace_info
 
@@ -251,11 +274,14 @@ def generate_descriptions(condition_list, language='en', OPENAI_API_KEY=None, de
         {"role": "user", "content": user_prompt}
     ]
 
-    # Crear una solicitud de finalización de chat con todos los mensajes
-    respuesta = client.chat.completions.create(
-        messages=mensajes,
-        **default_params
-    )
+    try:
+        respuesta = client.chat.completions.create(
+            messages=mensajes,
+            **default_params
+        )
+    except Exception as exc:
+        logger.exception("Error al llamar a la API de OpenAI: %s", exc)
+        return {'respuestas': []}
 
     # Dividir la respuesta en una lista de descripciones por línea
     descriptions = respuesta.choices[0].message.content.strip().split("\n")
