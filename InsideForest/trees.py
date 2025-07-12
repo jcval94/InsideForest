@@ -1,9 +1,12 @@
 import re
 import pandas as pd
 import numpy as np
+import logging
 
 from sklearn.tree import export_text
 from tqdm import tqdm
+
+logger = logging.getLogger(__name__)
 
 class trees:
 
@@ -163,7 +166,7 @@ class trees:
       n_estimador += 1
 
       if verbose == 1 and n_estimador % 10 == 0:
-        print(f"Procesados {n_estimador} árboles")
+        logger.info(f"Procesados {n_estimador} árboles")
 
     return pd.concat(df_info)
 
@@ -217,9 +220,9 @@ class trees:
 
     # Añadimos tqdm sobre top_100_ramas para ver progreso
     for arbol_num in tqdm(top_100_ramas, disable=(verbose == 0), desc="Procesando ramas"):
-      # Mantenemos este print pero lo hacemos condicional
+      # Mantenemos este log pero lo hacemos condicional
       if arbol_num % 50 == 0 and verbose == 1:
-        print(f"Procesando rama del árbol: {arbol_num}")
+        logger.info(f"Procesando rama del árbol: {arbol_num}")
 
       ag_arbol = agrupacion[(agrupacion['N_arbol'] == arbol_num)]
       for regla_num in ag_arbol.N_regla.unique():
@@ -280,7 +283,7 @@ class trees:
       for arbol_num in tqdm(top_100_arboles, disable=(verbose == 0), desc="Procesando ramas"):
           # Imprimimos (opcional) según el valor de verbose
           if arbol_num % 50 == 0 and verbose == 1:
-              print(f"Procesando rama del árbol: {arbol_num}")
+              logger.info(f"Procesando rama del árbol: {arbol_num}")
 
           # Subconjunto del pivot para este árbol
           ag_arbol = agrupacion[agrupacion['N_arbol'] == arbol_num]
@@ -412,27 +415,46 @@ class trees:
     :param verbose: 0 = sin prints ni barra de progreso, 1 = con prints y tqdm
     :return: Lista de DataFrames con los rectángulos separados por dimensión
     """
+    if var_obj not in df.columns:
+       raise KeyError(f"La columna objetivo '{var_obj}' no existe en el DataFrame")
+
     # Separamos X e ignoramos la columna objetivo
     X = df.drop(columns=[var_obj]).fillna(0)
 
     if verbose==1:
-       print("Llamamos a get_rangos para extraer limites de los arboles")
-    df_full_arboles = self.get_rangos(regr, X, verbose)
+       logger.info("Llamamos a get_rangos para extraer limites de los arboles")
+    try:
+       df_full_arboles = self.get_rangos(regr, X, verbose)
+    except Exception as exc:
+       logger.exception("Error obteniendo rangos de los árboles: %s", exc)
+       raise
 
     if verbose==1:
-       print("Extraer las reglas con regex")
+       logger.info("Extraer las reglas con regex")
     
-    df_full_arboles = self.get_fro(df_full_arboles)
+    try:
+       df_full_arboles = self.get_fro(df_full_arboles)
+    except Exception as exc:
+       logger.exception("Error aplicando regex a los árboles: %s", exc)
+       raise
 
     if verbose==1:
-       print("Obtenemos un resumen de los  árboles")
+       logger.info("Obtenemos un resumen de los  árboles")
     
-    df_summ = self.get_summary_optimizado(df, df_full_arboles, var_obj, no_trees_search, verbose)
+    try:
+       df_summ = self.get_summary_optimizado(df, df_full_arboles, var_obj, no_trees_search, verbose)
+    except Exception as exc:
+       logger.exception("Error generando el resumen de árboles: %s", exc)
+       raise
     
     if verbose==1:
-       print("Generamos el df final con forma de rectángulo")
+       logger.info("Generamos el df final con forma de rectángulo")
        
-    separacion_dim = self.extract_rectangles(df_summ)
+    try:
+       separacion_dim = self.extract_rectangles(df_summ)
+    except Exception as exc:
+       logger.exception("Error extrayendo rectángulos: %s", exc)
+       raise
 
     return separacion_dim
   

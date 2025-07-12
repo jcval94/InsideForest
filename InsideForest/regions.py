@@ -13,6 +13,9 @@ from collections import Counter
 
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import linkage, fcluster
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class regions:
@@ -1041,15 +1044,25 @@ class regions:
       Retorna:
       - pd.DataFrame: DataFrame con la nueva columna de llaves.
       """
-      if sorted: # Changed variable name
+      if list_column not in df.columns:
+          raise KeyError(f"La columna '{list_column}' no existe en el DataFrame")
+
+      if sorted:
           df[new_key_column] = df[list_column].apply(lambda x: delimiter.join(map(str, sorted(x))))
       else:
           df[new_key_column] = df[list_column].apply(lambda x: delimiter.join(map(str, x)))
       return df
 
   def get_clusters_importantes(self, df_clusterizado):
-    df_clusterizado_diff = df_clusterizado[['clusters_list']].drop_duplicates()
-    df_clusterizado_diff['n_ls'] = df_clusterizado_diff.apply(lambda x: len(x['clusters_list']), axis=1)
+    if 'clusters_list' not in df_clusterizado.columns:
+      raise KeyError("El DataFrame debe contener la columna 'clusters_list'")
+
+    try:
+      df_clusterizado_diff = df_clusterizado[['clusters_list']].drop_duplicates()
+      df_clusterizado_diff['n_ls'] = df_clusterizado_diff.apply(lambda x: len(x['clusters_list']), axis=1)
+    except Exception as exc:
+      logger.exception("Error procesando clusters_list: %s", exc)
+      return df_clusterizado
     df_clusterizado_diff_sub = df_clusterizado_diff
 
     df_expanded = self.expandir_clusters_binario(df_clusterizado_diff_sub,'clusters_list','cluster_')
@@ -1064,9 +1077,13 @@ class regions:
                                                                 kmeans_params={'n_clusters': 6, 'random_state': 42})
 
 
-    df_custers__vc = df_clustered[['db_labels','km_labels']].value_counts()
-    values_up = np.sqrt(df_custers__vc.head(1)).values[0]
-    df_custers__vc_ = df_custers__vc[df_custers__vc>values_up]
+    try:
+      df_custers__vc = df_clustered[['db_labels','km_labels']].value_counts()
+      values_up = np.sqrt(df_custers__vc.head(1)).values[0]
+      df_custers__vc_ = df_custers__vc[df_custers__vc>values_up]
+    except Exception as exc:
+      logger.exception("Error calculando clusters importantes: %s", exc)
+      return df_clusterizado
 
     # Extraer clsuters en el core
     pd_cluster_sun = []
@@ -1100,14 +1117,27 @@ class regions:
 
     df_clustered_subcluster_agg_all = pd.concat(pd_cluster_sun)
 
-    df_clusterizado = self.convert_list_to_string(df_clusterizado, 'clusters_list',
-                                            sorted=False, delimiter=',', new_key_column='clusters_key')
+    df_clusterizado = self.convert_list_to_string(
+        df_clusterizado, 'clusters_list', sorted=False, delimiter=',', new_key_column='clusters_key'
+    )
 
-    df_clustered_subcluster_agg_all = self.convert_list_to_string(df_clustered_subcluster_agg_all, 'clusters_list',
-                                                            sorted=False, delimiter=',', new_key_column='clusters_key')
+    df_clustered_subcluster_agg_all = self.convert_list_to_string(
+        df_clustered_subcluster_agg_all,
+        'clusters_list',
+        sorted=False,
+        delimiter=',',
+        new_key_column='clusters_key'
+    )
 
-    df_clusterizado_add = df_clusterizado.merge(df_clustered_subcluster_agg_all[['clusters_key','active_clusters']],
-                                                on='clusters_key', how='left')
+    try:
+        df_clusterizado_add = df_clusterizado.merge(
+            df_clustered_subcluster_agg_all[['clusters_key', 'active_clusters']],
+            on='clusters_key',
+            how='left'
+        )
+    except Exception as exc:
+        logger.exception("Error al combinar clusters: %s", exc)
+        return df_clusterizado
 
     return df_clusterizado_add.drop(columns='clusters_key')
 

@@ -1,4 +1,7 @@
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class labels:
@@ -42,6 +45,10 @@ class labels:
     
     df_sub.reset_index(inplace=True,drop=True)
 
+    if not set(df_sub.columns.get_level_values(1)).issubset(df.columns):
+      missing = set(df_sub.columns.get_level_values(1)) - set(df.columns)
+      raise KeyError(f"Las columnas {missing} no existen en el DataFrame principal")
+
     if i >= len(df_sub):
       return None
     limitador_inf = df_sub.loc[i,'linf'].copy()
@@ -71,9 +78,15 @@ class labels:
       df_ppr = df_reres[j].copy()
       df_ppr = df_ppr[[(a, b) for a, b in df_ppr.columns if 'altura' != b]]
       descripcion_vrs = self.get_intervals(df_ppr.head(etq_max))
-      ramas_ = [self.get_branch(df, df_ppr, i) for i in range(0,etq_max+1)]
-      scores_pob = [(x[var_obj].mean(), x[var_obj].count()) for x in ramas_ if x is not None]
-      poblacion_objetivo = [x[x[var_obj]==0] for x in ramas_ if x is not None]
+      try:
+        ramas_ = [self.get_branch(df, df_ppr, i) for i in range(0,etq_max+1)]
+        scores_pob = [
+            (x[var_obj].mean(), x[var_obj].count()) for x in ramas_ if x is not None
+        ]
+        poblacion_objetivo = [x[x[var_obj]==0] for x in ramas_ if x is not None]
+      except KeyError as exc:
+        logger.exception("Columnas faltantes al obtener etiquetas: %s", exc)
+        continue
       if len(poblacion_objetivo)==0:
         continue
       dicci = {etq_:[sc_, po_]for po_, sc_, etq_ in zip(poblacion_objetivo, scores_pob, descripcion_vrs) if po_.shape[0]>0}
