@@ -291,24 +291,30 @@ def generate_descriptions(condition_list, language='en', OPENAI_API_KEY=None, de
     result = {'respuestas': descriptions}
     return result
 
-def categorize_conditions(condition_list, df, n_groups=2):
-    """
-    Generaliza una lista de condiciones en descripciones de texto, categorizando
-    los valores de las características en 'n_groups' niveles.
+def _categorize_conditions(condition_list, df, n_groups=2, handle_bools=False):
+    """Función base para categorizar condiciones.
 
-    Args:
-        condition_list (list): Una lista de strings, donde cada string representa
-                               una condición con rangos de variables.
-                               Ej: ['0.0 <= Var1 <= 10.0 and 5.0 <= Var2 <= 15.0']
-        df (pd.DataFrame): El DataFrame que contiene los datos de referencia para
-                           calcular los umbrales de los cuantiles.
-        n_groups (int): El número de grupos en los que se dividirán los datos.
-                        Debe ser 2 o mayor.
+    Si ``handle_bools`` es ``True`` también se admiten comparaciones
+    explícitas con columnas booleanas. En tal caso, los valores ``True`` se
+    mapean a ``ALTO`` y ``False`` a ``BAJO``.
 
-    Returns:
-        dict: Un diccionario que contiene una clave 'respuestas' con una lista de
-              las descripciones generadas. O un diccionario con un error si los
-              parámetros son inválidos.
+    Parameters
+    ----------
+    condition_list : list[str]
+        Lista de strings con las condiciones a procesar.
+    df : pd.DataFrame
+        DataFrame de referencia para el cálculo de cuantiles.
+    n_groups : int
+        Número de grupos para la categorización de variables numéricas.
+    handle_bools : bool, default False
+        Si es ``True`` procesa comparaciones de igualdad contra ``True`` o
+        ``False`` para columnas booleanas.
+
+    Returns
+    -------
+    dict
+        Diccionario ``{"respuestas": [str, ...]}`` con las descripciones
+        generadas o ``{"error": <mensaje>}`` si los parámetros son inválidos.
     """
     # --- Validación de Entradas ---
     if not isinstance(df, pd.DataFrame) or df.empty:
@@ -317,9 +323,7 @@ def categorize_conditions(condition_list, df, n_groups=2):
         return {'error': 'n_groups debe ser un entero igual o mayor a 2.'}
 
     # --- Definición de Etiquetas de Categoría ---
-    labels = []
     if n_groups <= 5:
-        # Mapeo predefinido para 2 a 5 grupos
         label_map = {
             2: ['BAJO', 'ALTO'],
             3: ['BAJO', 'MEDIO', 'ALTO'],
@@ -328,54 +332,140 @@ def categorize_conditions(condition_list, df, n_groups=2):
         }
         labels = label_map.get(n_groups)
     else:
-        # Etiquetas genéricas para más de 5 grupos
         labels = [f'NIVEL_{i+1}' for i in range(n_groups)]
 
     # --- Cálculo de Umbrales (Quantiles) ---
+    bool_cols = []
+    if handle_bools:
+        bool_cols = df.select_dtypes(include="bool").columns.tolist()
+
     thresholds = {}
-    # Puntos de corte para los cuantiles. Ej: para n_groups=4, queremos [0.25, 0.5, 0.75]
     quantile_points = [i / n_groups for i in range(1, n_groups)]
 
     for column in df.columns:
-        # Se calcula un umbral por cada punto de corte
+        if handle_bools and column in bool_cols:
+            continue
         thresholds[column] = df[column].quantile(quantile_points).tolist()
 
     # --- Procesamiento de Condiciones ---
     descriptions = []
+    pattern_num = r'(\d+\.?\d*)\s*<=\s*(\w+)\s*<=\s*(\d+\.?\d*)'
+    pattern_bool = r'(\w+)\s*==\s*(True|False)'
+
     for condition in condition_list:
-        features = {}
-        # Patrón Regex para extraer nombre de variable y sus rangos
-        pattern = r'(\d+\.?\d*)\s*<=\s*(\w+)\s*<=\s*(\d+\.?\d*)'
-        matches = re.findall(pattern, condition)
+        tokens = [t.strip() for t in re.split(r'\band\b', condition)]
+        parts = []
+        for token in tokens:
+            m_num = re.match(pattern_num, token)
+            if m_num:
+                min_v, feat, max_v = m_num.groups()
+                avg_value = (float(min_v) + float(max_v)) / 2
+                if feat in thresholds:
+                    cuts = thresholds[feat]
+                    category = labels[np.searchsorted(cuts, avg_value)]
+                elif handle_bools and feat in bool_cols:
+                    category = 'ALTO' if avg_value >= 0.5 else 'BAJO'
+                else:
+                    category = 'N/A'
+                parts.append(f"{feat} es {category}")
+                continue
 
-        for match in matches:
-            min_value_str, feature_name, max_value_str = match
-            min_value = float(min_value_str)
-            max_value = float(max_value_str)
-            
-            # Se usa el valor promedio del rango para la categorización
-            avg_value = (min_value + max_value) / 2
+            if handle_bools:
+                m_bool = re.match(pattern_bool, token)
+                if m_bool:
+                    feat, val = m_bool.groups()
+                    if feat in bool_cols:
+                        category = 'ALTO' if val == 'True' else 'BAJO'
+                    else:
+                        category = 'N/A'
+                    parts.append(f"{feat} es {category}")
 
-            if feature_name in thresholds:
-                feature_thresholds = thresholds[feature_name]
-                
-                # Se busca en qué intervalo cae el valor promedio
-                # np.searchsorted encuentra el índice donde el elemento debería insertarse
-                # para mantener el orden. Esto nos da directamente el índice de la categoría.
-                category_index = np.searchsorted(feature_thresholds, avg_value)
-                
-                # Asignamos la etiqueta correspondiente
-                category = labels[category_index]
-                features[feature_name] = category
-            else:
-                # Si la variable de la condición no está en el DataFrame
-                features[feature_name] = 'N/A'
-
-        # Se construye la descripción final para la condición
-        description_parts = [f"{feature} es {category}" for feature, category in features.items()]
-        description = ', '.join(description_parts) + '.'
-        descriptions.append(description)
+        descriptions.append(', '.join(parts) + '.')
 
     # --- Retorno de Resultados ---
-    result = {'respuestas': descriptions}
-    return result
+    return {'respuestas': descriptions}
+
+
+def categorize_conditions(condition_list, df, n_groups=2):
+    """Generaliza condiciones numéricas en descripciones de texto."""
+    return _categorize_conditions(condition_list, df, n_groups=n_groups, handle_bools=False)
+
+
+def categorize_conditions_generalized(condition_list, df, n_groups=2):
+    """Generaliza condiciones con soporte para columnas booleanas."""
+
+    return _categorize_conditions(
+        condition_list,
+        df,
+        n_groups=n_groups,
+        handle_bools=True,
+    )
+
+
+def build_conditions_table(
+    condition_list,
+    df,
+    efectividades,
+    ponderadores=None,
+    n_groups=3,
+    fill_value="N/A",
+):
+    """Construye una tabla con descripciones categóricas y métricas.
+
+    Parameters
+    ----------
+    condition_list : list[str]
+        Lista de condiciones en formato ``"min <= VAR <= max …"``.
+    df : pd.DataFrame
+        DataFrame de referencia usado para calcular cuantiles.
+    efectividades : list[float] | pd.Series
+        Métrica de efectividad por cada condición.
+    ponderadores : list[float] | pd.Series | None, default None
+        Métrica opcional (soporte, frecuencia, etc.) por condición.
+    n_groups : int, default 3
+        Número de grupos para ``categorize_conditions``.
+    fill_value : str, default "N/A"
+        Valor para variables ausentes en la descripción de una condición.
+
+    Returns
+    -------
+    pd.DataFrame
+        Tabla resultante con columnas ``Grupo``, ``Efectividad``, ``Ponderador``
+        y las variables extraídas en orden alfabético.
+    """
+
+    cat_results = categorize_conditions(condition_list, df, n_groups=n_groups)
+    if "error" in cat_results:
+        raise ValueError(cat_results["error"])
+    descriptions = cat_results["respuestas"]
+
+    var_pattern = r"(\w+)\s+es\s+([^,\.]+)"
+    all_vars = set()
+    for desc in descriptions:
+        all_vars.update(re.findall(var_pattern, desc))
+    variables = sorted({var for var, _ in all_vars})
+
+    rows = []
+    n = len(descriptions)
+    if len(efectividades) != n:
+        raise ValueError("`efectividades` debe tener la misma longitud que `condition_list`")
+    if ponderadores is None:
+        ponderadores = [np.nan] * n
+    elif len(ponderadores) != n:
+        raise ValueError("`ponderadores` debe tener la misma longitud que `condition_list`")
+
+    for idx, desc in enumerate(descriptions):
+        row = {
+            "Grupo": idx + 1,
+            "Efectividad": efectividades[idx],
+            "Ponderador": ponderadores[idx],
+        }
+        row.update({var: fill_value for var in variables})
+
+        for var, level in re.findall(var_pattern, desc):
+            row[var] = level.strip()
+
+        rows.append(row)
+
+    final_cols = ["Grupo", "Efectividad", "Ponderador"] + variables
+    return pd.DataFrame(rows, columns=final_cols)
