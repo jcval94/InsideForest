@@ -162,3 +162,39 @@ categorias = categorize_conditions(iris_conds, df, n_groups=3)
 ```
 
 Permite generalizar condiciones de variables numéricas en categorías de nivel.
+
+### `categorize_conditions_generalized`
+
+Permite la misma generalización que `categorize_conditions` pero aceptando columnas booleanas.
+
+```python
+from InsideForest.descrip import categorize_conditions_generalized
+from sklearn.datasets import load_iris
+import pandas as pd
+
+iris = load_iris(as_frame=True)
+df = iris.frame
+df['species'] = iris.target
+df['large_petal'] = df['petal length (cm)'] > 4
+
+conds_bool = [
+    "large_petal == True and 1.0 <= petal width (cm) <= 1.8"
+]
+categorias_bool = categorize_conditions_generalized(conds_bool, df, n_groups=2)
+```
+
+### `build_conditions_table`
+
+Construye una tabla ordenada con la información de las condiciones categorizadas más sus métricas.
+
+```python
+from InsideForest.descrip import build_conditions_table
+
+efectividades = [0.75]
+ponderadores = [len(df)]
+
+tabla = build_conditions_table(conds_bool, df, efectividades, ponderadores, n_groups=2)
+```
+
+Esto genera un `DataFrame` resumen en el que cada condición se etiqueta por grupo junto con la efectividad y el ponderador proporcionados.
+
