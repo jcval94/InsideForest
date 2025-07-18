@@ -35,32 +35,6 @@ pip install InsideForest
 - seaborn
 - openai
 
-## Uso de OpenAI para descripciones
-`generate_descriptions` de `InsideForest.descrip` utiliza la librería `openai`. Se requiere una API key en el argumento `OPENAI_API_KEY` o mediante la variable de entorno del mismo nombre.
-
-```python
-from InsideForest.descrip import generate_descriptions
-import os
-
-os.environ["OPENAI_API_KEY"] = "sk-your-key"
-conds = ["0 <= Var1 <= 10"]
-result = generate_descriptions(conds, OPENAI_API_KEY=os.getenv("OPENAI_API_KEY"))
-```
-
-### `categorize_conditions`
-
-```python
-from InsideForest.descrip import categorize_conditions
-
-df = pd.DataFrame({'Var1': range(100), 'Var2': range(100)})
-conds = ['0 <= Var1 <= 10 and 0 <= Var2 <= 10']
-categorias = categorize_conditions(conds, df, n_groups=3)
-print(categorias)  # {'respuestas': ['Var1 es BAJO, Var2 es BAJO.']}
-```
-
-Permite generalizar condiciones de variables numéricas en categorías de nivel.
-
-
 ## Flujo de trabajo básico
 El orden típico para aplicar InsideForest es:
 1. Entrenar un modelo de bosques de decisión o `RandomForest`.
@@ -156,3 +130,35 @@ Genera etiquetas descriptivas de las ramas y clusters obtenidos del modelo.
 ## Licencia
 
 Este proyecto se distribuye bajo la licencia MIT. Consulta el archivo [LICENSE](LICENSE) para más información.
+
+## Uso de OpenAI para descripciones
+`generate_descriptions` de `InsideForest.descrip` utiliza la librería `openai`. Se requiere una API key en el argumento `OPENAI_API_KEY` o mediante la variable de entorno del mismo nombre.
+
+Usando las condiciones del ejemplo de **Iris** se pueden generar descripciones automáticas:
+
+```python
+from InsideForest.descrip import generate_descriptions
+import os
+
+iris_conds = [
+    "4.3 <= sepal length (cm) <= 5.8 and 1.0 <= petal width (cm) <= 1.8"
+]
+os.environ["OPENAI_API_KEY"] = "sk-your-key"
+res = generate_descriptions(iris_conds, OPENAI_API_KEY=os.getenv("OPENAI_API_KEY"))
+```
+
+### `categorize_conditions`
+
+```python
+from InsideForest.descrip import categorize_conditions
+from sklearn.datasets import load_iris
+import pandas as pd
+
+iris = load_iris(as_frame=True)
+df = iris.frame
+df['species'] = iris.target
+
+categorias = categorize_conditions(iris_conds, df, n_groups=3)
+```
+
+Permite generalizar condiciones de variables numéricas en categorías de nivel.
