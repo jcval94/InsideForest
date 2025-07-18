@@ -47,6 +47,20 @@ conds = ["0 <= Var1 <= 10"]
 result = generate_descriptions(conds, OPENAI_API_KEY=os.getenv("OPENAI_API_KEY"))
 ```
 
+### `categorize_conditions`
+
+```python
+from InsideForest.descrip import categorize_conditions
+
+df = pd.DataFrame({'Var1': range(100), 'Var2': range(100)})
+conds = ['0 <= Var1 <= 10 and 0 <= Var2 <= 10']
+categorias = categorize_conditions(conds, df, n_groups=3)
+print(categorias)  # {'respuestas': ['Var1 es BAJO, Var2 es BAJO.']}
+```
+
+Permite generalizar condiciones de variables numéricas en categorías de nivel.
+
+
 ## Caso de uso (Iris)
 A continuación se muestra un resumen del flujo utilizado en el [notebook de ejemplo](https://colab.research.google.com/drive/11VGeB0V6PLMlQ8Uhba91fJ4UN1Bfbs90?usp=sharing).
 
@@ -106,6 +120,30 @@ for df_r in df_reres[:3]:
 ![Plot 2](./data/plot_2.png)
 
 Las zonas azules representan las ramas más relevantes del bosque y permiten interpretar dónde se concentra la variable objetivo.
+### `Models`
+
+```python
+from InsideForest.models import Models
+
+m = Models()
+fp_rows, resto = m.get_knn_rows(df_train, 'target', criterio_fp=True)
+param_grid = {'n_estimators': [50, 100], 'max_depth': [None, 5]}
+cv_model = m.get_cvRF(X_train, y_train, param_grid)
+```
+
+Proporciona métodos para obtener observaciones críticas con KNN y ajustar un bosque aleatorio con validación cruzada.
+
+### `Labels`
+
+```python
+from InsideForest.labels import Labels
+
+lb = Labels()
+etiquetas = lb.get_labels(df_reres, df, 'target', etq_max=5)
+```
+
+Genera etiquetas descriptivas de las ramas y clusters obtenidos del modelo.
+
 
 ## Licencia
 
