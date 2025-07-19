@@ -291,38 +291,20 @@ def generate_descriptions(condition_list, language='en', OPENAI_API_KEY=None, de
     result = {'respuestas': descriptions}
     return result
 
+import re
+import numpy as np   # Asegúrate de tenerlo importado
+import pandas as pd  # solo para el ejemplo, tu código ya lo usa
+
 def _categorize_conditions(condition_list, df, n_groups=2, handle_bools=False):
-    """Función base para categorizar condiciones.
 
-    Si ``handle_bools`` es ``True`` también se admiten comparaciones
-    explícitas con columnas booleanas. En tal caso, los valores ``True`` se
-    mapean a ``ALTO`` y ``False`` a ``BAJO``.
-
-    Parameters
-    ----------
-    condition_list : list[str]
-        Lista de strings con las condiciones a procesar.
-    df : pd.DataFrame
-        DataFrame de referencia para el cálculo de cuantiles.
-    n_groups : int
-        Número de grupos para la categorización de variables numéricas.
-    handle_bools : bool, default False
-        Si es ``True`` procesa comparaciones de igualdad contra ``True`` o
-        ``False`` para columnas booleanas.
-
-    Returns
-    -------
-    dict
-        Diccionario ``{"respuestas": [str, ...]}`` con las descripciones
-        generadas o ``{"error": <mensaje>}`` si los parámetros son inválidos.
-    """
-    # --- Validación de Entradas ---
+    # ── Validaciones idénticas ──
     if not isinstance(df, pd.DataFrame) or df.empty:
         return {'error': 'Se requiere un DataFrame de pandas válido y no vacío.'}
     if not isinstance(n_groups, int) or n_groups < 2:
         return {'error': 'n_groups debe ser un entero igual o mayor a 2.'}
-
-    # --- Definición de Etiquetas de Categoría ---
+    
+    df.columns = df.columns.str.replace(' ', '_')
+    # ── Etiquetas idénticas ──
     if n_groups <= 5:
         label_map = {
             2: ['BAJO', 'ALTO'],
@@ -330,30 +312,35 @@ def _categorize_conditions(condition_list, df, n_groups=2, handle_bools=False):
             4: ['MUY BAJO', 'BAJO', 'ALTO', 'MUY ALTO'],
             5: ['MUY BAJO', 'BAJO', 'MEDIO', 'ALTO', 'MUY ALTO']
         }
-        labels = label_map.get(n_groups)
+        labels = label_map[n_groups]
     else:
         labels = [f'NIVEL_{i+1}' for i in range(n_groups)]
 
-    # --- Cálculo de Umbrales (Quantiles) ---
-    bool_cols = []
-    if handle_bools:
-        bool_cols = df.select_dtypes(include="bool").columns.tolist()
-
-    thresholds = {}
+    # ── Umbrales idénticos ──
+    bool_cols = df.select_dtypes(include="bool").columns.tolist() if handle_bools else []
     quantile_points = [i / n_groups for i in range(1, n_groups)]
+    thresholds = {c: df[c].quantile(quantile_points).tolist()
+                  for c in df.columns if c not in bool_cols}
 
-    for column in df.columns:
-        if handle_bools and column in bool_cols:
-            continue
-        thresholds[column] = df[column].quantile(quantile_points).tolist()
+    # ── Patrones mejorados ──────────────────────────────────────────────
+    # 1) Nombre de columna: letras, números, _, -, ., (), [] …
+    var_name = r'[A-Za-z0-9_\-\.\(\)\[\]]+'
 
-    # --- Procesamiento de Condiciones ---
+    # 2) Número:
+    #    - Parte entera opcional
+    #    - Punto decimal opcional
+    #    - Notación científica opcional (e o E, con signo opcional)
+    #    - Signo ± al inicio opcional
+    num = r'[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?'
+
+    pattern_num  = rf'({num})\s*<=\s*({var_name})\s*<=\s*({num})'
+    pattern_bool = rf'({var_name})\s*==\s*(True|False)'
+
+    # ── Procesamiento idéntico ──
     descriptions = []
-    pattern_num = r'(\d+\.?\d*)\s*<=\s*(\w+)\s*<=\s*(\d+\.?\d*)'
-    pattern_bool = r'(\w+)\s*==\s*(True|False)'
-
     for condition in condition_list:
-        tokens = [t.strip() for t in re.split(r'\band\b', condition)]
+        tokens = [t.strip() for t in re.split(r'(?i)\band\b', condition)]
+
         parts = []
         for token in tokens:
             m_num = re.match(pattern_num, token)
@@ -382,24 +369,12 @@ def _categorize_conditions(condition_list, df, n_groups=2, handle_bools=False):
 
         descriptions.append(', '.join(parts) + '.')
 
-    # --- Retorno de Resultados ---
     return {'respuestas': descriptions}
 
 
 def categorize_conditions(condition_list, df, n_groups=2):
-    """Generaliza condiciones numéricas en descripciones de texto."""
-    return _categorize_conditions(condition_list, df, n_groups=n_groups, handle_bools=False)
+    return _categorize_conditions(condition_list, df, n_groups=n_groups, handle_bools=True)
 
-
-def categorize_conditions_generalized(condition_list, df, n_groups=2):
-    """Generaliza condiciones con soporte para columnas booleanas."""
-
-    return _categorize_conditions(
-        condition_list,
-        df,
-        n_groups=n_groups,
-        handle_bools=True,
-    )
 
 
 def build_conditions_table(
@@ -469,3 +444,77 @@ def build_conditions_table(
 
     final_cols = ["Grupo", "Efectividad", "Ponderador"] + variables
     return pd.DataFrame(rows, columns=final_cols)
+
+
+import pandas as pd
+from typing import Union, Dict, List, Any
+
+def _parse_relative_description(desc: Union[str, float, None]) -> Dict[str, str]:
+    """
+    Convierte una cadena del tipo
+        'petal_width_(cm) es MUY ALTO, sepal_length_(cm) es ALTO.'
+    en un diccionario
+        {'petal_width_(cm)': 'MUY ALTO',
+         'sepal_length_(cm)': 'ALTO'}
+    
+    Si la entrada no es texto válido ‒NaN, None, ''‒ devuelve {}.
+    """
+    if not isinstance(desc, str) or not desc.strip():
+        return {}
+    
+    # Eliminamos el punto final (si existe) y separamos por comas.
+    tokens: List[str] = [t.strip().rstrip('.')            # “petal es ALTO”
+                         for t in desc.split(',')
+                         if t.strip()]
+    
+    pares: Dict[str, str] = {}
+    for token in tokens:
+        if ' es ' in token:                               # Seguro que existe por formato
+            var, cat = token.split(' es ', 1)
+            pares[var.strip()] = cat.strip().upper()      # Normalizamos a MAYÚSCULAS
+    return pares
+
+
+def expandir_categorias(
+        df: pd.DataFrame,
+        desc_col: str = 'cluster_desc_relative',
+        inplace: bool = False
+    ) -> pd.DataFrame:
+    """
+    A partir de *df[desc_col]* crea una columna nueva por cada variable
+    mencionada en **cluster_desc_relative** y coloca la categoría (ALTO, BAJO…);
+    donde la variable no se mencione, deja `NaN`.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame original.
+    desc_col : str, default 'cluster_desc_relative'
+        Nombre de la columna que contiene las descripciones.
+    inplace : bool, default False
+        - True : añade las columnas directamente en `df` y lo devuelve.
+        - False: devuelve **una copia** con las columnas nuevas, dejando
+          `df` intacto.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame con las columnas adicionales de categorías.
+    """
+    if desc_col not in df.columns:
+        raise KeyError(f'No existe la columna "{desc_col}" en el DataFrame.')
+    
+    # 1) Transformamos cada descripción en un dict variable → categoría.
+    mapeos: pd.Series = df[desc_col].apply(_parse_relative_description)
+    
+    # 2) Convertimos la serie de dicts en DataFrame columnar (wide).
+    cat_df: pd.DataFrame = pd.json_normalize(mapeos)
+    # Las columnas ausentes en una fila quedan automáticamente como NaN.
+    
+    # 3) Unimos al original.
+    if inplace:
+        for col in cat_df.columns:
+            df[col] = cat_df[col]
+        return df
+    else:
+        return pd.concat([df.copy(), cat_df], axis=1)
