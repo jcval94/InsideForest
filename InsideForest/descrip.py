@@ -376,6 +376,14 @@ def categorize_conditions(condition_list, df, n_groups=2):
     return _categorize_conditions(condition_list, df, n_groups=n_groups, handle_bools=True)
 
 
+def categorize_conditions_generalized(condition_list, df, n_groups=2):
+    """Wrapper para retrocompatibilidad.
+
+    Permite procesar condiciones con soporte de booleanos.
+    """
+    return _categorize_conditions(condition_list, df, n_groups=n_groups, handle_bools=True)
+
+
 
 def build_conditions_table(
     condition_list,
