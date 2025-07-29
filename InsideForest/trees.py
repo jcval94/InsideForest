@@ -419,7 +419,11 @@ class Trees:
        raise KeyError(f"La columna objetivo '{var_obj}' no existe en el DataFrame")
 
     # Separamos X e ignoramos la columna objetivo
-    X = df.drop(columns=[var_obj]).fillna(0)
+    df_copy = df.copy()
+    cat_cols = df_copy.select_dtypes(['category']).columns
+    for col in cat_cols:
+        df_copy[col] = df_copy[col].cat.add_categories([0])
+    X = df_copy.drop(columns=[var_obj]).fillna(0)
 
     if verbose==1:
        logger.info("Llamamos a get_rangos para extraer limites de los arboles")
