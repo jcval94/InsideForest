@@ -4,6 +4,8 @@ import copy
 import numpy as np
 from scipy.signal import savgol_filter
 from sklearn.preprocessing import StandardScaler
+from itertools import combinations
+from typing import Dict, List, Tuple
 import re
 import logging
 
@@ -526,3 +528,129 @@ def expandir_categorias(
         return df
     else:
         return pd.concat([df.copy(), cat_df], axis=1)
+
+
+
+# ───────────────────────────── utilidades ─────────────────────────────
+
+def feature_cols(df: pd.DataFrame) -> List[str]:
+    """Devuelve las columnas de características (todo lo que
+    esté a la derecha de 'cluster_desc_relative')."""
+    idx = df.columns.get_loc('cluster_desc_relative')
+    return list(df.columns[idx + 1:])
+
+
+def encode_features(df: pd.DataFrame,
+                    ord_map: Dict[str, int],
+                    *,
+                    scale: bool = True) -> pd.DataFrame:
+    """
+    Convierte variables ordinales según `ord_map` y, opcionalmente,
+    escala numéricamente cada columna al rango [0, 1].
+
+    Parameters
+    ----------
+    df : DataFrame fuente
+    ord_map : dict  mapa de texto→valor ordinal
+    scale : bool    si True, normaliza columnas no constantes
+
+    Returns
+    -------
+    DataFrame con las columnas transformadas
+    """
+    feats = feature_cols(df)
+    enc = df[feats].copy()
+
+    for c in feats:
+        # mapea solo objetos (categóricas/ordinales)
+        if enc[c].dtype == object:
+            enc[c] = enc[c].map(ord_map)
+
+        # re-escala si tiene más de un valor distinto
+        if scale and enc[c].dropna().nunique() > 1:
+            enc[c] = (enc[c] - enc[c].min()) / (enc[c].max() - enc[c].min())
+
+    return enc
+
+
+def similarity(a_idx: int,
+               b_idx: int,
+               df_enc: pd.DataFrame,
+               *,
+               cov_weight: bool = True) -> float:
+    """Similitud (1-distancia media absoluta) entre dos filas ya codificadas."""
+    v_a, v_b = df_enc.iloc[a_idx], df_enc.iloc[b_idx]
+    mask = ~(v_a.isna() | v_b.isna())
+    if mask.sum() == 0:
+        return 0.0
+    d = np.abs(v_a[mask] - v_b[mask]).mean()
+    sim = 1 - d
+    return sim * (mask.sum() / df_enc.shape[1]) if cov_weight else sim
+
+
+# ───────────────────────────── API de alto nivel ─────────────────────────────
+
+def similarity_matrix(df: pd.DataFrame,
+                      ord_map: Dict[str, int],
+                      *,
+                      cov_weight: bool = True) -> pd.DataFrame:
+    """
+    Matriz de similitud S (diagonal = 1).
+
+    Parameters
+    ----------
+    df         : DataFrame con los clusters y sus features
+    ord_map    : dict mapa ordinal que se usará en `encode_features`
+    cov_weight : bool pondera la similitud por cobertura de datos no-nulos
+    """
+    df_enc = encode_features(df.reset_index(drop=True), ord_map)
+    n = len(df_enc)
+    clusters = df['cluster'].tolist()
+    S = pd.DataFrame(np.eye(n), index=clusters, columns=clusters)
+
+    for i, j in combinations(range(n), 2):
+        s = similarity(i, j, df_enc, cov_weight=cov_weight)
+        S.iat[i, j] = S.iat[j, i] = round(s, 3)
+    return S
+
+
+def cluster_pairs_sim(df: pd.DataFrame,
+                      ord_map: Dict[str, int],
+                      *,
+                      metric: str = 'cluster_ef_sample',
+                      cov_weight: bool = True) -> pd.DataFrame:
+    """
+    Devuelve un DataFrame con:
+      cluster_1 | cluster_2 | similitud | delta_<metric> | score
+
+    El score prioriza pares con alta similitud y mejora positiva
+    en la métrica indicada.
+    """
+    df_r = df.reset_index(drop=True)
+    df_enc = encode_features(df_r, ord_map)
+    n = len(df_r)
+
+    # — recolectamos pares —
+    pairs: List[Tuple[str, str, float, float]] = []
+    for i, j in combinations(range(n), 2):
+        sim = similarity(i, j, df_enc, cov_weight=cov_weight)
+        delta = abs(df_r.at[j, metric] - df_r.at[i, metric])
+        pairs.append((df_r.at[i, 'cluster'], df_r.at[j, 'cluster'], sim, delta))
+
+    # — escala robusta para deltas positivos —
+    pos_deltas = np.array([d for *_, d in pairs if d > 0])
+    mad = np.median(np.abs(pos_deltas - np.median(pos_deltas))) + 1e-9
+    sigma_rob = 1.4826 * mad if pos_deltas.size else 1.0
+
+    # — calculamos score —
+    rows = []
+    for c1, c2, sim, delta in pairs:
+        grow = 1 - np.exp(-max(0, delta) / sigma_rob)
+        score = sim * grow
+        rows.append([c1, c2, round(sim, 3), round(delta, 3), round(score, 3)])
+
+    return pd.DataFrame(rows,
+                        columns=['cluster_1', 'cluster_2',
+                                 'similitud', f'delta_{metric}', 'score'])
+
+
