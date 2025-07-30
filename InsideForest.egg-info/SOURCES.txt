@@ -4,6 +4,7 @@ setup.py
 InsideForest/__init__.py
 InsideForest/descrip.py
 InsideForest/labels.py
+InsideForest/metadata.py
 InsideForest/models.py
 InsideForest/regions.py
 InsideForest/trees.py
