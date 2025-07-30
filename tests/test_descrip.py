@@ -12,14 +12,14 @@ def test_categorize_conditions_basic():
     df = pd.DataFrame({'Var1': range(100), 'Var2': range(100)})
     conds = ['0 <= Var1 <= 10 and 0 <= Var2 <= 10']
     result = categorize_conditions(conds, df, n_groups=2)
-    assert result == {'respuestas': ['Var1 es BAJO, Var2 es BAJO.']}
+    assert result == {'respuestas': ['Var1 es Percentile 50, Var2 es Percentile 50.']}
 
 
 def test_categorize_conditions_three_groups():
     df = pd.DataFrame({'Var1': range(100), 'Var2': range(100)})
     conds = ['70 <= Var1 <= 90 and 10 <= Var2 <= 40']
     result = categorize_conditions(conds, df, n_groups=3)
-    assert result == {'respuestas': ['Var1 es ALTO, Var2 es BAJO.']}
+    assert result == {'respuestas': ['Var1 es Percentile 100, Var2 es Percentile 33.33.']}
 
 
 def test_categorize_conditions_invalid_inputs():
@@ -34,14 +34,14 @@ def test_categorize_conditions_generalized_boolean():
     df = pd.DataFrame({'Var1': [True, False] * 50, 'Var2': range(100)})
     conds = ['Var1 == True and 10 <= Var2 <= 30']
     result = categorize_conditions_generalized(conds, df, n_groups=2)
-    assert result == {'respuestas': ['Var1 es ALTO, Var2 es BAJO.']}
+    assert result == {'respuestas': ['Var1 es TRUE, Var2 es Percentile 50.']}
 
 
 def test_categorize_conditions_generalized_boolean_false():
     df = pd.DataFrame({'Var1': [True, False] * 50})
     conds = ['Var1 == False']
     result = categorize_conditions_generalized(conds, df, n_groups=2)
-    assert result == {'respuestas': ['Var1 es BAJO.']}
+    assert result == {'respuestas': ['Var1 es FALSE.']}
 
 
 def test_build_conditions_table_basic():
@@ -58,8 +58,15 @@ def test_build_conditions_table_basic():
             'Grupo': [1, 2],
             'Efectividad': [0.5, 0.2],
             'Ponderador': [1.0, 2.0],
-            'Var1': ['BAJO', 'ALTO'],
-            'Var2': ['BAJO', 'BAJO'],
+            'Var1': ['Percentile 33.33', 'Percentile 100'],
+            'Var2': ['Percentile 33.33', 'Percentile 33.33'],
         }
     )
     pd.testing.assert_frame_equal(table, expected)
+
+
+def test_categorize_conditions_equal_percentiles():
+    df = pd.DataFrame({'Var1': [5] * 100})
+    conds = ['5 <= Var1 <= 5']
+    result = categorize_conditions(conds, df, n_groups=3)
+    assert result == {'respuestas': ['Var1 es Percentile 100.']}
