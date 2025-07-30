@@ -306,17 +306,14 @@ def _categorize_conditions(condition_list, df, n_groups=2, handle_bools=False):
         return {'error': 'n_groups debe ser un entero igual o mayor a 2.'}
     
     df.columns = df.columns.str.replace(' ', '_')
-    # ── Etiquetas idénticas ──
-    if n_groups <= 5:
-        label_map = {
-            2: ['BAJO', 'ALTO'],
-            3: ['BAJO', 'MEDIO', 'ALTO'],
-            4: ['MUY BAJO', 'BAJO', 'ALTO', 'MUY ALTO'],
-            5: ['MUY BAJO', 'BAJO', 'MEDIO', 'ALTO', 'MUY ALTO']
-        }
-        labels = label_map[n_groups]
-    else:
-        labels = [f'NIVEL_{i+1}' for i in range(n_groups)]
+    # ── Etiquetas de percentil ──
+    def format_percentile(p):
+        return str(int(p)) if float(p).is_integer() else f"{p:.2f}".rstrip('0').rstrip('.')
+
+    labels = [
+        f"Percentile {format_percentile((i + 1) * 100 / n_groups)}"
+        for i in range(n_groups)
+    ]
 
     # ── Umbrales idénticos ──
     bool_cols = df.select_dtypes(include="bool").columns.tolist() if handle_bools else []
@@ -351,9 +348,12 @@ def _categorize_conditions(condition_list, df, n_groups=2, handle_bools=False):
                 avg_value = (float(min_v) + float(max_v)) / 2
                 if feat in thresholds:
                     cuts = thresholds[feat]
-                    category = labels[np.searchsorted(cuts, avg_value)]
+                    # In case multiple percentiles produce the same cut value,
+                    # ``side='right'`` ensures we keep the higher percentile
+                    # label for that threshold
+                    category = labels[np.searchsorted(cuts, avg_value, side="right")]
                 elif handle_bools and feat in bool_cols:
-                    category = 'ALTO' if avg_value >= 0.5 else 'BAJO'
+                    category = 'TRUE' if avg_value >= 0.5 else 'FALSE'
                 else:
                     category = 'N/A'
                 parts.append(f"{feat} es {category}")
@@ -364,7 +364,7 @@ def _categorize_conditions(condition_list, df, n_groups=2, handle_bools=False):
                 if m_bool:
                     feat, val = m_bool.groups()
                     if feat in bool_cols:
-                        category = 'ALTO' if val == 'True' else 'BAJO'
+                        category = 'TRUE' if val == 'True' else 'FALSE'
                     else:
                         category = 'N/A'
                     parts.append(f"{feat} es {category}")
@@ -424,7 +424,7 @@ def build_conditions_table(
         raise ValueError(cat_results["error"])
     descriptions = cat_results["respuestas"]
 
-    var_pattern = r"(\w+)\s+es\s+([^,\.]+)"
+    var_pattern = r"(\w+)\s+es\s+([^,.]+(?:\.[^,.]+)*)"
     all_vars = set()
     for desc in descriptions:
         all_vars.update(re.findall(var_pattern, desc))
@@ -462,10 +462,10 @@ from typing import Union, Dict, List, Any
 def _parse_relative_description(desc: Union[str, float, None]) -> Dict[str, str]:
     """
     Convierte una cadena del tipo
-        'petal_width_(cm) es MUY ALTO, sepal_length_(cm) es ALTO.'
+        'petal_width_(cm) es Percentile 80, sepal_length_(cm) es Percentile 40.'
     en un diccionario
-        {'petal_width_(cm)': 'MUY ALTO',
-         'sepal_length_(cm)': 'ALTO'}
+        {'petal_width_(cm)': 'PERCENTILE 80',
+         'sepal_length_(cm)': 'PERCENTILE 40'}
     
     Si la entrada no es texto válido ‒NaN, None, ''‒ devuelve {}.
     """
@@ -473,7 +473,7 @@ def _parse_relative_description(desc: Union[str, float, None]) -> Dict[str, str]
         return {}
     
     # Eliminamos el punto final (si existe) y separamos por comas.
-    tokens: List[str] = [t.strip().rstrip('.')            # “petal es ALTO”
+    tokens: List[str] = [t.strip().rstrip('.')            # “petal es Percentile 25”
                          for t in desc.split(',')
                          if t.strip()]
     
@@ -492,7 +492,8 @@ def expandir_categorias(
     ) -> pd.DataFrame:
     """
     A partir de *df[desc_col]* crea una columna nueva por cada variable
-    mencionada en **cluster_desc_relative** y coloca la categoría (ALTO, BAJO…);
+    mencionada en **cluster_desc_relative** y coloca la categoría (Percentile 10,
+    Percentile 25…);
     donde la variable no se mencione, deja `NaN`.
 
     Parameters
