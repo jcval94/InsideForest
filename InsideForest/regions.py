@@ -22,20 +22,50 @@ logger = logging.getLogger(__name__)
 
 class Regions:
     
-  def search_original_tree(self,df_clusterizado, separacion_dim):
-            
+  def search_original_tree(self, df_clusterizado, separacion_dim):
+    """Devuelve la separación original que coincide con el DataFrame
+    clusterizado.
+
+    Parameters
+    ----------
+    df_clusterizado : pd.DataFrame
+        DataFrame resultante de la clusterización, con columnas ``linf`` y
+        ``lsup``.
+    separacion_dim : Sequence[pd.DataFrame]
+        Lista de DataFrames con las separaciones previas a la clusterización.
+
+    Returns
+    -------
+    pd.DataFrame
+        La separación de ``separacion_dim`` cuyas dimensiones coinciden con las
+        del ``df_clusterizado``.
+    """
+
     dims_after_clus = list(df_clusterizado['linf'].columns)
 
     for i in range(len(separacion_dim)):
       dims = list(set(separacion_dim[i].dimension.values))
-      if len(dims)==len(dims_after_clus):
-        if all([a==b for a, b in zip(sorted(dims),
-                                     sorted(dims_after_clus))]):
+      if len(dims) == len(dims_after_clus):
+        if all([a == b for a, b in zip(sorted(dims),
+                                       sorted(dims_after_clus))]):
           break
 
     return separacion_dim[i]
     
   def mean_distance_ndim(self, df_sep_dm_agg):
+    """Calcula la distancia media de cada dimensión.
+
+    Parameters
+    ----------
+    df_sep_dm_agg : pd.DataFrame
+        DataFrame con columnas multiíndice que incluyen ``linf`` y ``lsup``.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame con la media entre ``linf`` y ``lsup`` para cada fila.
+    """
+
     df_p1 = df_sep_dm_agg.xs('linf', axis=1, level=0)
     df_p2 = df_sep_dm_agg.xs('lsup', axis=1, level=0)
     m_medios = [(df_p1.iloc[i] + df_p2.iloc[i]) / 2 for i in range(len(df_p1))]
@@ -72,16 +102,24 @@ class Regions:
       return df_result
 
   def posiciones_valores_frecuentes(self, lista):
+    """Devuelve las posiciones de los valores más frecuentes en una lista."""
+
     frecuentes = Counter(lista).most_common()
     if len(set(lista)) == len(lista):
       resultado = list(range(len(lista)))
     else:
       frecuencia_maxima = frecuentes[0][1]
-      resultado = [i for i, v in enumerate(lista) if v in dict(frecuentes).keys() and 
-             dict(frecuentes)[v] == frecuencia_maxima]
+      resultado = [
+        i
+        for i, v in enumerate(lista)
+        if v in dict(frecuentes).keys() and dict(frecuentes)[v] == frecuencia_maxima
+      ]
     return resultado
   
   def get_eps_multiple_groups_opt(self, data, eps_min=1e-5, eps_max=None):
+    """Calcula un valor óptimo de ``eps`` para DBSCAN en datos de varias
+    dimensiones."""
+
     if len(data)==1:
       return 1e-2
     elif len(data)==2:
@@ -118,6 +156,8 @@ class Regions:
   
     
   def fill_na_pond(self, df_sep_dm, df, features_val):
+    """Reemplaza los valores ``inf`` de un DataFrame de límites."""
+
     df_ppfd = df_sep_dm.copy()
     lsup_limit = list(df[features_val].max()+1)
     linf_limit = list(df[features_val].min()-1)
@@ -243,6 +283,8 @@ class Regions:
 
 
   def get_agg_regions_j(self, df_eval, df):
+
+    """Agrupa rectángulos similares usando IoU y clustering jerárquico."""
 
     features_val = sorted(df_eval['dimension'].unique())
     df_sep_dm = pd.pivot_table(df_eval, index='rectangulo', columns='dimension')
@@ -380,7 +422,9 @@ class Regions:
 
   def prio_ranges(self, separacion_dim, df):
 
-    df_res = [self.set_multiindex(self.get_agg_regions_j(df_, df)) 
+    """Prioriza las regiones ordenándolas por tamaño de muestra y eficacia."""
+
+    df_res = [self.set_multiindex(self.get_agg_regions_j(df_, df))
               for df_ in separacion_dim]
 
     df_res = [df.sort_values(by=[('metrics', 'n_sample'), 
@@ -391,10 +435,12 @@ class Regions:
 
 
   def plot_bidim(self, df,df_sep_dm_agg, eje_x, eje_y, var_obj):
+    """Grafica las regiones bidimensionales y los datos."""
+
     df_sep_dm_agg['derecha'] = df_sep_dm_agg[('lsup',eje_x)]-\
     df_sep_dm_agg[('linf',eje_x)]
     df_sep_dm_agg['arriba'] = df_sep_dm_agg[('lsup',eje_y)]-\
-    df_sep_dm_agg[('linf',eje_y)] 
+    df_sep_dm_agg[('linf',eje_y)]
 
     eis_ = df_sep_dm_agg['linf'].values
     ders_ = df_sep_dm_agg['derecha'].values
@@ -415,6 +461,8 @@ class Regions:
 
     
   def plot_scatter3d(self,df_r,df, ax, var_obj):
+    """Dibuja un scatter 3D de los datos asociados a una región."""
+
     dimesniones_fd = df_r['linf'].columns
     df_scatter = df[list(dimesniones_fd)+[var_obj]].copy()
     df_scatter.replace(dict(zip([True,False],[1,0])), inplace=True)
@@ -434,6 +482,8 @@ class Regions:
     
 
   def plot_rect3d(self,df_r,i, ax):
+    """Dibuja un rectángulo 3D correspondiente a la región ``i``."""
+
     # Obtenemos los valores de los límites del rectángulo
     x1, y1, z1, x2, y2, z2 = df_r.drop(columns=['metrics']).iloc[i,:].values.flatten()
 
@@ -446,6 +496,8 @@ class Regions:
     return ax.plot_surface(X=X, Y=Y, Z=Z, alpha=0.2, color='gray')
 
   def plot_tridim(self,df_r,df,var_obj):
+    """Grafica regiones tridimensionales junto con los datos."""
+
     # Graficar figura
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
@@ -465,6 +517,8 @@ class Regions:
     
     
   def plot_multi_dims(self,df_sep_dm_agg, df,var_obj):
+    """Realiza la visualización adaptándose al número de dimensiones."""
+
     dimensiss = df_sep_dm_agg['linf'].columns
     # print(len(dimensiss), dimensiss)
     if len(dimensiss)==1:
@@ -490,6 +544,8 @@ class Regions:
 
   
   def asignar_ids_unicos(self, lista_reglas):
+    """Asigna un identificador único a cada regla de una lista."""
+
     cluster_id = 0
     for df in lista_reglas:
       n_reglas = len(df)
@@ -1056,6 +1112,8 @@ class Regions:
       return df
 
   def get_clusters_importantes(self, df_clusterizado):
+    """Identifica los clusters más representativos de un DataFrame."""
+
     if 'clusters_list' not in df_clusterizado.columns:
       raise KeyError("El DataFrame debe contener la columna 'clusters_list'")
 
@@ -1371,9 +1429,11 @@ class Regions:
 
     return best_global
 
-  def labels(self, df, df_reres, n_clusters = None, 
-             include_summary_cluster=False, 
+  def labels(self, df, df_reres, n_clusters = None,
+             include_summary_cluster=False,
              balanced=False):
+
+    """Asigna etiquetas de cluster optimizando la selección de reglas."""
     
     lista_reglas = copy.deepcopy(df_reres)
 
@@ -1419,6 +1479,8 @@ class Regions:
 
   
   def get_corr_clust(self, df_datos_clusterizados):
+      """Calcula la matriz de correlación entre columnas de clusters."""
+
       df_clusterizado_diff = df_datos_clusterizados[['clusters_list']].drop_duplicates()
       df_clusterizado_diff['n_ls'] = df_clusterizado_diff.apply(lambda x: len(x['clusters_list']), axis=1)
       df_expanded = self.expandir_clusters_binario(df_clusterizado_diff,'clusters_list','cluster_')
