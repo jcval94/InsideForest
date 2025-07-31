@@ -167,7 +167,7 @@ class MetaExtractor:
 
         tokens = self._tokens(df_QW["cluster_descripcion"])
         mapping = {t: self._map_to_var(self._canon(t)) for t in tokens}
-        valid   = {tok: var for tok, var in mapping.items() if var}
+        valid   = {tok: var for tok, var in mapping.items() if var in list(self.meta.index)}
 
         if not valid:
             return pd.DataFrame()
@@ -178,14 +178,15 @@ class MetaExtractor:
         mini = self.meta.loc[list(valid.values()), keep_cols].copy()
         mini.insert(0, "rule_token", list(valid.keys()))
         mini.reset_index(names="metadata_row", inplace=True)
-
-        metadata_OBJ = self.meta.loc[[self.var_obj]]
+        try:
+            metadata_OBJ = self.meta.loc[[self.var_obj]]
+        except:
+            metadata_OBJ = self.meta.loc[[self.var_obj.upper()]]
+            
         metadata_OBJ['metadata_row'] = self.var_obj
         metadata_OBJ['rule_token'] = self.var_obj
-        # metadata_OBJ = metadata_OBJ.drop_duplicates() # Removed drop_duplicates call
 
         return pd.concat([mini, metadata_OBJ[mini.columns]], axis=0)
-
 
 # ------------------------------------------------------------------ #
 # 1. UTILITARIOS DE PARSEO
