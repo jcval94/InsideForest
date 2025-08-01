@@ -131,7 +131,50 @@ class MetaExtractor:
     def _tokens(series: pd.Series) -> Set[str]:
         return set(re.findall(r"[a-z]+__[A-Za-z0-9_]+",
                               " ".join(series.dropna().astype(str))))
+    
+    @staticmethod
+    def _extract_tokens(series: pd.Series) -> Set[str]:
+        """
+        Extrae de una Serie de pandas todos los nombres de variable que aparezcan:
+        • En comparaciones con operadores (<=, >=, <, >, ==, !=), incluyendo
+            números en notación científica y con guiones bajos como separadores
+            (p. ej. 1_000_000, 3.2e-4).
+        • En tokens con formato prefijo__nombre (p. ej. cat__score).
 
+        Devuelve un conjunto único de nombres de variable.
+        """
+        # 1) convertimos la serie a un solo string
+        text = " ".join(series.dropna().astype(str))
+
+        # 2) patrones inline
+        var_re = r"[A-Za-z_][A-Za-z0-9_\.\[\]]*"       # variables Python-like
+        num_re = r"""
+            [-+]?                                     # signo opcional
+            \d[\d_]*                                  # parte entera (1 ó 1_000_000)
+            (?:\.\d[\d_]*)?                           # parte decimal opcional
+            (?:[eE][-+]?\d+)?                         # notación científica opcional
+        """
+        op_re  = r"(?:<=|>=|<|>|==|!=)"                # operadores permitidos
+
+        # 3) regex para comparaciones “izquierda OP derecha”
+        compare_re = re.compile(
+            fr"(?P<left>{var_re}|{num_re})\s*{op_re}\s*(?P<right>{var_re}|{num_re})",
+            re.VERBOSE
+        )
+
+        # 4) regex para tokens prefijo__nombre
+        dbl_und_re = re.compile(r"[a-z]+__[A-Za-z0-9_]+")
+
+        # 5) recogemos tokens __ y variables en comparaciones
+        tokens: Set[str] = set(dbl_und_re.findall(text))
+        for m in compare_re.finditer(text):
+            for side in ("left", "right"):
+                lex = m.group(side)
+                # si lex es variable (no numérico), la añadimos
+                if re.fullmatch(var_re, lex) and not re.fullmatch(num_re, lex):
+                    tokens.add(lex)
+
+        return tokens
     def _canon(self, token: str) -> str:
         """Remove logical prefix + categorical suffix (if present)."""
         stem = re.sub(r"^(?:cat|num|bool)__", "", token)
@@ -165,7 +208,8 @@ class MetaExtractor:
         if "cluster_descripcion" not in df_QW.columns:
             raise KeyError("df_QW must contain 'cluster_descripcion' column")
 
-        tokens = self._tokens(df_QW["cluster_descripcion"])
+        # tokens = self._tokens(df_QW["cluster_descripcion"])
+        tokens = self._extract_tokens(df_QW["cluster_descripcion"])
         mapping = {t: self._map_to_var(self._canon(t)) for t in tokens}
         valid   = {tok: var for tok, var in mapping.items() if var in list(self.meta.index)}
 
@@ -182,7 +226,7 @@ class MetaExtractor:
             metadata_OBJ = self.meta.loc[[self.var_obj]]
         except:
             metadata_OBJ = self.meta.loc[[self.var_obj.upper()]]
-            
+
         metadata_OBJ['metadata_row'] = self.var_obj
         metadata_OBJ['rule_token'] = self.var_obj
 
@@ -283,6 +327,8 @@ def experiments_from_df2(df2: pd.DataFrame,
         recs.append({
             'cluster_low'        : int(low_row['cluster']),
             'cluster_high'       : int(high_row['cluster']),
+            'cluster_ef_low'     : row_a['cluster_ef_sample'],
+            'cluster_ef_high'    : row_b['cluster_ef_sample'],
             'delta_ef'           : abs(delta_ef),
             'avg_n'              : n_tot / 2,
             'variables_low'      : vars_low,
