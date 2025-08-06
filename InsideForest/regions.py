@@ -893,7 +893,7 @@ class Regions:
       """
       # Asegurar que la columna de clusters contiene listas o sets
       if not df[columna_clusters].apply(lambda x: isinstance(x, (list, set))).all():
-          raise ValueError(f"La columna '{columna_clusters}' debe contener listas o sets de clusters.")
+          raise ValueError(f"Column '{columna_clusters}' must contain lists or sets of clusters.")
       
       # Inicializar el binarizador
       mlb = MultiLabelBinarizer()
@@ -943,7 +943,7 @@ class Regions:
       # Validar que las columnas existen
       for col in cluster_columns:
           if col not in df.columns:
-              raise ValueError(f"La columna '{col}' no existe en el DataFrame.")
+              raise ValueError(f"Column '{col}' does not exist in the DataFrame.")
       
       # Preparar los datos para clustering
       X = df[cluster_columns].values
@@ -1077,7 +1077,7 @@ class Regions:
               cluster_number = col.split('_')[1].split('.')[0]
               cluster_mapping[col] = int(cluster_number)
           except (IndexError, ValueError):
-              raise ValueError(f"El formato de la columna '{col}' no es válido. Esperado 'cluster_<número>.0'.")
+              raise ValueError(f"The format of column '{col}' is invalid. Expected 'cluster_<number>.0'.")
       
       # Utilizar una lista por comprensión para obtener los clusters activos por fila
       df[new_column] = [
@@ -1103,7 +1103,7 @@ class Regions:
       - pd.DataFrame: DataFrame con la nueva columna de llaves.
       """
       if list_column not in df.columns:
-          raise KeyError(f"La columna '{list_column}' no existe en el DataFrame")
+          raise KeyError(f"Column '{list_column}' does not exist in the DataFrame")
 
       if sorted:
           df[new_key_column] = df[list_column].apply(lambda x: delimiter.join(map(str, sorted(x))))
@@ -1115,7 +1115,7 @@ class Regions:
     """Identifica los clusters más representativos de un DataFrame."""
 
     if 'clusters_list' not in df_clusterizado.columns:
-      raise KeyError("El DataFrame debe contener la columna 'clusters_list'")
+        raise KeyError("DataFrame must contain the 'clusters_list' column")
 
     try:
       df_clusterizado_diff = df_clusterizado[['clusters_list']].drop_duplicates()
@@ -1196,7 +1196,7 @@ class Regions:
             how='left'
         )
     except Exception as exc:
-        logger.exception("Error al combinar clusters: %s", exc)
+        logger.exception("Error combining clusters: %s", exc)
         return df_clusterizado
 
     return df_clusterizado_add.drop(columns='clusters_key')
@@ -1533,7 +1533,7 @@ class Regions:
           correlaciones_ordenadas = correlaciones.reindex(correlaciones.abs().sort_values(ascending=True).index)
           top_n = correlaciones_ordenadas.head(n)
       else:
-          raise ValueError("El parámetro 'direccion' debe ser 'arriba', 'abajo', 'ambos' o 'bottom'.")
+          raise ValueError("Parameter 'direccion' must be 'arriba', 'abajo', 'ambos' or 'bottom'.")
       
       return top_n.sort_values(ascending=False)
 
