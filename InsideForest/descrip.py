@@ -26,7 +26,7 @@ def primer_punto_inflexion_decreciente(data, bins=10, window_length=5, polyorder
     """
 
     if len(data) == 0:
-        logger.error("La lista de datos está vacía")
+        logger.error("Data list is empty")
         return None
 
     try:
@@ -34,7 +34,7 @@ def primer_punto_inflexion_decreciente(data, bins=10, window_length=5, polyorder
         counts, bin_edges = np.histogram(data, bins=bins)
         bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
     except Exception as exc:
-        logger.exception("Error al calcular el histograma: %s", exc)
+        logger.exception("Error computing histogram: %s", exc)
         return None
 
     # Suavizar el histograma para reducir ruido
@@ -49,7 +49,7 @@ def primer_punto_inflexion_decreciente(data, bins=10, window_length=5, polyorder
     try:
         counts_smooth = savgol_filter(counts, window_length=window_length, polyorder=polyorder)
     except Exception as exc:
-        logger.exception("Error aplicando savgol_filter: %s", exc)
+        logger.exception("Error applying savgol_filter: %s", exc)
         return None
 
     # Calcular la segunda derivada
@@ -91,7 +91,7 @@ def replace_with_dict(df, columns, var_rename):
         Información necesaria para revertir los reemplazos.
     """
     if not isinstance(df, pd.DataFrame):
-        raise TypeError("df debe ser un DataFrame de pandas")
+        raise TypeError("df must be a pandas DataFrame")
 
     df_replaced = df.copy()
     replace_info = {}
@@ -104,7 +104,7 @@ def replace_with_dict(df, columns, var_rename):
     for col in columns:
         if col not in df_replaced.columns:
             logger.warning(
-                f"Advertencia: La columna '{col}' no se encontró en el DataFrame."
+                f"Warning: column '{col}' not found in the DataFrame."
             )
             continue
         
@@ -120,7 +120,7 @@ def replace_with_dict(df, columns, var_rename):
         try:
             df_replaced[col] = df_replaced[col].astype(str).str.replace(pattern, repl, regex=True)
         except Exception as exc:
-            logger.exception("Error al reemplazar valores en la columna %s: %s", col, exc)
+            logger.exception("Error replacing values in column %s: %s", col, exc)
             continue
     
     return df_replaced, replace_info
@@ -282,15 +282,15 @@ def generate_descriptions(condition_list, language='en', OPENAI_API_KEY=None, de
             **default_params
         )
     except Exception as exc:
-        logger.exception("Error al llamar a la API de OpenAI: %s", exc)
-        return {'respuestas': []}
+        logger.exception("Error calling the OpenAI API: %s", exc)
+        return {'responses': []}
 
     # Dividir la respuesta en una lista de descripciones por línea
     descriptions = respuesta.choices[0].message.content.strip().split("\n")
     descriptions = [desc.strip() for desc in descriptions if desc.strip()]
 
     # Return a dictionary with the responses
-    result = {'respuestas': descriptions}
+    result = {'responses': descriptions}
     return result
 
 import re
@@ -301,9 +301,9 @@ def _categorize_conditions(condition_list, df, n_groups=2, handle_bools=False):
 
     # ── Validaciones idénticas ──
     if not isinstance(df, pd.DataFrame) or df.empty:
-        return {'error': 'Se requiere un DataFrame de pandas válido y no vacío.'}
+        return {'error': 'A valid, non-empty pandas DataFrame is required.'}
     if not isinstance(n_groups, int) or n_groups < 2:
-        return {'error': 'n_groups debe ser un entero igual o mayor a 2.'}
+        return {'error': 'n_groups must be an integer greater than or equal to 2.'}
     
     df.columns = df.columns.str.replace(' ', '_')
     # ── Etiquetas de percentil ──
@@ -356,7 +356,7 @@ def _categorize_conditions(condition_list, df, n_groups=2, handle_bools=False):
                     category = 'TRUE' if avg_value >= 0.5 else 'FALSE'
                 else:
                     category = 'N/A'
-                parts.append(f"{feat} es {category}")
+                parts.append(f"{feat} = {category}")
                 continue
 
             if handle_bools:
@@ -367,11 +367,11 @@ def _categorize_conditions(condition_list, df, n_groups=2, handle_bools=False):
                         category = 'TRUE' if val == 'True' else 'FALSE'
                     else:
                         category = 'N/A'
-                    parts.append(f"{feat} es {category}")
+                    parts.append(f"{feat} = {category}")
 
         descriptions.append(', '.join(parts) + '.')
 
-    return {'respuestas': descriptions}
+    return {'responses': descriptions}
 
 
 def categorize_conditions(condition_list, df, n_groups=2):
@@ -422,9 +422,9 @@ def build_conditions_table(
     cat_results = categorize_conditions(condition_list, df, n_groups=n_groups)
     if "error" in cat_results:
         raise ValueError(cat_results["error"])
-    descriptions = cat_results["respuestas"]
+    descriptions = cat_results["responses"]
 
-    var_pattern = r"(\w+)\s+es\s+([^,.]+(?:\.[^,.]+)*)"
+    var_pattern = r"(\w+)\s*=\s*([^,.]+(?:\.[^,.]+)*)"
     all_vars = set()
     for desc in descriptions:
         all_vars.update(re.findall(var_pattern, desc))
@@ -462,7 +462,7 @@ from typing import Union, Dict, List, Any
 def _parse_relative_description(desc: Union[str, float, None]) -> Dict[str, str]:
     """
     Convierte una cadena del tipo
-        'petal_width_(cm) es Percentile 80, sepal_length_(cm) es Percentile 40.'
+        'petal_width_(cm) = Percentile 80, sepal_length_(cm) = Percentile 40.'
     en un diccionario
         {'petal_width_(cm)': 'PERCENTILE 80',
          'sepal_length_(cm)': 'PERCENTILE 40'}
@@ -473,14 +473,14 @@ def _parse_relative_description(desc: Union[str, float, None]) -> Dict[str, str]
         return {}
     
     # Eliminamos el punto final (si existe) y separamos por comas.
-    tokens: List[str] = [t.strip().rstrip('.')            # “petal es Percentile 25”
+    tokens: List[str] = [t.strip().rstrip('.')            # “petal = Percentile 25”
                          for t in desc.split(',')
                          if t.strip()]
     
     pares: Dict[str, str] = {}
     for token in tokens:
-        if ' es ' in token:                               # Seguro que existe por formato
-            var, cat = token.split(' es ', 1)
+        if ' = ' in token:                                # Seguro que existe por formato
+            var, cat = token.split(' = ', 1)
             pares[var.strip()] = cat.strip().upper()      # Normalizamos a MAYÚSCULAS
     return pares
 
@@ -513,7 +513,7 @@ def expandir_categorias(
         DataFrame con las columnas adicionales de categorías.
     """
     if desc_col not in df.columns:
-        raise KeyError(f'No existe la columna "{desc_col}" en el DataFrame.')
+        raise KeyError(f'Column "{desc_col}" does not exist in the DataFrame.')
     
     # 1) Transformamos cada descripción en un dict variable → categoría.
     mapeos: pd.Series = df[desc_col].apply(_parse_relative_description)
