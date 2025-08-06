@@ -175,6 +175,7 @@ class MetaExtractor:
                     tokens.add(lex)
 
         return tokens
+    
     def _canon(self, token: str) -> str:
         """Remove logical prefix + categorical suffix (if present)."""
         stem = re.sub(r"^(?:cat|num|bool)__", "", token)
