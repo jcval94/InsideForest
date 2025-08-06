@@ -416,7 +416,7 @@ class Trees:
     :return: Lista de DataFrames con los rectángulos separados por dimensión
     """
     if var_obj not in df.columns:
-       raise KeyError(f"La columna objetivo '{var_obj}' no existe en el DataFrame")
+       raise KeyError(f"Target column '{var_obj}' does not exist in the DataFrame")
 
     # Separamos X e ignoramos la columna objetivo
     df_copy = df.copy()

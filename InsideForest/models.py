@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class Models:
   def get_knn_rows(self, df, target_col, criterio_fp=True, min_obs = 5):
     if target_col not in df.columns:
-      raise KeyError(f"La columna objetivo '{target_col}' no existe en el DataFrame")
+        raise KeyError(f"Target column '{target_col}' does not exist in the DataFrame")
 
     X = df.drop(columns=[target_col]).values
     y = df.loc[:, target_col].values
@@ -21,7 +21,7 @@ class Models:
         y_pred = knn.predict(X)
         cm = confusion_matrix(y, y_pred)
       except Exception as exc:
-        logger.exception("Error al entrenar KNN: %s", exc)
+        logger.exception("Error training KNN: %s", exc)
         break
       tn, fp, fn, tp = cm.ravel()
       if criterio_fp:
