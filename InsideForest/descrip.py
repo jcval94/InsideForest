@@ -1029,11 +1029,15 @@ def generar_hypotesis(
     (intersection ∧ A) vs (intersection ∧ B).
     """
     row = exp_df.iloc[0]
+    row_ci = {k.lower(): v for k, v in row.items()}
+
+    def _get(key: str, default: Any | None = None):
+        return row_ci.get(key.lower(), default)
 
     # Possible side effects
     side = []
-    for col in ("only_cluster_A", "only_cluster_B"):
-        for tok in _extract_tokens(pd.Series([row[col]])):
+    for col in ("only_cluster_a", "only_cluster_b"):
+        for tok in _extract_tokens(pd.Series([_get(col, "")])):
             se = _meta_lookup(tok, meta_df, lang=lang)[3]
             if se:
                 side.append(se)
@@ -1044,13 +1048,13 @@ def generar_hypotesis(
             "lang": lang,
             "target": _meta_lookup(target, meta_df, lang=lang)[0],
             "target_description": _meta_lookup(target, meta_df, lang=lang)[1],
-            "shared_rules": row["intersection"],
-            "subgroup_a": row["only_cluster_A"],
-            "subgroup_b": row["only_cluster_B"],
+            "shared_rules": _get("intersection", ""),
+            "subgroup_a": _get("only_cluster_a", ""),
+            "subgroup_b": _get("only_cluster_b", ""),
             "metrics": {
-                "p_a": row["cluster_ef_A"],
-                "p_b": row["cluster_ef_B"],
-                "delta": row["delta_ef"],
+                "p_a": _get("cluster_ef_a"),
+                "p_b": _get("cluster_ef_b"),
+                "delta": _get("delta_ef"),
             },
             "tokens_info": {
                 t: {
@@ -1060,9 +1064,9 @@ def generar_hypotesis(
                     "side_effect": _meta_lookup(t, meta_df, lang=lang)[3],
                 }
                 for t in (
-                    _extract_tokens(pd.Series([row["intersection"]]))
-                    | _extract_tokens(pd.Series([row["only_cluster_A"]]))
-                    | _extract_tokens(pd.Series([row["only_cluster_B"]]))
+                    _extract_tokens(pd.Series([_get("intersection", "")]))
+                    | _extract_tokens(pd.Series([_get("only_cluster_a", "")]))
+                    | _extract_tokens(pd.Series([_get("only_cluster_b", "")]))
                 )
             },
         }
@@ -1072,18 +1076,18 @@ def generar_hypotesis(
             return txt
 
     # ===== LOCAL PATH =====
-    inter_txt = _list_rules_to_text(row["intersection"], meta_df, lang=lang)
-    a_txt = _list_rules_to_text(row["only_cluster_A"], meta_df, lang=lang)
-    b_txt = _list_rules_to_text(row["only_cluster_B"], meta_df, lang=lang)
+    inter_txt = _list_rules_to_text(_get("intersection", ""), meta_df, lang=lang)
+    a_txt = _list_rules_to_text(_get("only_cluster_a", ""), meta_df, lang=lang)
+    b_txt = _list_rules_to_text(_get("only_cluster_b", ""), meta_df, lang=lang)
     target_lbl = _meta_lookup(target, meta_df, lang=lang)[0]
 
     return _local_hypothesis_text(
         inter_txt,
         a_txt,
         b_txt,
-        row["cluster_ef_A"],
-        row["cluster_ef_B"],
-        row["delta_ef"],
+        _get("cluster_ef_a"),
+        _get("cluster_ef_b"),
+        _get("delta_ef"),
         target_lbl,
         side,
         lang=lang,

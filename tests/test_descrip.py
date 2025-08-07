@@ -106,14 +106,50 @@ def test_generar_hypotesis_fallback_without_gpt(monkeypatch):
     meta_df = pd.DataFrame({"rule_token": ["tok"], "identity.label_i18n.es": ["Etiqueta"]})
     exp_df = pd.DataFrame({
         "intersection": ["tok"],
-        "only_cluster_A": [""],
-        "only_cluster_B": [""],
-        "cluster_ef_A": [0.1],
-        "cluster_ef_B": [0.2],
+        "only_cluster_a": [""],
+        "only_cluster_b": [""],
+        "cluster_ef_a": [0.1],
+        "cluster_ef_b": [0.2],
         "delta_ef": [0.1],
     })
     result = generar_hypotesis(meta_df, exp_df, target="tok", use_gpt=True, lang="es")
     assert "Etiqueta" in result
+
+
+def test_generar_hypotesis_handles_missing_subgroups(monkeypatch):
+    """Ensure missing subgroup columns don't raise KeyError."""
+    from InsideForest import descrip
+
+    monkeypatch.setattr(descrip, "_client", None)
+    meta_df = pd.DataFrame({"rule_token": ["tok"], "identity.label_i18n.es": ["Etiqueta"]})
+    exp_df = pd.DataFrame({
+        "intersection": ["tok"],
+        # omit only_cluster_a and only_cluster_b
+        "cluster_ef_a": [0.1],
+        "cluster_ef_b": [0.2],
+        "delta_ef": [0.1],
+    })
+    result = generar_hypotesis(meta_df, exp_df, target="tok", use_gpt=False, lang="es")
+    assert "Etiqueta" in result
+
+
+def test_generar_hypotesis_handles_lowercase_columns(monkeypatch):
+    """Subgroup columns provided in lowercase are handled correctly."""
+    from InsideForest import descrip
+
+    monkeypatch.setattr(descrip, "_client", None)
+    meta_df = pd.DataFrame({"rule_token": ["tok"], "identity.label_i18n.es": ["Etiqueta"]})
+    exp_df = pd.DataFrame({
+        "intersection": ["tok"],
+        "only_cluster_a": [""],
+        "only_cluster_b": [""],
+        "cluster_ef_a": [0.1],
+        "cluster_ef_b": [0.2],
+        "delta_ef": [0.1],
+    })
+    result = generar_hypotesis(meta_df, exp_df, target="tok", use_gpt=False, lang="es")
+    assert "Etiqueta" in result
+    assert "10.00%" in result
 
 
 def test_get_frontiers_basic():
