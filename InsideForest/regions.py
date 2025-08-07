@@ -7,6 +7,7 @@ import copy
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import re
 
 from matplotlib.patches import Rectangle
 from collections import Counter, defaultdict
@@ -647,7 +648,75 @@ class Regions:
         plt.show()
 
 
-  
+  def plot_experiments(self, df, intersection, only_cluster_a,
+                       only_cluster_b, variables_a, variables_b,
+                       interactive=False):
+    """Plot experiment subsets defined by exclusive rules."""
+
+    def _apply_conditions(data, conds):
+      for cond in conds:
+        match = re.match(r"\s*([\-\d\.eE]+)\s*<=\s*([A-Za-z_][A-Za-z0-9_]*)\s*<=\s*([\-\d\.eE]+)", str(cond))
+        if match:
+          low, var, high = float(match.group(1)), match.group(2), float(match.group(3))
+          data = data[(data[var] >= low) & (data[var] <= high)]
+      return data
+
+    df_filtered = df.copy()
+    if intersection:
+      df_filtered = _apply_conditions(df_filtered, intersection)
+
+    df_a = _apply_conditions(df_filtered.copy(), only_cluster_a)
+    df_b = _apply_conditions(df_filtered.copy(), only_cluster_b)
+
+    dims = sorted(set(variables_a) | set(variables_b))
+    if len(dims) == 0:
+      logger.warning('No dimensions to plot.')
+      return
+
+    if len(dims) == 2:
+      ax = sns.scatterplot(data=df_a, x=dims[0], y=dims[1], color='blue', label='A')
+      sns.scatterplot(data=df_b, x=dims[0], y=dims[1], color='red', label='B', ax=ax)
+      ax.set_title('cluster A vs cluster B')
+      plt.legend()
+      if interactive:
+        plt.ion()
+        plt.show(block=False)
+      else:
+        plt.show()
+    elif len(dims) == 3:
+      fig = plt.figure()
+      ax = fig.add_subplot(111, projection='3d')
+      ax.scatter(df_a[dims[0]], df_a[dims[1]], df_a[dims[2]], color='blue', label='A')
+      ax.scatter(df_b[dims[0]], df_b[dims[1]], df_b[dims[2]], color='red', label='B')
+      ax.set_xlabel(dims[0])
+      ax.set_ylabel(dims[1])
+      ax.set_zlabel(dims[2])
+      ax.legend()
+      if interactive:
+        plt.ion()
+        plt.show(block=False)
+      else:
+        plt.show()
+    else:
+      dim_pairs = list(combinations(dims, 2))
+      n_pairs = len(dim_pairs)
+      n_cols = math.ceil(math.sqrt(n_pairs))
+      n_rows = math.ceil(n_pairs / n_cols)
+      fig, axes = plt.subplots(n_rows, n_cols, figsize=(5 * n_cols, 4 * n_rows))
+      axes = np.array(axes).reshape(n_rows, n_cols)
+      for ax, (x_axis, y_axis) in zip(axes.flat, dim_pairs):
+        sns.scatterplot(data=df_a, x=x_axis, y=y_axis, color='blue', label='A', ax=ax)
+        sns.scatterplot(data=df_b, x=x_axis, y=y_axis, color='red', label='B', ax=ax)
+        ax.set_title(f'{x_axis} vs {y_axis}')
+      for ax in list(axes.flat)[n_pairs:]:
+        ax.axis('off')
+      if interactive:
+        plt.ion()
+        plt.show(block=False)
+      else:
+        plt.show()
+
+
   def asignar_ids_unicos(self, lista_reglas):
     """Assign a unique identifier to each rule in a list."""
 
