@@ -11,7 +11,7 @@ import matplotlib.colors as mcolors
 from matplotlib.patches import Rectangle
 from collections import Counter, defaultdict
 from typing import Sequence, Mapping, Any, List
-import random, math
+import random, math, itertools
 
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import linkage, fcluster
@@ -429,8 +429,30 @@ class Regions:
     return df_res
 
 
-  def plot_bidim(self, df, df_sep_dm_agg, eje_x, eje_y, var_obj):
-    """Plot two-dimensional regions and data."""
+  def plot_bidim(self, df, df_sep_dm_agg, eje_x, eje_y, var_obj,
+                 interactive: bool = False, ax=None):
+    """Plot two-dimensional regions and data.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input data containing the two dimensions to plot.
+    df_sep_dm_agg : pd.DataFrame
+        DataFrame with the region limits.
+    eje_x, eje_y : str
+        Names of the dimensions to plot on each axis.
+    var_obj : str
+        Target variable used for coloring the scatter plot.
+    interactive : bool, optional
+        If ``True``, enable Matplotlib's interactive mode and display the
+        figure without blocking execution. Interactive features depend on the
+        backend in use and may not be available in all environments. The
+        default is ``False`` which preserves the previous behaviour of not
+        displaying the figure.
+    ax : matplotlib.axes.Axes, optional
+        Axis where the plot will be drawn. If ``None``, a new axis is
+        created.
+    """
 
     df_sep_dm_agg['derecha'] = df_sep_dm_agg[('lsup',eje_x)]-\
     df_sep_dm_agg[('linf',eje_x)]
@@ -441,7 +463,7 @@ class Regions:
     ders_ = df_sep_dm_agg['derecha'].values
     arrs_ = df_sep_dm_agg['arriba'].values
 
-    ax = sns.scatterplot(x=eje_x, y=eje_y, hue=var_obj, palette='RdBu', data=df)
+    ax = sns.scatterplot(x=eje_x, y=eje_y, hue=var_obj, palette='RdBu', data=df, ax=ax)
     norm = plt.Normalize(df[var_obj].min(), df[var_obj].max())
     sm = plt.cm.ScalarMappable(cmap="RdBu", norm=norm)
     sm.set_array([])
@@ -453,6 +475,10 @@ class Regions:
     # Remove the legend and add a colorbar
     ax.get_legend().remove()
     ax.figure.colorbar(sm, ax=ax)
+
+    if interactive:
+      plt.ion()
+      plt.show(block=False)
 
     
   def plot_scatter3d(self, df_r, df, ax, var_obj):
@@ -490,8 +516,24 @@ class Regions:
     # Draw the rectangle with transparency
     return ax.plot_surface(X=X, Y=Y, Z=Z, alpha=0.2, color='gray')
 
-  def plot_tridim(self, df_r, df, var_obj):
-    """Plot three-dimensional regions together with the data."""
+  def plot_tridim(self, df_r, df, var_obj, interactive: bool = False):
+    """Plot three-dimensional regions together with the data.
+
+    Parameters
+    ----------
+    df_r : pd.DataFrame
+        DataFrame with region limits and metrics.
+    df : pd.DataFrame
+        Original data used to plot points inside the regions.
+    var_obj : str
+        Target variable used for coloring the scatter plot.
+    interactive : bool, optional
+        If ``True``, enable Matplotlib's interactive mode and display the
+        figure without blocking execution. Interactive features such as
+        rotation and zoom depend on the backend in use and may not be
+        available in all environments. The default is ``False`` which keeps
+        the previous blocking behaviour.
+    """
 
     # Plot figure
     fig = plt.figure()
@@ -508,11 +550,35 @@ class Regions:
     ax.set_ylabel(str(dimesniones_fd[1]))
     ax.set_zlabel(str(dimesniones_fd[2]))
 
-    plt.show()
+    if interactive:
+      plt.ion()
+      plt.show(block=False)
+    else:
+      plt.show()
     
     
-  def plot_multi_dims(self, df_sep_dm_agg, df, var_obj):
-    """Visualize adapting to the number of dimensions."""
+  def plot_multi_dims(self, df_sep_dm_agg, df, var_obj,
+                      interactive: bool = False, force: bool = True):
+    """Visualize regions adapting to the number of dimensions.
+
+    Parameters
+    ----------
+    df_sep_dm_agg : pd.DataFrame
+        DataFrame with the region limits.
+    df : pd.DataFrame
+        Original data used for plotting.
+    var_obj : str
+        Target variable used for coloring the scatter plots.
+    interactive : bool, optional
+        If ``True``, enable Matplotlib's interactive mode and display figures
+        without blocking execution. Interactive capabilities depend on the
+        Matplotlib backend; some backends (e.g., ``Agg``) do not support
+        interactive features. The default is ``False``.
+    force : bool, optional
+        When the number of dimensions exceeds three, ``True`` (default)
+        generates subplots for all two-dimensional combinations. If ``False``
+        an informative ``ValueError`` is raised instead.
+    """
 
     dimensiss = df_sep_dm_agg['linf'].columns
     # print(len(dimensiss), dimensiss)
@@ -525,16 +591,38 @@ class Regions:
       df_sep_dm_agg[('lsup', eje_y)] = 1+meddd_p
       df_sep_dm_agg[('linf', eje_y)] = 1-meddd_p
     
-      self.plot_bidim(df_a,df_sep_dm_agg, eje_x, eje_y, var_obj)
+      self.plot_bidim(df_a,df_sep_dm_agg, eje_x, eje_y, var_obj, interactive=interactive)
     elif len(dimensiss)==2:
       df_a = df.copy()
       eje_x, eje_y = dimensiss.tolist()
-      self.plot_bidim(df_a,df_sep_dm_agg, eje_x, eje_y, var_obj)
+      self.plot_bidim(df_a,df_sep_dm_agg, eje_x, eje_y, var_obj, interactive=interactive)
     elif len(dimensiss)==3:
-      self.plot_tridim(df_sep_dm_agg,df,var_obj)
+      self.plot_tridim(df_sep_dm_agg,df,var_obj, interactive=interactive)
     else:
-      ddimee = dimensiss.tolist()
-      eje_x, eje_y, eje_z = ddimee[0], ddimee[1], ddimee[1]
+      if not force:
+        raise ValueError(
+          "Cannot plot more than three dimensions; set force=True to generate "
+          "all two-dimensional combinations.")
+
+      dim_list = dimensiss.tolist()
+      pairs = list(itertools.combinations(dim_list, 2))
+      n_plots = len(pairs)
+      ncols = math.ceil(math.sqrt(n_plots))
+      nrows = math.ceil(n_plots / ncols)
+      fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 5*nrows))
+      axes = np.atleast_1d(axes).flatten()
+      for ax, (eje_x, eje_y) in zip(axes, pairs):
+        self.plot_bidim(df, df_sep_dm_agg, eje_x, eje_y, var_obj,
+                        interactive=False, ax=ax)
+      # Hide any unused axes
+      for ax in axes[len(pairs):]:
+        ax.axis('off')
+
+      if interactive:
+        plt.ion()
+        plt.show(block=False)
+      else:
+        plt.show()
 
 
   
