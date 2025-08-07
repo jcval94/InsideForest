@@ -270,12 +270,12 @@ def experiments_from_df2(df2: pd.DataFrame,
                          meta: pd.DataFrame) -> pd.DataFrame:
     """
     Devuelve UNA fila por par de clústeres con:
-      · variables_low  : lista de tokens exclusivos del clúster de menor efectividad
-      · variables_high : lista de tokens exclusivos del clúster de mayor efectividad
-      · difficulty_low : máx(actionability.increase_difficulty) en variables_low
-      · difficulty_high: máx(actionability.decrease_difficulty) en variables_high
-      · n_intersection, n_only_low, n_only_high (conteos)
-      · score (penaliza dificultad_low, exclusivas y premia intersección)
+      · variables_a : lista de tokens exclusivos del clúster menos efectivo
+      · variables_b : lista de tokens exclusivos del clúster más efectivo
+      · difficulty_a : máx(actionability.increase_difficulty) en variables_a
+      · difficulty_b : máx(actionability.decrease_difficulty) en variables_b
+      · n_intersection, n_only_a, n_only_b (conteos)
+      · score (penaliza difficulty_a, exclusivas y premia intersección)
     """
     # --- tabla de acción -----------------------------
     meta_idx = meta.set_index('rule_token')
@@ -290,18 +290,18 @@ def experiments_from_df2(df2: pd.DataFrame,
         only_a     = sorted(conds_a - conds_b)
         only_b     = sorted(conds_b - conds_a)
 
-        # ¿quién es el clúster "low" (menor efectividad)?
+        # Determinar qué clúster es el de menor efectividad
         delta_ef   = row_a['cluster_ef_sample'] - row_b['cluster_ef_sample']
-        low_row, high_row  = (row_a, row_b) if delta_ef < 0 else (row_b, row_a)
-        only_low, only_high = (only_a, only_b) if delta_ef < 0 else (only_b, only_a)
+        row_a_subset, row_b_subset = (row_a, row_b) if delta_ef < 0 else (row_b, row_a)
+        only_subset_a, only_subset_b = (only_a, only_b) if delta_ef < 0 else (only_b, only_a)
 
         # -------------------- listas de tokens exclusivas ------------------
         def to_tokens(cond_list):
             return sorted({token_from_condition(c) for c in cond_list
                            if token_from_condition(c) is not None})
 
-        vars_low  = to_tokens(only_low)
-        vars_high = to_tokens(only_high)
+        vars_a = to_tokens(only_subset_a)
+        vars_b = to_tokens(only_subset_b)
 
         # -------------------- máximos de dificultad ------------------------
         def max_difficulty(tokens, col):
@@ -309,39 +309,39 @@ def experiments_from_df2(df2: pd.DataFrame,
                     if t in meta_idx.index and pd.notna(meta_idx.at[t, col])]
             return max(vals) if vals else 10        # castigo alto si faltan datos
 
-        difficulty_low  = max_difficulty(vars_low,  'actionability.increase_difficulty')
-        difficulty_high = max_difficulty(vars_high, 'actionability.decrease_difficulty')
+        difficulty_a = max_difficulty(vars_a, 'actionability.increase_difficulty')
+        difficulty_b = max_difficulty(vars_b, 'actionability.decrease_difficulty')
 
         # -------------------- score --------------------
-        n_tot   = (low_row.get('cluster_n_sample', 0) or 0) + \
-                  (high_row.get('cluster_n_sample', 0) or 0)
+        n_tot   = (row_a_subset.get('cluster_n_sample', 0) or 0) + \
+                  (row_b_subset.get('cluster_n_sample', 0) or 0)
         weight  = max(n_tot ** 0.5, 1)
 
         n_inter = len(inters)
-        n_only_low  = len(vars_low)
-        n_only_high = len(vars_high)
+        n_only_a = len(vars_a)
+        n_only_b = len(vars_b)
 
         score = (abs(delta_ef) * weight * (1 + n_inter) /
-                 (difficulty_low + 0.5) /
-                 (1 + n_only_low + n_only_high))
+                 (difficulty_a + 0.5) /
+                 (1 + n_only_a + n_only_b))
 
         recs.append({
-            'cluster_low'        : int(low_row['cluster']),
-            'cluster_high'       : int(high_row['cluster']),
-            'cluster_ef_low'     : row_a['cluster_ef_sample'],
-            'cluster_ef_high'    : row_b['cluster_ef_sample'],
+            'cluster_a'          : int(row_a_subset['cluster']),
+            'cluster_b'          : int(row_b_subset['cluster']),
+            'cluster_ef_a'       : row_a['cluster_ef_sample'],
+            'cluster_ef_b'       : row_b['cluster_ef_sample'],
             'delta_ef'           : abs(delta_ef),
             'avg_n'              : n_tot / 2,
-            'variables_low'      : vars_low,
-            'variables_high'     : vars_high,
-            'difficulty_low'     : difficulty_low,
-            'difficulty_high'    : difficulty_high,
+            'variables_a'        : vars_a,
+            'variables_b'        : vars_b,
+            'difficulty_a'       : difficulty_a,
+            'difficulty_b'       : difficulty_b,
             'n_intersection'     : n_inter,
-            'n_only_low'         : n_only_low,
-            'n_only_high'        : n_only_high,
+            'n_only_a'           : n_only_a,
+            'n_only_b'           : n_only_b,
             'intersection'       : inters,
-            'only_cluster_low'   : only_low,
-            'only_cluster_high'  : only_high,
+            'only_cluster_a'     : only_subset_a,
+            'only_cluster_b'     : only_subset_b,
             'score'              : score,
         })
 
@@ -364,12 +364,20 @@ def run_experiments(mx, df2_dict: dict[str, pd.DataFrame]) -> pd.DataFrame:
 
         if not hypo.empty:
             hypo['dataset'] = name
+            hypo['variables_intersection'] = [
+                sorted({token_from_condition(c) for c in conds
+                        if token_from_condition(c) is not None})
+                for conds in hypo['intersection']
+            ]
             all_hypotheses.append(hypo)
 
     if not all_hypotheses:
-        cols = ['dataset', 'cluster_low', 'cluster_high',
-                'variable', 'condition', 'delta_ef',
-                'avg_n', 'difficulty', 'score']
+        cols = ['dataset', 'cluster_a', 'cluster_b',
+                'cluster_ef_a', 'cluster_ef_b', 'delta_ef', 'avg_n',
+                'variables_a', 'variables_b', 'variables_intersection',
+                'difficulty_a', 'difficulty_b', 'n_intersection',
+                'n_only_a', 'n_only_b', 'intersection',
+                'only_cluster_a', 'only_cluster_b', 'score']
         return pd.DataFrame(columns=cols)
 
     return (pd.concat(all_hypotheses, ignore_index=True)
