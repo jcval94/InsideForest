@@ -23,22 +23,20 @@ logger = logging.getLogger(__name__)
 class Regions:
     
   def search_original_tree(self, df_clusterizado, separacion_dim):
-    """Devuelve la separación original que coincide con el DataFrame
-    clusterizado.
+    """Return the original separation matching the clustered DataFrame.
 
     Parameters
     ----------
     df_clusterizado : pd.DataFrame
-        DataFrame resultante de la clusterización, con columnas ``linf`` y
-        ``lsup``.
+        Resulting clustered DataFrame with ``linf`` and ``lsup`` columns.
     separacion_dim : Sequence[pd.DataFrame]
-        Lista de DataFrames con las separaciones previas a la clusterización.
+        List of DataFrames with the separations prior to clustering.
 
     Returns
     -------
     pd.DataFrame
-        La separación de ``separacion_dim`` cuyas dimensiones coinciden con las
-        del ``df_clusterizado``.
+        The separation from ``separacion_dim`` whose dimensions match
+        those of ``df_clusterizado``.
     """
 
     dims_after_clus = list(df_clusterizado['linf'].columns)
@@ -53,17 +51,17 @@ class Regions:
     return separacion_dim[i]
     
   def mean_distance_ndim(self, df_sep_dm_agg):
-    """Calcula la distancia media de cada dimensión.
+    """Compute the average distance of each dimension.
 
     Parameters
     ----------
     df_sep_dm_agg : pd.DataFrame
-        DataFrame con columnas multiíndice que incluyen ``linf`` y ``lsup``.
+        DataFrame with multi-index columns including ``linf`` and ``lsup``.
 
     Returns
     -------
     pd.DataFrame
-        DataFrame con la media entre ``linf`` y ``lsup`` para cada fila.
+        DataFrame with the average of ``linf`` and ``lsup`` for each row.
     """
 
     df_p1 = df_sep_dm_agg.xs('linf', axis=1, level=0)
@@ -73,26 +71,26 @@ class Regions:
   
   def mean_distance_ndim_fast(self, df_sep_dm_agg, verbose):
       """
-      Versión optimizada de mean_distance_ndim que calcula (linf + lsup)/2
-      en forma vectorizada usando NumPy.
+      Optimized version of mean_distance_ndim computing (linf + lsup)/2
+      vectorized with NumPy.
 
-      Parámetros:
-      - df_sep_dm_agg: DataFrame con índices multi-nivel que permiten extraer
-        'linf' y 'lsup' usando xs.
+      Parameters:
+      - df_sep_dm_agg: DataFrame with multi-level indices to extract
+        'linf' and 'lsup' using xs.
 
-      Retorna:
-      - DataFrame con la media de linf y lsup por fila y dimensión.
+      Returns:
+      - DataFrame with the average of linf and lsup per row and dimension.
       """
 
       # Extraemos linf y lsup
       df_p1 = df_sep_dm_agg.xs('linf', axis=1, level=0)
       df_p2 = df_sep_dm_agg.xs('lsup', axis=1, level=0)
 
-      # Operación vectorizada con NumPy:
+      # Vectorized operation with NumPy:
       # (df_p1 + df_p2) / 2
       m_medios_values = (df_p1.values + df_p2.values) / 2.0
 
-      # Reconstruimos el DataFrame con el mismo índice y columnas que df_p1
+      # Rebuild DataFrame with the same index and columns as df_p1
       df_result = pd.DataFrame(
           m_medios_values,
           index=df_p1.index,
@@ -102,7 +100,7 @@ class Regions:
       return df_result
 
   def posiciones_valores_frecuentes(self, lista):
-    """Devuelve las posiciones de los valores más frecuentes en una lista."""
+    """Return the positions of the most frequent values in a list."""
 
     frecuentes = Counter(lista).most_common()
     if len(set(lista)) == len(lista):
@@ -117,8 +115,7 @@ class Regions:
     return resultado
   
   def get_eps_multiple_groups_opt(self, data, eps_min=1e-5, eps_max=None):
-    """Calcula un valor óptimo de ``eps`` para DBSCAN en datos de varias
-    dimensiones."""
+    """Compute an optimal ``eps`` value for DBSCAN on multi-dimensional data."""
 
     if len(data)==1:
       return 1e-2
@@ -156,7 +153,7 @@ class Regions:
   
     
   def fill_na_pond(self, df_sep_dm, df, features_val):
-    """Reemplaza los valores ``inf`` de un DataFrame de límites."""
+    """Replace ``inf`` values in a DataFrame of limits."""
 
     df_ppfd = df_sep_dm.copy()
     lsup_limit = list(df[features_val].max()+1)
@@ -175,50 +172,49 @@ class Regions:
 
   def fill_na_pond_fastest(self, df_sep_dm, df, features_val, verbose):
       """
-      Versión ultra-optimizada de fill_na_pond para reemplazar -inf e inf usando operaciones vectorizadas avanzadas.
-      
-      Parámetros:
-      - df_sep_dm: DataFrame con columnas multi-nivel ('linf', 'lsup', 'ponderador', etc.).
-      - df: DataFrame original para extraer límites de cada dimensión.
-      - features_val: Lista de características/dimensiones presentes en df.
-      
-      Retorna:
-      - DataFrame con los mismos valores que el original, pero reemplazando -inf e inf
-        por los límites correspondientes en las columnas 'linf' y 'lsup'.
-        Incluye la columna 'ponderador'.
+      Ultra-optimized version of fill_na_pond to replace -inf and inf using advanced vectorized operations.
+
+      Parameters:
+      - df_sep_dm: DataFrame with multi-level columns ('linf', 'lsup', 'ponderador', etc.).
+      - df: Original DataFrame to obtain limits for each dimension.
+      - features_val: List of features/dimensions present in df.
+
+      Returns:
+      - DataFrame with the same values as the original, but replacing -inf and inf
+        with the corresponding limits in 'linf' and 'lsup'. Includes the 'ponderador' column.
       """
       # Extraer las columnas 'linf' y 'lsup'
       df_lilu = df_sep_dm[['linf', 'lsup']].copy()
       
-      # Calcular los límites de reemplazo para cada dimensión
-      lsup_limit = df[features_val].max() + 1  # Límite superior
-      linf_limit = df[features_val].min() - 1  # Límite inferior
+      # Calculate replacement limits for each dimension
+      lsup_limit = df[features_val].max() + 1  # Upper limit
+      linf_limit = df[features_val].min() - 1  # Lower limit
       
-      # Asegurarse de que el orden de features_val coincide con el orden de las columnas
-      # Obtener los nombres de las dimensiones desde las columnas MultiIndex
+      # Ensure features_val order matches column order
+      # Get dimension names from the MultiIndex columns
       linf_features = df_lilu['linf'].columns.tolist()
       lsup_features = df_lilu['lsup'].columns.tolist()
       
-      # Para 'linf' columns
+      # For 'linf' columns
       linf_repl_df = pd.DataFrame(
           np.tile(linf_limit.values, (df_lilu['linf'].shape[0], 1)),
           columns=df_lilu['linf'].columns,
           index=df_lilu.index
       )
       
-      # Para 'lsup' columns
+      # For 'lsup' columns
       lsup_repl_df = pd.DataFrame(
           np.tile(lsup_limit.values, (df_lilu['lsup'].shape[0], 1)),
           columns=df_lilu['lsup'].columns,
           index=df_lilu.index
       )
       
-      # Crear máscaras para identificar dónde están los -inf y inf
+      # Create masks to identify where -inf and inf occur
       mask_linf = np.isinf(df_lilu['linf'].values)
       mask_lsup = np.isinf(df_lilu['lsup'].values)
       
-      # Aplicar las máscaras y reemplazar los valores
-      # Usamos donde para asignar los valores de reemplazo donde la máscara es True
+      # Apply masks and replace values
+      # Use where to assign replacement values where mask is True
       df_lilu['linf'] = np.where(mask_linf, linf_repl_df.values, df_lilu['linf'].values)
       df_lilu['lsup'] = np.where(mask_lsup, lsup_repl_df.values, df_lilu['lsup'].values)
       
@@ -229,13 +225,13 @@ class Regions:
 
   def group_by_cluster(self, df: pd.DataFrame, cluster_col: str = "cluster") -> pd.DataFrame:
       """
-      Agrupa un DataFrame por la columna 'cluster', conservando el primer valor de las demás columnas.
-      Para las columnas que contienen 'ef_sample' o 'n_sample', solo se utiliza la primera columna encontrada.
-      Se maneja el caso en el que la columna de agrupación se repita, evitando duplicados en la selección final.
-      
-      :param df: DataFrame de entrada.
-      :param cluster_col: Nombre de la columna por la que se agrupará (por defecto 'cluster').
-      :return: DataFrame agrupado.
+      Group a DataFrame by the ``cluster`` column, keeping the first value of the other columns.
+      For columns containing ``ef_sample`` or ``n_sample``, only the first found column is used.
+      Handles repeated cluster columns to avoid duplicates in the final selection.
+
+      :param df: Input DataFrame.
+      :param cluster_col: Column name to group by (default ``cluster``).
+      :return: Grouped DataFrame.
       """
       
       # Verificar si la columna 'cluster' contiene valores no escalares (listas, sets, dicts, etc.)
@@ -245,25 +241,24 @@ class Regions:
               lambda x: tuple(x) if isinstance(x, (list, set)) else x
           )
       
-      # Identificar las columnas que contienen 'ef_sample' y 'n_sample'
+      # Identify columns containing 'ef_sample' and 'n_sample'
       ef_sample_cols = [col for col in df.columns if "ef_sample" in col]
       n_sample_cols = [col for col in df.columns if "n_sample" in col]
       ponderador_cols = [col for col in df.columns if "ponderador" in col]
 
-      # Seleccionar la primera columna de cada tipo, si existen
+      # Select the first column of each type if present
       first_ef_sample = ef_sample_cols[0] if ef_sample_cols else None
       first_n_sample = n_sample_cols[0] if n_sample_cols else None
       ponderador_sample = ponderador_cols[0] if ponderador_cols else None
 
-      # Construir la lista de columnas a conservar:
-      # - Se incluye la columna de cluster de forma explícita.
-      # - Se añaden todas las columnas que no sean parte de las listas de ef_sample o n_sample
-      #   ni la propia columna cluster (para evitar duplicados).
+      # Build list of columns to keep:
+      # - Include the cluster column explicitly.
+      # - Add all columns not part of ef_sample or n_sample lists nor the cluster column itself (to avoid duplicates).
       cols_to_keep = [cluster_col] + [
           col for col in df.columns if col not in (ef_sample_cols + n_sample_cols + ponderador_cols + [cluster_col])
       ]
       
-      # Agregar la primera columna 'ef_sample' y 'n_sample', si existen
+      # Add the first 'ef_sample' and 'n_sample' columns if they exist
       if first_ef_sample:
           cols_to_keep.append(first_ef_sample)
       if first_n_sample:
@@ -271,10 +266,10 @@ class Regions:
       if ponderador_sample:
           cols_to_keep.append(ponderador_sample)
       
-      # Eliminar duplicados en 'cols_to_keep' preservando el orden
+      # Remove duplicates in 'cols_to_keep' preserving order
       cols_to_keep = list(dict.fromkeys(cols_to_keep))
       
-      # Agrupar por la columna 'cluster' y conservar el primer valor de cada columna seleccionada
+      # Group by 'cluster' and keep the first value of each selected column
       df_grouped = df[cols_to_keep].groupby(cluster_col, as_index=False).first()
       df_grouped_c = df[cols_to_keep[:2]].groupby(cluster_col, as_index=False).count()
       df_grouped_c = df_grouped_c.rename(columns={cols_to_keep[1]:'count'})
@@ -284,13 +279,13 @@ class Regions:
 
   def get_agg_regions_j(self, df_eval, df):
 
-    """Agrupa rectángulos similares usando IoU y clustering jerárquico."""
+    """Group similar rectangles using IoU and hierarchical clustering."""
 
     features_val = sorted(df_eval['dimension'].unique())
     df_sep_dm = pd.pivot_table(df_eval, index='rectangulo', columns='dimension')
     df_sep_dm = self.fill_na_pond_fastest(df_sep_dm, df, features_val,None)
 
-    # Si ya tienes el MultiIndex, puedes aplanarlo:
+    # Flatten MultiIndex if already present
     df_sep_dm.columns = [f"{col[1].strip()}&&{col[0]}" for col in df_sep_dm.columns]
     df_raw = df_sep_dm.copy()
 
@@ -298,10 +293,10 @@ class Regions:
         df_raw["cluster"] = 1
         return self.group_by_cluster(df_raw)
 
-    # Lista de dimensiones (extraídas de los nombres de columnas)
+    # List of dimensions extracted from column names
     dims = sorted(set(col.split('&&')[0] for col in df_raw.columns))
 
-    # Función para calcular IoU entre dos hipercubos
+    # Function to compute IoU between two hypercubes
     def iou_hypercube(row1, row2, dims):
         inter_vol = 1
         vol1 = 1
@@ -315,7 +310,7 @@ class Regions:
             inter_high = min(high1, high2)
 
             if inter_low >= inter_high:
-                return 0.0  # No hay intersección
+                return 0.0  # No intersection
 
             inter_vol *= (inter_high - inter_low)
             vol1 *= (high1 - low1)
@@ -324,29 +319,29 @@ class Regions:
         union_vol = vol1 + vol2 - inter_vol
         return inter_vol / union_vol if union_vol != 0 else 0.0
 
-    # Crear matriz de distancias basada en IoU (1 - IoU para que sea una distancia)
+    # Create distance matrix based on IoU (1 - IoU to obtain a distance)
     n = len(df_raw)
     distance_matrix = np.zeros((n, n))
 
     for i in range(n):
         for j in range(i + 1, n):
             distance_matrix[i, j] = 1 - iou_hypercube(df_raw.iloc[i], df_raw.iloc[j], dims)
-            distance_matrix[j, i] = distance_matrix[i, j]  # Simétrica
+            distance_matrix[j, i] = distance_matrix[i, j]  # Symmetric
 
-    # Convertir matriz en formato de lista de distancias para clustering
+    # Convert matrix to condensed distance vector for clustering
     dist_vector = squareform(distance_matrix)
 
-    # Aplicar clustering jerárquico
-    Z = linkage(dist_vector, method='average')  # Método de enlace promedio
+    # Apply hierarchical clustering
+    Z = linkage(dist_vector, method='average')  # Average linkage method
 
-    # Determinar número de clusters (ajustar umbral según necesites)
+    # Determine number of clusters (adjust threshold as needed)
 
     for tr in [tr/100 for tr in range(65,5,-1)]:
       clusters = fcluster(Z, tr, criterion='distance')
       if len(set(clusters))*2>len(distance_matrix):
         break
 
-    # Agregar la asignación de clusters al DataFrame
+    # Add cluster assignments to DataFrame
     df_raw["cluster"] = clusters
 
     n_sample_col = [col for col in df_raw.columns if 'n_sample' in col][0]
@@ -361,68 +356,68 @@ class Regions:
 
   def set_multiindex(self, df: pd.DataFrame, cluster_col: str = "cluster") -> pd.DataFrame:
       """
-      Transforma el DataFrame para:
-        - Usar la columna `cluster` como índice.
-        - Convertir las demás columnas en un MultiIndex a partir del separador "&&".
-      
-      Reglas:
-        1. Si una columna contiene "&&", se separa en:
-            left  = nombre_medida
-            right = identificador
-        2. Si right es una palabra especial (ef_sample, n_sample, ponderador, count):
-              primer nivel = "metrics"
-              segundo nivel = right
-        3. Si right no es especial:
-              primer nivel = right
-              segundo nivel = left
-        4. Si la columna no contiene "&&":
-            - Si contiene alguna palabra especial, se asigna ("metrics", <nombre completo>).
-            - De lo contrario, se asigna (None, <nombre completo>).
-      
-      El MultiIndex resultante tiene nombres de niveles: [None, 'dimension'].
-      
-      :param df: DataFrame de entrada.
-      :param cluster_col: Nombre de la columna que se usará como índice (por defecto "cluster").
-      :return: DataFrame con índice `cluster` y columnas con MultiIndex.
+      Transform the DataFrame to:
+        - Use the `cluster` column as index.
+        - Convert other columns into a MultiIndex using "&&" as separator.
+
+      Rules:
+        1. If a column contains "&&", split into:
+            left  = measure name
+            right = identifier
+        2. If right is a special word (ef_sample, n_sample, ponderador, count):
+              level1 = "metrics"
+              level2 = right
+        3. If right is not special:
+              level1 = right
+              level2 = left
+        4. If the column lacks "&&":
+            - If it contains a special word, assign ("metrics", <full name>).
+            - Otherwise assign (None, <full name>).
+
+      The resulting MultiIndex has level names: [None, 'dimension'].
+
+      :param df: Input DataFrame.
+      :param cluster_col: Column to use as index (default "cluster").
+      :return: DataFrame with `cluster` index and MultiIndex columns.
       """
-      # Definir las palabras especiales.
+      # Define special words
       special_words = {"ef_sample", "n_sample", "ponderador", "count"}
       new_cols = []
       
-      # Procesar cada columna (exceptuando la columna de cluster)
+      # Process each column (except the cluster column)
       for col in df.columns:
           if col == cluster_col:
-              continue  # Se usará como índice.
+              continue  # Will be used as index
           if "&&" in col:
-              # Separamos en left y right
+              # Split into left and right
               left, right = col.split("&&", 1)
               left = left.strip()
               right = right.strip()
               if right in special_words:
-                  # Para columnas especiales: ("metrics", <nombre especial>), es decir, right.
+                  # For special columns: ("metrics", <special name>) -> right
                   new_label = ("metrics", right)
               else:
-                  # Para columnas no especiales: (identificador, nombre_medida)
+                  # For non-special columns: (identifier, measure name)
                   new_label = (right, left)
           else:
-              # Columnas sin separador "&&"
+              # Columns without "&&" separator
               if any(sw in col for sw in special_words):
                   new_label = ("metrics", col)
               else:
                   new_label = (None, col)
           new_cols.append(new_label)
       
-      # Crear el MultiIndex con nombres de niveles [None, 'dimension']
+      # Create MultiIndex with level names [None, 'dimension']
       multi_cols = pd.MultiIndex.from_tuples(new_cols, names=[None, "dimension"])
       
-      # Establecer la columna cluster como índice y asignar el nuevo MultiIndex a las columnas.
+      # Set cluster column as index and assign new MultiIndex to columns
       df_new = df.set_index(cluster_col).copy()
       df_new.columns = multi_cols
       return df_new
 
   def prio_ranges(self, separacion_dim, df):
 
-    """Prioriza las regiones ordenándolas por tamaño de muestra y eficacia."""
+    """Prioritize regions ordering by sample size and effectiveness."""
 
     df_res = [self.set_multiindex(self.get_agg_regions_j(df_, df))
               for df_ in separacion_dim]
@@ -434,8 +429,8 @@ class Regions:
     return df_res
 
 
-  def plot_bidim(self, df,df_sep_dm_agg, eje_x, eje_y, var_obj):
-    """Grafica las regiones bidimensionales y los datos."""
+  def plot_bidim(self, df, df_sep_dm_agg, eje_x, eje_y, var_obj):
+    """Plot two-dimensional regions and data."""
 
     df_sep_dm_agg['derecha'] = df_sep_dm_agg[('lsup',eje_x)]-\
     df_sep_dm_agg[('linf',eje_x)]
@@ -460,8 +455,8 @@ class Regions:
     ax.figure.colorbar(sm, ax=ax)
 
     
-  def plot_scatter3d(self,df_r,df, ax, var_obj):
-    """Dibuja un scatter 3D de los datos asociados a una región."""
+  def plot_scatter3d(self, df_r, df, ax, var_obj):
+    """Draw a 3D scatter plot of the data associated with a region."""
 
     dimesniones_fd = df_r['linf'].columns
     df_scatter = df[list(dimesniones_fd)+[var_obj]].copy()
@@ -477,28 +472,28 @@ class Regions:
     zs = df_scatter[dimesniones_fd[2]].values
     colors = df_scatter[var_obj].replace(replace_var).values
     hex_colors = [mcolors.to_hex(c) for c in colors]
-    # Dibujamos los puntos
+    # Draw the points
     return ax.scatter(xs, ys, zs, c=hex_colors, s=1)
     
 
-  def plot_rect3d(self,df_r,i, ax):
-    """Dibuja un rectángulo 3D correspondiente a la región ``i``."""
+  def plot_rect3d(self, df_r, i, ax):
+    """Draw a 3D rectangle corresponding to region ``i``."""
 
-    # Obtenemos los valores de los límites del rectángulo
+    # Obtain rectangle limit values
     x1, y1, z1, x2, y2, z2 = df_r.drop(columns=['metrics']).iloc[i,:].values.flatten()
 
-    # Generamos los puntos del rectángulo
+    # Generate rectangle points
     X = np.array([[x1, x2, x2, x1, x1], [x1, x2, x2, x1, x1]])
     Y = np.array([[y1, y1, y2, y2, y1], [y1, y1, y2, y2, y1]])
     Z = np.array([[z1, z1, z1, z1, z1], [z2, z2, z2, z2, z2]])
 
-    # Dibujamos el rectángulo con transparencia
+    # Draw the rectangle with transparency
     return ax.plot_surface(X=X, Y=Y, Z=Z, alpha=0.2, color='gray')
 
-  def plot_tridim(self,df_r,df,var_obj):
-    """Grafica regiones tridimensionales junto con los datos."""
+  def plot_tridim(self, df_r, df, var_obj):
+    """Plot three-dimensional regions together with the data."""
 
-    # Graficar figura
+    # Plot figure
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
@@ -508,7 +503,7 @@ class Regions:
     self.plot_scatter3d(df_r,df, ax, var_obj)
     
     dimesniones_fd = df_r['linf'].columns
-    # Configuramos las etiquetas de los ejes
+    # Configure axis labels
     ax.set_xlabel(str(dimesniones_fd[0]))
     ax.set_ylabel(str(dimesniones_fd[1]))
     ax.set_zlabel(str(dimesniones_fd[2]))
@@ -516,8 +511,8 @@ class Regions:
     plt.show()
     
     
-  def plot_multi_dims(self,df_sep_dm_agg, df,var_obj):
-    """Realiza la visualización adaptándose al número de dimensiones."""
+  def plot_multi_dims(self, df_sep_dm_agg, df, var_obj):
+    """Visualize adapting to the number of dimensions."""
 
     dimensiss = df_sep_dm_agg['linf'].columns
     # print(len(dimensiss), dimensiss)
@@ -544,7 +539,7 @@ class Regions:
 
   
   def asignar_ids_unicos(self, lista_reglas):
-    """Asigna un identificador único a cada regla de una lista."""
+    """Assign a unique identifier to each rule in a list."""
 
     cluster_id = 0
     for df in lista_reglas:
@@ -556,13 +551,13 @@ class Regions:
 
   def generar_descripcion_clusters(self, df_reglas):
       """
-      Genera un DataFrame con la descripción textual y el ponderador de cada cluster,
-      basado en las reglas definidas en df_reglas.
+      Generate a DataFrame with textual descriptions and weights for each cluster
+      based on the rules defined in ``df_reglas``.
 
-      Se asume que:
-        - row['linf'] y row['lsup'] son Series con índices correspondientes a los nombres de las variables.
-        - El ponderador se extrae de ('metrics', 'ponderador').
-        - La columna 'cluster' contiene el identificador del cluster.
+      Assumes:
+        - row['linf'] and row['lsup'] are Series indexed by variable names.
+        - The weight is taken from ('metrics', 'ponderador').
+        - The 'cluster' column holds the cluster identifier.
       """
       # import numpy as np
       # import pandas as pd
@@ -575,11 +570,11 @@ class Regions:
           if hasattr(cluster_id, 'values'):
               cluster_id = cluster_id.values[0]
 
-          # Extraer los límites inferiores y superiores
+          # Extract lower and upper bounds
           linf = row['linf'].dropna()
           lsup = row['lsup'].dropna()
 
-          # Construir la descripción: para cada variable definida en linf, se crea un string
+          # Build description: for each variable in linf create a string
           descripcion_partes = [f"{linf[var]} <= {var} <= {lsup[var]}" for var in linf.index]
           descripcion = " AND ".join(descripcion_partes)
 
@@ -610,65 +605,65 @@ class Regions:
 
   def asignar_clusters_a_datos(self, df_datos, df_reglas, keep_all_clusters=True):
       """
-      Asigna clusters a los datos en base a reglas.
+      Assign clusters to data based on rules.
 
-      Parámetros
+      Parameters
       ----------
       df_datos : pd.DataFrame
-          DataFrame con los datos a asignar a clusters.
+          DataFrame containing the data to assign to clusters.
       df_reglas : pd.DataFrame
-          DataFrame con la definición de las reglas, con columnas MultiIndex en las que:
-            - Las columnas de límites inferiores están bajo el primer nivel 'linf'
-            - Las columnas de límites superiores están bajo el primer nivel 'lsup'
-            - El ponderador se encuentra en ('metrics', 'ponderador')
-            - La columna 'cluster' se encuentra de forma normal.
+          DataFrame defining the rules with MultiIndex columns where:
+            - Lower limits are under first level 'linf'
+            - Upper limits are under first level 'lsup'
+            - Weight is stored at ('metrics', 'ponderador')
+            - The 'cluster' column appears normally.
       keep_all_clusters : bool, optional (default=True)
-          Si es True, se añadirán cuatro columnas adicionales:
-            - 'n_clusters': número de clusters en los que cae el registro.
-            - 'clusters_list': lista de todos los clusters a los que pertenece ese registro.
-            - 'ponderadores_list': lista de los ponderadores de los clusters a los que pertenece.
-            - 'ponderador_mean': media de los ponderadores de los clusters a los que pertenece.
-          Si es False, se asigna sólo el cluster de mayor ponderador (sin columnas extras).
+          If True, four additional columns are added:
+            - 'n_clusters': number of clusters the record belongs to.
+            - 'clusters_list': list of all clusters the record belongs to.
+            - 'ponderadores_list': list of weights of those clusters.
+            - 'ponderador_mean': mean weight of those clusters.
+          If False, only the cluster with highest weight is assigned (no extra columns).
 
       Returns
       -------
       df_datos_clusterizados : pd.DataFrame
-          DataFrame de entrada con la columna 'cluster' asignada.
-          Si keep_all_clusters=True, se añaden las columnas adicionales.
+          Input DataFrame with the 'cluster' column assigned.
+          If keep_all_clusters=True, the additional columns are included.
       df_clusters_descripcion : pd.DataFrame
-          DataFrame con la descripción (o métricas) de cada cluster.
+          DataFrame with description or metrics for each cluster.
       """
       # import numpy as np
 
       n_datos = df_datos.shape[0]
       # Array para almacenar el cluster "principal" (el que tiene mayor ponderador)
       clusters_datos = np.full(n_datos, -1, dtype=float)
-      # Array para almacenar el ponderador del cluster principal
+      # Array to store the weight of the main cluster
       ponderador_datos = np.full(n_datos, -np.inf, dtype=float)
 
-      # Si se desea conservar el listado completo de clusters por registro, inicializamos estructuras
+      # If we want to keep the full list of clusters per record, initialize structures
       if keep_all_clusters:
           clusters_datos_all = [[] for _ in range(n_datos)]
           ponderadores_datos_all = [[] for _ in range(n_datos)]
 
-      # --- 1) Extraer y normalizar la información de las reglas ---
+      # --- 1) Extract and normalize rule information ---
       reglas_info = []
-      # Se recorre cada fila de df_reglas; normalmente el número de reglas es pequeño
+      # Iterate each row of df_reglas; normally the number of rules is small
       for idx, row in df_reglas.iterrows():
           if row[('metrics', 'ponderador')]==0:
               continue
-          # Extraer los límites inferiores y superiores; se asume que row['linf'] y row['lsup'] son Series
+          # Extract lower and upper bounds; assumes row['linf'] and row['lsup'] are Series
           linf = row['linf'].dropna()
           lsup = row['lsup'].dropna()
           variables = linf.index.tolist()
 
-          # Extraer el ponderador desde el grupo 'metrics'
+          # Extract the weight from the 'metrics' group
           p_val = row[('metrics', 'ponderador')]
-          # Si por alguna razón fuese iterable (por ejemplo, una lista), se toma su media;
-          # en condiciones normales es un valor escalar.
+          # If for some reason it is iterable (e.g., a list), take its mean;
+          # under normal conditions it's a scalar value.
           ponderador = p_val.mean() if hasattr(p_val, '__iter__') else p_val
 
-          # Extraer el cluster asignado; si viene encapsulado, se extrae el valor escalar.
+          # Extract the assigned cluster; if encapsulated, get the scalar value.
           cluster_raw = row['cluster']
           if hasattr(cluster_raw, 'values') and len(cluster_raw.values) == 1:
               cluster_raw = float(cluster_raw.values[0])
@@ -683,7 +678,7 @@ class Regions:
               'cluster': cluster_raw,
           })
 
-      # --- 2) Evaluar para cada registro qué reglas cumple ---
+      # --- 2) Evaluate which rules each record satisfies ---
       for regla in reglas_info:
           variables = regla['variables']
           linf = regla['linf']
@@ -691,13 +686,13 @@ class Regions:
           ponderador = regla['ponderador']
           cluster = regla['cluster']
 
-          # Extraer las columnas relevantes y convertir a arrays para operaciones vectorizadas
+          # Extract relevant columns and convert to arrays for vectorized operations
           X_datos = df_datos[variables]
           condiciones = [
               (X_datos[var].to_numpy() >= linf[var]) & (X_datos[var].to_numpy() <= lsup[var])
               for var in variables
           ]
-          # Si no hay variables, la regla no se puede evaluar; se asume que ningún registro la cumple.
+          # If there are no variables, the rule can't be evaluated; assume no record satisfies it.
           if condiciones:
               cumple_regla = np.logical_and.reduce(condiciones)
           else:
@@ -709,7 +704,7 @@ class Regions:
                   clusters_datos_all[i].append(cluster)
                   ponderadores_datos_all[i].append(ponderador)
 
-          # Actualizar el cluster "principal" si el ponderador de esta regla es mayor
+          # Update the "main" cluster if this rule's weight is higher
           actualizar = cumple_regla & (ponderador > ponderador_datos)
           clusters_datos[actualizar] = cluster
           ponderador_datos[actualizar] = ponderador
@@ -733,31 +728,31 @@ class Regions:
 
   def eliminar_reglas_redundantes(self, lista_reglas):
       """
-      Elimina únicamente aquellas reglas que estén estrictamente contenidas en otras
-      y cuyo ponderador sea menor que el de la regla "contenedora".
+      Remove only those rules strictly contained in others
+      whose weight is lower than the containing rule.
 
-      Comparación entre todos los elementos de la lista:
-        - Se concatenan todos los DataFrames (cada uno puede tener un conjunto de dimensiones distinto).
-        - Para cada regla, se evalúa su contención en otras reglas que tengan
-          igual o mayor número de dimensiones.
-        - Si la contención es total y el ponderador de la regla 'grande' es
-          estrictamente mayor, se elimina la regla contenida.
+      Comparison across all elements in the list:
+        - Concatenate all DataFrames (each may have a different set of dimensions).
+        - For each rule, evaluate whether it is contained in other rules with
+          equal or greater number of dimensions.
+        - If containment is total and the larger rule has strictly greater weight,
+          remove the contained rule.
 
-      Parámetros
+      Parameters
       ----------
       lista_reglas : List[pd.DataFrame]
-          Lista de DataFrames, cada uno con columnas MultiIndex:
-          - 'linf': límites inferiores de cada dimensión
-          - 'lsup': límites superiores de cada dimensión
-          - ('metrics', 'ponderador'): ponderador de la regla
-          - Otras columnas (p.ej. 'cluster') que se conservarán sin usarse en la comparación.
+          List of DataFrames, each with MultiIndex columns:
+          - 'linf': lower bounds of each dimension
+          - 'lsup': upper bounds of each dimension
+          - ('metrics', 'ponderador'): weight of the rule
+          - Other columns (e.g., 'cluster') preserved but unused in the comparison.
 
-          Cada DataFrame puede tener un conjunto de dimensiones distinto.
+          Each DataFrame may have a different set of dimensions.
 
-      Retorna
+      Returns
       -------
       df_reglas_importantes : pd.DataFrame
-          DataFrame con todas las reglas (de todos los DataFrames) que no resultaron redundantes.
+          DataFrame with all non-redundant rules from all DataFrames.
       """
       # import numpy as np
       # import pandas as pd
@@ -769,15 +764,15 @@ class Regions:
       if df_reglas.columns.names != [None, 'dimension']:
           df_reglas.columns.names = [None, 'dimension']
 
-      # 2. Extraer la información esencial de cada regla
+      # 2. Extract essential information from each rule
       reglas_info = []
       for idx, row in df_reglas.iterrows():
-          linf = row['linf']        # Límites inferiores (Series)
-          lsup = row['lsup']        # Límites superiores (Series)
-          p = row[('metrics', 'ponderador')]  # Ponderador (valor escalar)
+          linf = row['linf']        # Lower bounds (Series)
+          lsup = row['lsup']        # Upper bounds (Series)
+          p = row[('metrics', 'ponderador')]  # Weight (scalar value)
 
-          # Conjunto de dimensiones que la regla define (usando linf.dropna())
-          # Asumimos que "sin límite" => NaN y, por tanto, no cuenta como dimensión activa.
+          # Set of dimensions defined by the rule (using linf.dropna())
+          # Assume "no limit" => NaN and thus not an active dimension.
           vars_i = set(linf.dropna().index)
 
           reglas_info.append({
@@ -789,7 +784,7 @@ class Regions:
           })
 
       # 3. Ordenar las reglas por la cantidad de dimensiones (de menor a mayor)
-      #    Esto ayuda a reducir el número de comparaciones.
+      #    This helps reduce the number of comparisons.
       reglas_info_sorted = sorted(reglas_info, key=lambda x: len(x['variables']))
 
       # 4. Recorrer las reglas y marcar las que resulten redundantes
@@ -799,12 +794,12 @@ class Regions:
       for i in range(num_reglas):
           rule_i = reglas_info_sorted[i]
           if rule_i['idx'] in redundant_indices:
-              # Ya se marcó como redundante en alguna comparación anterior
+              # Already marked redundant in a previous comparison
               continue
 
           set_i = rule_i['variables']
-          # Comparamos únicamente con las reglas que siguen en la lista,
-          # ya que están ordenadas y tendrán >= número de dimensiones.
+          # Compare only with subsequent rules in the list,
+          # since they are ordered and will have >= number of dimensions.
           for j in range(i + 1, num_reglas):
               rule_j = reglas_info_sorted[j]
 
@@ -812,7 +807,7 @@ class Regions:
               if not set_i.issubset(rule_j['variables']):
                   continue
 
-              # 4.2. Verificar contención de límites: para cada variable en i,
+              # 4.2. Verify boundary containment: for each variable in i,
               #      linf_i >= linf_j y lsup_i <= lsup_j.
               contenido = True
               for var in set_i:
@@ -828,7 +823,7 @@ class Regions:
               if rule_j['ponderador'] > rule_i['ponderador']:
                   # i es redundante, se marca y dejamos de compararla
                   redundant_indices.add(rule_i['idx'])
-                  break  # No se necesitan más comparaciones para i
+                  break  # No more comparisons needed for i
 
       # 5. Eliminar las reglas redundantes y reindexar
       df_reglas_importantes = df_reglas.drop(index=redundant_indices).reset_index(drop=True)
@@ -837,21 +832,21 @@ class Regions:
 
   def combinar_dataframes_por_columnas(self, lista_reglas):
       """
-      Combina los DataFrames de la lista que tienen exactamente las mismas columnas (MultiIndex) en uno solo.
+      Combine DataFrames in the list that have the same columns (MultiIndex) into one.
 
-      La función agrupa los DataFrames por la estructura de columnas y concatena aquellos que compartan la misma estructura.
-      Si un grupo contiene un único DataFrame, se conserva tal cual.
+      The function groups DataFrames by their column structure and concatenates those
+      sharing the same structure. If a group contains a single DataFrame, it is kept as is.
 
-      Parámetros
+      Parameters
       ----------
       lista_reglas : list of pd.DataFrame
-          Lista de DataFrames con columnas MultiIndex.
+          List of DataFrames with MultiIndex columns.
 
-      Retorna
+      Returns
       -------
       nueva_lista : list of pd.DataFrame
-          Nueva lista en la que cada elemento es el resultado de concatenar (o conservar) los DataFrames
-          que comparten la misma estructura de columnas.
+          New list where each element is the result of concatenating (or keeping)
+          DataFrames that share the same column structure.
       """
       grupos = {}
       for df in lista_reglas:
@@ -875,21 +870,21 @@ class Regions:
 
   def expandir_clusters_binario(self, df, columna_clusters, prefijo='cluster_'):
       """
-      Expande una columna de listas de clusters en múltiples columnas binarias.
-      
-      Parámetros
+      Expand a column of cluster lists into multiple binary columns.
+
+      Parameters
       ----------
       df : pd.DataFrame
-          DataFrame que contiene la columna a expandir.
+          DataFrame containing the column to expand.
       columna_clusters : str
-          Nombre de la columna que contiene las listas de clusters.
-      prefijo : str, opcional
-          Prefijo para los nombres de las nuevas columnas. Por defecto es 'cluster_'.
-      
-      Retorna
+          Name of the column with cluster lists.
+      prefijo : str, optional
+          Prefix for the new column names. Default is 'cluster_'.
+
+      Returns
       -------
       pd.DataFrame
-          DataFrame original unido con las nuevas columnas binarias de clusters.
+          Original DataFrame joined with the new binary cluster columns.
       """
       # Asegurar que la columna de clusters contiene listas o sets
       if not df[columna_clusters].apply(lambda x: isinstance(x, (list, set))).all():

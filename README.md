@@ -2,32 +2,32 @@
 
 # InsideForest
 
-InsideForest es una técnica de **clustering supervisado** que se apoya en bosques de decisión para identificar y describir categorías dentro de un conjunto de datos. Permite descubrir regiones relevantes, asignar etiquetas y generar descripciones interpretables de forma sencilla.
+InsideForest is a **supervised clustering** technique built on decision forests to identify and describe categories within a dataset. It discovers relevant regions, assigns labels and produces interpretable descriptions.
 
-El *clustering supervisado* consiste en agrupar observaciones utilizando información de la variable objetivo para guiar el proceso de segmentación. En lugar de dejar que el algoritmo encuentre los grupos por sí mismo, las etiquetas existentes orientan la búsqueda de patrones coherentes.
+*Supervised clustering* groups observations using the target variable to guide segmentation. Instead of letting the algorithm find groups on its own, existing labels steer the search for coherent patterns.
 
-Sea que trabajes con datos de clientes, ventas u otra fuente de información, la biblioteca te ayudará a comprender mejor tus datos y tomar decisiones informadas.
+Whether you work with customer data, sales or any other source, the library helps you understand your information and make informed decisions.
 
-## Ejemplos de uso
+## Example use cases
 
-- Analizar el comportamiento de clientes para identificar segmentos rentables.
-- Clasificar pacientes según su historial médico y síntomas.
-- Evaluar canales de marketing a partir del tráfico de un sitio web.
-- Generar sistemas de reconocimiento de imágenes más precisos.
+- Analyze customer behavior to identify profitable segments.
+- Classify patients by medical history and symptoms.
+- Evaluate marketing channels using website traffic.
+- Build more accurate image-recognition systems.
 
-## Beneficios
+## Benefits
 
-Al construir y analizar un bosque aleatorio con InsideForest puedes identificar tendencias ocultas y obtener **insights** que faciliten tus decisiones de negocio.
+Building and analyzing a random forest with InsideForest uncovers hidden trends and provides **insights** that support business decisions.
 
-[CASO DE USO](https://colab.research.google.com/drive/11VGeB0V6PLMlQ8Uhba91fJ4UN1Bfbs90?usp=sharing)
+[USE CASE](https://colab.research.google.com/drive/11VGeB0V6PLMlQ8Uhba91fJ4UN1Bfbs90?usp=sharing)
 
-## Instalación
+## Installation
 
 ```bash
 pip install InsideForest
 ```
 
-## Dependencias principales
+## Main dependencies
 - scikit-learn
 - numpy
 - pandas
@@ -35,18 +35,19 @@ pip install InsideForest
 - seaborn
 - openai
 
-## Flujo de trabajo básico
-El orden típico para aplicar InsideForest es:
-1. Entrenar un modelo de bosques de decisión o `RandomForest`.
-2. Usar `Trees.get_branches` para extraer las ramas de cada árbol.
-3. Aplicar `Regions.prio_ranges` para priorizar las zonas de interés.
-4. Asociar cada observación con `Regions.labels`.
-5. Opcionalmente, interpretar con `generate_descriptions` y `categorize_conditions`.
-6. Finalmente, emplear utilidades como `Models` y `Labels` si se requieren análisis adicionales.
-## Caso de uso (Iris)
-A continuación se muestra un resumen del flujo utilizado en el [notebook de ejemplo](https://colab.research.google.com/drive/11VGeB0V6PLMlQ8Uhba91fJ4UN1Bfbs90?usp=sharing).
+## Basic workflow
+The typical order for applying InsideForest is:
+1. Train a decision forest or `RandomForest` model.
+2. Use `Trees.get_branches` to extract each tree's branches.
+3. Apply `Regions.prio_ranges` to prioritize areas of interest.
+4. Link each observation with `Regions.labels`.
+5. Optionally interpret results with `generate_descriptions` and `categorize_conditions`.
+6. Finally, use helpers such as `Models` and `Labels` for further analysis.
 
-### 1. Preparación del modelo
+## Use case (Iris)
+The following summarizes the flow used in the [example notebook](https://colab.research.google.com/drive/11VGeB0V6PLMlQ8Uhba91fJ4UN1Bfbs90?usp=sharing).
+
+### 1. Model preparation
 
 ```python
 from pyspark.sql import SparkSession
@@ -56,7 +57,7 @@ from pyspark.ml.classification import RandomForestClassifier
 
 spark = SparkSession.builder.appName('Iris').getOrCreate()
 
-# Cargar datos en Spark
+# Load data into Spark
 iris = load_iris()
 df = pd.DataFrame(iris.data, columns=iris.feature_names)
 df['species'] = iris.target
@@ -75,33 +76,33 @@ plt.show()
 
 ```python
 from InsideForest import Trees, Regions, Labels
-arbolesSP = Trees('pyspark', n_sample_multiplier=0.05, ef_sample_multiplier=10)
-regiones = Regions()
-descript = Labels()
+treesSP = Trees('pyspark', n_sample_multiplier=0.05, ef_sample_multiplier=10)
+regions = Regions()
+labels = Labels()
 ```
 
-### 2. Obtención de ramas y clusters
+### 2. Obtaining branches and clusters
 
 ```python
-pyspark_mod = arbolesSP.get_branches(df, 'species', model)
-df_reres = regiones.prio_ranges(pyspark_mod, df)
-clusterizados, descriptivos = regiones.labels(df, df_reres, False)
+pyspark_mod = treesSP.get_branches(df, 'species', model)
+df_reres = regions.prio_ranges(pyspark_mod, df)
+clusterized, descriptive = regions.labels(df, df_reres, False)
 ```
 
-### 3. Visualización
+### 3. Visualization
 
 ```python
 for df_r in df_reres[:3]:
     if len(df_r['linf'].columns) > 3:
         continue
-    regiones.plot_multi_dims(df_r, df, 'species')
+    regions.plot_multi_dims(df_r, df, 'species')
 ```
 
 ![Plot 1](./data/plot_1.png)
 
 ![Plot 2](./data/plot_2.png)
 
-Las zonas azules representan las ramas más relevantes del bosque y permiten interpretar dónde se concentra la variable objetivo.
+The blue areas highlight the most relevant branches of the forest, revealing where the target variable concentrates.
 
 ### `Models`
 
@@ -109,12 +110,12 @@ Las zonas azules representan las ramas más relevantes del bosque y permiten int
 from InsideForest.models import Models
 
 m = Models()
-fp_rows, resto = m.get_knn_rows(df_train, 'target', criterio_fp=True)
+fp_rows, rest = m.get_knn_rows(df_train, 'target', criterio_fp=True)
 param_grid = {'n_estimators': [50, 100], 'max_depth': [None, 5]}
 cv_model = m.get_cvRF(X_train, y_train, param_grid)
 ```
 
-Proporciona métodos para obtener observaciones críticas con KNN y ajustar un bosque aleatorio con validación cruzada.
+Provides methods for retrieving critical observations with KNN and tuning a random forest with cross-validation.
 
 ### `Labels`
 
@@ -122,19 +123,19 @@ Proporciona métodos para obtener observaciones críticas con KNN y ajustar un b
 from InsideForest.labels import Labels
 
 lb = Labels()
-etiquetas = lb.get_labels(df_reres, df, 'target', etq_max=5)
+labels_out = lb.get_labels(df_reres, df, 'target', etq_max=5)
 ```
 
-Genera etiquetas descriptivas de las ramas y clusters obtenidos del modelo.
+Generates descriptive labels for the branches and clusters obtained from the model.
 
-## Licencia
+## License
 
-Este proyecto se distribuye bajo la licencia MIT. Consulta el archivo [LICENSE](LICENSE) para más información.
+This project is distributed under the MIT license. See [LICENSE](LICENSE) for details.
 
-## Uso de OpenAI para descripciones
-`generate_descriptions` de `InsideForest.descrip` utiliza la librería `openai`. Se requiere una API key en el argumento `OPENAI_API_KEY` o mediante la variable de entorno del mismo nombre.
+## Using OpenAI for descriptions
+`generate_descriptions` from `InsideForest.descrip` uses the `openai` library. An API key is required either through the `OPENAI_API_KEY` argument or the environment variable of the same name.
 
-Usando las condiciones del ejemplo de **Iris** se pueden generar descripciones automáticas:
+Using the **Iris** example conditions you can generate automatic descriptions:
 
 ```python
 from InsideForest.descrip import generate_descriptions
@@ -158,14 +159,14 @@ iris = load_iris(as_frame=True)
 df = iris.frame
 df['species'] = iris.target
 
-categorias = categorize_conditions(iris_conds, df, n_groups=3)
+categories = categorize_conditions(iris_conds, df, n_groups=3)
 ```
 
-Permite generalizar condiciones de variables numéricas en categorías de nivel.
+Generalizes numeric variable conditions into level-based categories.
 
 ### `categorize_conditions_generalized`
 
-Permite la misma generalización que `categorize_conditions` pero aceptando columnas booleanas.
+Offers the same generalization as `categorize_conditions` but accepts boolean columns.
 
 ```python
 from InsideForest.descrip import categorize_conditions_generalized
@@ -177,24 +178,24 @@ df = iris.frame
 df['species'] = iris.target
 df['large_petal'] = df['petal length (cm)'] > 4
 
-conds_bool = [
+bool_conds = [
     "large_petal == True and 1.0 <= petal width (cm) <= 1.8"
 ]
-categorias_bool = categorize_conditions_generalized(conds_bool, df, n_groups=2)
+categories_bool = categorize_conditions_generalized(bool_conds, df, n_groups=2)
 ```
 
 ### `build_conditions_table`
 
-Construye una tabla ordenada con la información de las condiciones categorizadas más sus métricas.
+Builds a tidy table with categorized conditions and their metrics.
 
 ```python
 from InsideForest.descrip import build_conditions_table
 
-efectividades = [0.75]
-ponderadores = [len(df)]
+effectiveness = [0.75]
+weights = [len(df)]
 
-tabla = build_conditions_table(conds_bool, df, efectividades, ponderadores, n_groups=2)
+table = build_conditions_table(bool_conds, df, effectiveness, weights, n_groups=2)
 ```
 
-Esto genera un `DataFrame` resumen en el que cada condición se etiqueta por grupo junto con la efectividad y el ponderador proporcionados.
+This produces a summary `DataFrame` where each condition is tagged by group along with the provided effectiveness and weight.
 

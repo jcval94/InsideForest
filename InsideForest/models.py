@@ -44,6 +44,6 @@ class Models:
       cv.fit(X_train, y_train)
       return cv
     except Exception as exc:
-      logger.exception("Error en GridSearchCV: %s", exc)
+      logger.exception("Error in GridSearchCV: %s", exc)
       return None
 
