@@ -1,13 +1,42 @@
-from openai import OpenAI
-import pandas as pd
+from __future__ import annotations
+
+import ast
 import copy
+import json
+import logging
+import os
+import re
+from functools import lru_cache
+from itertools import combinations
+from typing import Any, Dict, List, Optional, Set, Tuple
+
 import numpy as np
+import pandas as pd
 from scipy.signal import savgol_filter
 from sklearn.preprocessing import StandardScaler
-from itertools import combinations
-from typing import Dict, List, Tuple
-import re
-import logging
+
+try:  # OpenAI SDK is optional
+    from openai import OpenAI  # type: ignore
+except Exception as exc:  # pragma: no cover - import failure path
+    OpenAI = None  # type: ignore[assignment]
+    _client = None
+    logging.warning("OpenAI package not available (%s)", exc)
+else:  # Only executed if import succeeded
+    try:
+        from google.colab import userdata  # type: ignore
+        OPENAI_API_KEY = userdata.get('OPENAI_API_KEY')
+    except Exception:
+        OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+
+    if not OPENAI_API_KEY:
+        _client = None
+        logging.warning("OPENAI_API_KEY not set; GPT features disabled")
+    else:
+        try:
+            _client = OpenAI(api_key=OPENAI_API_KEY)
+        except Exception as exc:
+            _client = None
+            logging.warning("OpenAI deshabilitado (%s)", exc)
 
 logger = logging.getLogger(__name__)
 
@@ -653,5 +682,348 @@ def cluster_pairs_sim(df: pd.DataFrame,
     return pd.DataFrame(rows,
                         columns=['cluster_1', 'cluster_2',
                                  'similitud', f'delta_{metric}', 'score'])
+
+
+def get_frontiers(df_datos_descript: pd.DataFrame,
+                  df: pd.DataFrame,
+                  divide: int = 5) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Genera fronteras entre clusters a partir de descripciones.
+
+    Parameters
+    ----------
+    df_datos_descript : pd.DataFrame
+        DataFrame con descripciones de clusters.
+    df : pd.DataFrame
+        DataFrame de referencia para calcular percentiles.
+    divide : int, default 5
+        Número de divisiones para ``categorize_conditions``.
+
+    Returns
+    -------
+    tuple(pd.DataFrame, pd.DataFrame)
+        ``df_datos_explain`` con columnas expandidas y ``frontiers`` con
+        pares de clusters ordenados por score.
+    """
+    descrip_generales = [
+        x for x in df_datos_descript['cluster_descripcion'].unique().tolist()
+        if isinstance(x, str)
+    ]
+
+    descrip = categorize_conditions(descrip_generales, df, divide)
+    df_datos_descript['cluster_desc_relative'] = (
+        df_datos_descript['cluster_descripcion'].replace(
+            {k: v for k, v in zip(descrip_generales, descrip['responses'])}
+        )
+    )
+
+    df_datos_explain = expandir_categorias(df_datos_descript)
+    df_datos_explain = df_datos_explain[df_datos_explain['cluster_n_sample'] > 0]
+
+    ORD_MAP_LOCAL = {f"PERCENTILE {i}": i for i in range(1, 101)}
+    df_datos_explain_gen = (
+        df_datos_explain.sort_values('cluster_n_sample', ascending=False).head(40)
+    )
+    similarity_matrix(df_datos_explain_gen, ORD_MAP_LOCAL)
+    frontiers = cluster_pairs_sim(
+        df_datos_explain_gen, ORD_MAP_LOCAL, metric='cluster_ef_sample'
+    )
+    frontiers.sort_values('score', ascending=False, inplace=True)
+    return df_datos_explain, frontiers
+
+
+# ╭──────────────────╮
+# │  INIT OpenAI SDK │
+# ╰──────────────────╯
+# Las utilidades siguientes permiten generar hipótesis y traducir
+# reglas en texto comprensible.
+
+
+def get_range_re() -> re.Pattern:
+    pat = r"""
+        (?P<low>-?\d[\d_]*(?:\.\d[\d_]*)?(?:[eE][-+]?\d+)?)\s*
+        (?:<=|<)\s*
+        (?P<tok>[A-Za-z_][A-Za-z0-9_]*)\s*
+        (?:<=|<)\s*
+        (?P<high>-?\d[\d_]*(?:\.\d[\d_]*)?(?:[eE][-+]?\d+)?)\s*
+    """
+    return re.compile(pat, re.VERBOSE)
+
+
+@lru_cache
+def _tpl_rules(lang: str) -> dict[str, str]:
+    base = {
+        "between": {
+            "es": "{label} entre {low:,.2f} y {high:,.2f}",
+            "en": "{label} between {low:,.2f} and {high:,.2f}",
+        },
+        "is":      {"es": "Es {label}",    "en": "Is {label}"},
+        "not":     {"es": "No es {label}", "en": "Is not {label}"},
+        "generic": {"es": "Condición sobre {label}", "en": "Condition on {label}"},
+    }
+    return {k: v[lang] for k, v in base.items()}
+
+
+def get_FALLBACK_LABELS(df_meta_sub):
+
+  idiomas_d = [y.split('.')[-1] for y in [x for x in df_meta_sub.columns if 'description' in x]]
+  df_lang = {}
+  for y in idiomas_d:
+    df_by_lang = []
+    for x in df_meta_sub.columns:
+      if x.endswith('.'+y):
+        df_by_lang.append(x)
+
+    df_lang[y] = (df_meta_sub[['rule_token']+df_by_lang].drop_duplicates())
+
+
+  dicts_rts = [{(x, ess_):z for x, y, z in df_lang[ess_].values} for ess_ in df_lang.keys()]
+
+  def concatenate_dictionaries(list_of_dicts):
+    result_dict = {}
+    for d in list_of_dicts:
+      result_dict.update(d)
+    return result_dict
+
+  return concatenate_dictionaries(dicts_rts)
+
+
+def _extract_tokens(series: pd.Series) -> Set[str]:
+    token_re = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+    return {m.group(0)
+            for txt in series.astype(str)
+            for m in token_re.finditer(txt)}
+
+
+def _meta_lookup(token: str, meta: pd.DataFrame, *, lang: str
+                 ) -> Tuple[str, str, str, str | None]:
+    col_lbl = f"identity.label_i18n.{lang}"
+    col_des = f"identity.description_i18n.{lang}"
+    row     = meta.loc[meta["rule_token"] == token]
+    _FALLBACK_LABELS = get_FALLBACK_LABELS(meta)
+
+    if not row.empty:
+        r = row.iloc[0]
+        return (
+            str(r.get(col_lbl) or _FALLBACK_LABELS.get((token, lang), token)).capitalize(),
+            str(r.get(col_des) or ""),
+            str(r.get("domain.categorical.codes") or ""),
+            str(r.get("actionability.side_effects") or "") or None
+        )
+    return (_FALLBACK_LABELS.get((token, lang), token).capitalize(), "", "", None)
+
+
+def _rule_to_text(rule: str, meta_df: pd.DataFrame, *, lang: str) -> str:
+    toks = _extract_tokens(pd.Series([rule]))
+    tok  = next(iter(toks)) if toks else None
+
+    m = get_range_re().search(rule)
+    low = high = None
+    if m:
+        low, high, tok = float(m["low"].replace("_", "")), float(m["high"].replace("_", "")), m["tok"]
+
+    if tok is None:
+        return rule
+
+    label, *_ = _meta_lookup(tok, meta_df, lang=lang)
+    tpl = _tpl_rules(lang)
+    if tok.startswith("cat__"):
+        if low is not None and high is not None:
+            if high <= 0.5: return tpl["not"].format(label=label)
+            if low  >= 0.5: return tpl["is"].format(label=label)
+        return tpl["generic"].format(label=label)
+
+    if low is not None and high is not None:
+        return tpl["between"].format(label=label, low=low, high=high)
+    return tpl["generic"].format(label=label)
+
+
+def _list_rules_to_text(col, meta_df, *, lang: str, placeholder: str = "—") -> str:
+    """
+    Convierte lista o str-lista a texto legible.
+    Devuelve 'placeholder' si la lista está vacía.
+    """
+    # 1) Normaliza a lista
+    if col is None or (isinstance(col, float) and pd.isna(col)):
+        col = []
+    elif isinstance(col, str):
+        try:
+            col = ast.literal_eval(col)
+        except Exception:
+            col = [col]
+    if not isinstance(col, (list, tuple)):
+        col = [col]
+
+    # 2) Sin reglas → placeholder
+    if len(col) == 0 or all(str(r).strip() == "" for r in col):
+        return placeholder
+
+    # 3) Traducción normal
+    return ", ".join(_rule_to_text(r, meta_df, lang=lang) for r in col)
+
+
+def _local_significance(delta: float, *, lang: str) -> str:
+    if lang == "es":
+        return "significativo" if abs(delta) > 0.1 else "exploratorio"
+    return "significant" if abs(delta) > 0.1 else "exploratory"
+
+
+def _local_hypothesis_text(inter_txt: str, a_txt: str, b_txt: str,
+                           p_a: float, p_b: float, delta: float,
+                           target_lbl: str, side: list[str], *,
+                           lang: str) -> str:
+    """Genera texto local para la hipótesis (A vs B con intersección común)."""
+    sig_word = _local_significance(delta, lang=lang)
+
+    side_txt = ""
+    if side:
+        se = "\n- " + "\n- ".join(sorted(set(side)))
+        side_txt = ("\n\n**Posibles efectos secundarios**" if lang == "es"
+                    else "\n\n**Possible side-effects**") + se
+
+    # Encabezados
+    header_ctx = ("**Reglas compartidas (intersección)**"
+                  if lang == "es" else "**Shared rules (intersection)**")
+    header_a   = "**Subgrupo A**" if lang == "es" else "**Subgroup A**"
+    header_b   = "**Subgrupo B**" if lang == "es" else "**Subgroup B**"
+    header_an  = ("**Análisis y recomendaciones**"
+                  if lang == "es" else "**Analysis & Recommendations**")
+
+    # Cuerpo de análisis
+    analysis = (
+        f"Resultado {sig_word}. Ajustar las variables que diferencian A y B "
+        f"podría aumentar la probabilidad de {target_lbl.lower()}."
+        if lang == "es" else
+        f"{sig_word.capitalize()} result. Adjusting features that differentiate "
+        f"A and B could raise the probability of {target_lbl.lower()}."
+    )
+
+    return (
+        f"{header_ctx}\n- Reglas: **{inter_txt}**\n\n"
+        f"{header_a}\n"
+        f"- Condiciones adicionales: **{a_txt}**\n"
+        f"- Probabilidad de {target_lbl}: **{p_a:.2%}**\n\n"
+        f"{header_b}\n"
+        f"- Condiciones adicionales: **{b_txt}**\n"
+        f"- Probabilidad de {target_lbl}: **{p_b:.2%}**\n"
+        f"- Diferencia B – A: **{delta:+.2%}**\n\n"
+        f"{header_an}\n{analysis}"
+        f"{side_txt}"
+    )
+
+
+def _gpt_hypothesis(payload: dict[str, Any], *,
+                    model: str,
+                    temperature: float) -> Optional[str]:
+    """Wrapper: envía a GPT el payload y devuelve el reporte estructurado."""
+    if _client is None:
+        return None
+    try:
+        rsp = _client.chat.completions.create(
+            model=model,
+            temperature=temperature,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a data-science expert assistant.\n"
+                        "Return **one** Markdown report (≤ 150 words) using H2 headings (##).\n\n"
+                        "Sections in order:\n"
+                        "1) Shared features (intersection)\n"
+                        "2) Subgroup A (extra conditions)\n"
+                        "3) Subgroup B (extra conditions)\n"
+                        "4) Comparison groups (intersection + A  vs. intersection + B)\n"
+                        "5) Hypothesis & key metrics (pA, pB)\n"
+                        "6) Possible side-effects (if any)\n"
+                        "7) A/B Testing Actions"
+                        "Choose Language with the 'lang' field "
+                        "and honour the variable labels supplied."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(payload, ensure_ascii=False),
+                },
+            ],
+        )
+        if not rsp.choices:
+            logging.error("GPT call returned no choices")
+            return None
+        msg = rsp.choices[0].message
+        content = getattr(msg, "content", None)
+        if not content:
+            logging.error("GPT call returned empty content")
+            return None
+        return content.strip()
+    except Exception as err:
+        logging.error("GPT call failed → %s", err)
+        return None
+
+
+def generar_hypotesis(meta_df: pd.DataFrame,
+                      exp_df: pd.DataFrame,
+                      *,
+                      target: str,
+                      lang: str = "es",
+                      use_gpt: bool = False,
+                      gpt_model: str = "gpt-4o-mini",
+                      temperature: float = 0.2) -> str:
+    """
+    Crea un reporte de hipótesis comparando los subgrupos
+    (intersección ∧ A) vs (intersección ∧ B).
+    """
+    row = exp_df.iloc[0]
+
+    # Posibles efectos secundarios
+    side = []
+    for col in ("only_cluster_A", "only_cluster_B"):
+        for tok in _extract_tokens(pd.Series([row[col]])):
+            se = _meta_lookup(tok, meta_df, lang=lang)[3]
+            if se:
+                side.append(se)
+
+    # ===== GPT PATH =====
+    if use_gpt and _client is not None:
+        payload = {
+            "lang": lang,
+            "target": _meta_lookup(target, meta_df, lang=lang)[0],
+            "target_description": _meta_lookup(target, meta_df, lang=lang)[1],
+            "shared_rules": row["intersection"],
+            "subgroup_a":   row["only_cluster_A"],
+            "subgroup_b":   row["only_cluster_B"],
+            "metrics": {
+                "p_a":   row["cluster_ef_A"],
+                "p_b":   row["cluster_ef_B"],
+                "delta": row["delta_ef"],
+            },
+            "tokens_info": {
+                t: {
+                    "label":        _meta_lookup(t, meta_df, lang=lang)[0],
+                    "description":  _meta_lookup(t, meta_df, lang=lang)[1],
+                    "domain":       _meta_lookup(t, meta_df, lang=lang)[2],
+                    "side_effect":  _meta_lookup(t, meta_df, lang=lang)[3],
+                }
+                for t in (
+                    _extract_tokens(pd.Series([row["intersection"]]))
+                    | _extract_tokens(pd.Series([row["only_cluster_A"]]))
+                    | _extract_tokens(pd.Series([row["only_cluster_B"]]))
+                )
+            }
+        }
+
+        txt = _gpt_hypothesis(payload, model=gpt_model, temperature=temperature)
+        if txt:
+            return txt
+
+    # ===== LOCAL PATH =====
+    inter_txt = _list_rules_to_text(row["intersection"],      meta_df, lang=lang)
+    a_txt     = _list_rules_to_text(row["only_cluster_A"],    meta_df, lang=lang)
+    b_txt     = _list_rules_to_text(row["only_cluster_B"],    meta_df, lang=lang)
+    target_lbl = _meta_lookup(target, meta_df, lang=lang)[0]
+
+    return _local_hypothesis_text(
+        inter_txt, a_txt, b_txt,
+        row["cluster_ef_A"], row["cluster_ef_B"], row["delta_ef"],
+        target_lbl, side, lang=lang
+    )
 
 

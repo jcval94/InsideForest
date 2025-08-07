@@ -1,10 +1,16 @@
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import pandas as pd
+import pytest
+
 from InsideForest.descrip import (
     categorize_conditions,
     categorize_conditions_generalized,
     build_conditions_table,
+    _gpt_hypothesis,
+    generar_hypotesis,
+    get_frontiers,
 )
 
 
@@ -70,3 +76,62 @@ def test_categorize_conditions_equal_percentiles():
     conds = ['5 <= Var1 <= 5']
     result = categorize_conditions(conds, df, n_groups=3)
     assert result == {'responses': ['Var1 = Percentile 100.']}
+
+
+def test_gpt_hypothesis_returns_none_without_client(monkeypatch):
+    from InsideForest import descrip
+    monkeypatch.setattr(descrip, "_client", None)
+    assert _gpt_hypothesis({}, model="noop", temperature=0.0) is None
+
+
+def test_gpt_hypothesis_handles_empty_choices(monkeypatch):
+    class DummyClientNoChoices:
+        class Chat:
+            class Completions:
+                def create(self, **kwargs):
+                    return type("Rsp", (), {"choices": []})()
+
+            completions = Completions()
+
+        chat = Chat()
+
+    from InsideForest import descrip
+    monkeypatch.setattr(descrip, "_client", DummyClientNoChoices())
+    assert _gpt_hypothesis({}, model="noop", temperature=0.0) is None
+
+
+def test_generar_hypotesis_fallback_without_gpt(monkeypatch):
+    from InsideForest import descrip
+    monkeypatch.setattr(descrip, "_client", None)
+    meta_df = pd.DataFrame({"rule_token": ["tok"], "identity.label_i18n.es": ["Etiqueta"]})
+    exp_df = pd.DataFrame({
+        "intersection": ["tok"],
+        "only_cluster_A": [""],
+        "only_cluster_B": [""],
+        "cluster_ef_A": [0.1],
+        "cluster_ef_B": [0.2],
+        "delta_ef": [0.1],
+    })
+    result = generar_hypotesis(meta_df, exp_df, target="tok", use_gpt=True, lang="es")
+    assert "Etiqueta" in result
+
+
+def test_get_frontiers_basic():
+    df = pd.DataFrame({'x': range(10), 'y': range(10)})
+    desc_df = pd.DataFrame({
+        'cluster': [0, 1],
+        'cluster_descripcion': [
+            '0 <= x <= 4 and 0 <= y <= 4',
+            '5 <= x <= 9 and 0 <= y <= 4',
+        ],
+        'cluster_n_sample': [100, 100],
+        'cluster_ef_sample': [0.1, 0.2],
+    })
+
+    df_explain, frontiers = get_frontiers(desc_df.copy(), df)
+
+    assert 'cluster_desc_relative' in df_explain.columns
+    assert df_explain.loc[df_explain['cluster'] == 0, 'x'].iat[0] == 'PERCENTILE 40'
+    assert frontiers.iloc[0]['cluster_1'] == 0
+    assert frontiers.iloc[0]['cluster_2'] == 1
+    assert frontiers.iloc[0]['similitud'] == pytest.approx(0.5)
