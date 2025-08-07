@@ -600,6 +600,12 @@ class Regions:
         This function generates plots and does not return a value.
     """
 
+    # Work on a copy to avoid modifying the original data when the
+    # function is called multiple times. Otherwise, auxiliary columns
+    # like ``height`` added for the 1D case would persist and break
+    # subsequent calls.
+    df_sep_dm_agg = df_sep_dm_agg.copy()
+
     dimensions = df_sep_dm_agg['linf'].columns
     if len(dimensions) == 1:
       x_axis = dimensions.tolist()[0]
@@ -610,12 +616,15 @@ class Regions:
       df_sep_dm_agg[('lsup', y_axis)] = 1 + median_padding
       df_sep_dm_agg[('linf', y_axis)] = 1 - median_padding
 
-      self.plot_bidim(df_tmp, df_sep_dm_agg, x_axis, y_axis, var_obj,
+      # ``plot_bidim`` modifies the dataframe it receives (adding width
+      # and height columns). Pass a copy so the caller's dataframe
+      # remains untouched.
+      self.plot_bidim(df_tmp, df_sep_dm_agg.copy(), x_axis, y_axis, var_obj,
                       interactive=interactive)
     elif len(dimensions) == 2:
       df_tmp = df.copy()
       x_axis, y_axis = dimensions.tolist()
-      self.plot_bidim(df_tmp, df_sep_dm_agg, x_axis, y_axis, var_obj,
+      self.plot_bidim(df_tmp, df_sep_dm_agg.copy(), x_axis, y_axis, var_obj,
                       interactive=interactive)
     elif len(dimensions) == 3:
       self.plot_tridim(df_sep_dm_agg, df, var_obj, interactive=interactive)
