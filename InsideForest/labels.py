@@ -5,91 +5,122 @@ logger = logging.getLogger(__name__)
 
 
 class Labels:
-  def round_values(self, lst):
-    variance = np.var(lst)
-    if variance >= 0.01 and len(lst)>1:
-      return [round(val, 2) for val in lst]
-    else:
-      return ['{:.2e}'.format(val) for val in lst]
-  
-  def custom_round(self, x):
-    if abs(x) > 100 or abs(x - int(x)) < 1e-10:
-      return int(x)
-    elif abs(x) < 0.01:
-      return "{:.2e}".format(x)
-    else:
-      return round(x, 3)
-  
-  def get_intervals(self, df__):
-    df__ = self.drop_height_columns(df__)
-    df__ = df__.applymap(self.custom_round)
-    resuld = []
-    for i in range(len(df__)):
-      row_result = []
-      for col in df__[['linf']].columns:
-        valor1 = df__.iloc[i][('linf',col[-1])]
-        valor2 = df__.iloc[i][('lsup',col[-1])]
-        if valor1 == valor2:
-          continue
-        row_result.append(f"{col[-1]} between {valor1} and {valor2}")
-      vvva = " | ".join(row_result)
-      resuld.append(vvva)
-    return resuld
-  
-  def drop_height_columns(self, df):
-    height_columns = [col for col in df.columns if 'altura' in col[1]]
-    df = df.drop(height_columns, axis=1)
-    return df
+    def round_values(self, values):
+        variance = np.var(values)
+        if variance >= 0.01 and len(values) > 1:
+            return [round(val, 2) for val in values]
+        else:
+            return ['{:.2e}'.format(val) for val in values]
 
-  def get_branch(self,df, df_sub, i):
-    
-    df_sub.reset_index(inplace=True,drop=True)
+    def custom_round(self, number):
+        if abs(number) > 100 or abs(number - int(number)) < 1e-10:
+            return int(number)
+        elif abs(number) < 0.01:
+            return "{:.2e}".format(number)
+        else:
+            return round(number, 3)
 
-    if not set(df_sub.columns.get_level_values(1)).issubset(df.columns):
-      missing = set(df_sub.columns.get_level_values(1)) - set(df.columns)
-      raise KeyError(f"Columns {missing} do not exist in the main DataFrame")
+    def get_intervals(self, interval_df):
+        interval_df = self.drop_height_columns(interval_df)
+        interval_df = interval_df.applymap(self.custom_round)
+        interval_descriptions = []
+        for row_index in range(len(interval_df)):
+            row_result = []
+            for col in interval_df[['linf']].columns:
+                lower_value = interval_df.iloc[row_index][('linf', col[-1])]
+                upper_value = interval_df.iloc[row_index][('lsup', col[-1])]
+                if lower_value == upper_value:
+                    continue
+                row_result.append(
+                    f"{col[-1]} between {lower_value} and {upper_value}"
+                )
+            joined_descriptions = " | ".join(row_result)
+            interval_descriptions.append(joined_descriptions)
+        return interval_descriptions
 
-    if i >= len(df_sub):
-      return None
-    limitador_inf = df_sub.loc[i,'linf'].copy()
-    limitador_sup = df_sub.loc[i,'lsup'].copy()
-    vars_lm = list(limitador_sup.index)
+    def drop_height_columns(self, df):
+        height_columns = [col for col in df.columns if 'altura' in col[1]]
+        return df.drop(height_columns, axis=1)
 
-    conds = [(df[va]<=limitador_sup[va])&(df[va]>limitador_inf[va]) for va in vars_lm]
+    def get_branch(self, df, sub_df, row_index):
+        sub_df.reset_index(inplace=True, drop=True)
 
-    # Initialize variable with the only condition from the list
-    variable_cd = conds[0]
+        if not set(sub_df.columns.get_level_values(1)).issubset(df.columns):
+            missing = set(sub_df.columns.get_level_values(1)) - set(df.columns)
+            raise KeyError(
+                f"Columns {missing} do not exist in the main DataFrame"
+            )
 
-    # If there is more than one condition, combine them with &
-    if len(conds) > 1:
-        for condicion in conds[1:]:
-            variable_cd = variable_cd & condicion
+        if row_index >= len(sub_df):
+            return None
+        lower_bounds = sub_df.loc[row_index, 'linf'].copy()
+        upper_bounds = sub_df.loc[row_index, 'lsup'].copy()
+        variables = list(upper_bounds.index)
 
-    return df[variable_cd]
-
-
-  def get_labels(self,df_reres, df, var_obj, etq_max = 9,ramas = 10):
-
-    labels_list = []
-    for j in range(ramas-1):
-      if j>len(df_reres):
-        continue
-      df_ppr = df_reres[j].copy()
-      df_ppr = df_ppr[[(a, b) for a, b in df_ppr.columns if 'altura' != b]]
-      desc_vars = self.get_intervals(df_ppr.head(etq_max))
-      try:
-        ramas_ = [self.get_branch(df, df_ppr, i) for i in range(0,etq_max+1)]
-        scores_pop = [
-            (x[var_obj].mean(), x[var_obj].count()) for x in ramas_ if x is not None
+        conditions = [
+            (df[var] <= upper_bounds[var]) & (df[var] > lower_bounds[var])
+            for var in variables
         ]
-        target_population = [x[x[var_obj]==0] for x in ramas_ if x is not None]
-      except KeyError as exc:
-        logger.exception("Missing columns when obtaining labels: %s", exc)
-        continue
-      if len(target_population)==0:
-        continue
-      labels_dict = {etq_:[sc_, po_]for po_, sc_, etq_ in zip(target_population, scores_pop, desc_vars) if po_.shape[0]>0}
-      labels_list.append(labels_dict)
 
-    return labels_list
-  
+        combined_condition = conditions[0]
+        if len(conditions) > 1:
+            for condition in conditions[1:]:
+                combined_condition = combined_condition & condition
+
+        return df[combined_condition]
+
+    def get_labels(
+        self,
+        range_dataframes,
+        df,
+        target_var,
+        max_labels=9,
+        num_branches=10,
+    ):
+        labels_list = []
+        for branch_index in range(num_branches - 1):
+            if branch_index >= len(range_dataframes):
+                continue
+            current_range_df = range_dataframes[branch_index].copy()
+            current_range_df = current_range_df[
+                [(a, b) for a, b in current_range_df.columns if 'altura' != b]
+            ]
+            interval_descriptions = self.get_intervals(
+                current_range_df.head(max_labels)
+            )
+            try:
+                branch_dfs = [
+                    self.get_branch(df, current_range_df, i)
+                    for i in range(0, max_labels + 1)
+                ]
+                score_population = [
+                    (x[target_var].mean(), x[target_var].count())
+                    for x in branch_dfs
+                    if x is not None
+                ]
+                target_population = [
+                    x[x[target_var] == 0]
+                    for x in branch_dfs
+                    if x is not None
+                ]
+            except KeyError as exc:
+                logger.exception(
+                    "Missing columns when obtaining labels: %s",
+                    exc,
+                )
+                continue
+            if len(target_population) == 0:
+                continue
+            labels_dict = {
+                description: [score, population]
+                for population, score, description in zip(
+                    target_population,
+                    score_population,
+                    interval_descriptions,
+                )
+                if population.shape[0] > 0
+            }
+            labels_list.append(labels_dict)
+
+        return labels_list
+

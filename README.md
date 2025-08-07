@@ -85,17 +85,17 @@ labels = Labels()
 
 ```python
 pyspark_mod = treesSP.get_branches(df, 'species', model)
-df_reres = regions.prio_ranges(pyspark_mod, df)
-clusterized, descriptive = regions.labels(df, df_reres, False)
+priority_ranges = regions.prio_ranges(pyspark_mod, df)
+clusterized, descriptive = regions.labels(df, priority_ranges, False)
 ```
 
 ### 3. Visualization
 
 ```python
-for df_r in df_reres[:3]:
-    if len(df_r['linf'].columns) > 3:
+for range_df in priority_ranges[:3]:
+    if len(range_df['linf'].columns) > 3:
         continue
-    regions.plot_multi_dims(df_r, df, 'species')
+    regions.plot_multi_dims(range_df, df, 'species')
 ```
 
 ![Plot 1](./data/plot_1.png)
@@ -123,7 +123,7 @@ Provides methods for retrieving critical observations with KNN and tuning a rand
 from InsideForest.labels import Labels
 
 lb = Labels()
-labels_out = lb.get_labels(df_reres, df, 'target', etq_max=5)
+labels_out = lb.get_labels(priority_ranges, df, 'target', max_labels=5)
 ```
 
 Generates descriptive labels for the branches and clusters obtained from the model.
