@@ -1,0 +1,201 @@
+![InsideForest](./data/inside_f1_1.jpeg)
+
+# InsideForest
+
+InsideForest es una técnica de **clustering supervisado** construida sobre bosques de decisión para identificar y describir categorías dentro de un conjunto de datos. Descubre regiones relevantes, asigna etiquetas y produce descripciones interpretables.
+
+*El clustering supervisado* agrupa observaciones utilizando la variable objetivo para guiar la segmentación. En lugar de dejar que el algoritmo encuentre grupos por sí solo, las etiquetas existentes orientan la búsqueda de patrones coherentes.
+
+Ya sea que trabajes con datos de clientes, ventas u otra fuente, la biblioteca te ayuda a comprender tu información y tomar decisiones informadas.
+
+## Casos de uso de ejemplo
+
+- Analizar el comportamiento de los clientes para identificar segmentos rentables.
+- Clasificar pacientes por historial médico y síntomas.
+- Evaluar canales de marketing usando el tráfico del sitio web.
+- Construir sistemas de reconocimiento de imágenes más precisos.
+
+## Beneficios
+
+Construir y analizar un bosque aleatorio con InsideForest revela tendencias ocultas y proporciona **insights** que respaldan decisiones de negocio.
+
+[CASO DE USO](https://colab.research.google.com/drive/11VGeB0V6PLMlQ8Uhba91fJ4UN1Bfbs90?usp=sharing)
+
+## Instalación
+
+```bash
+pip install InsideForest
+```
+
+## Dependencias principales
+- scikit-learn
+- numpy
+- pandas
+- matplotlib
+- seaborn
+- openai
+
+## Flujo básico
+El orden típico para aplicar InsideForest es:
+1. Entrenar un modelo de bosque de decisión o `RandomForest`.
+2. Usar `Trees.get_branches` para extraer las ramas de cada árbol.
+3. Aplicar `Regions.prio_ranges` para priorizar áreas de interés.
+4. Vincular cada observación con `Regions.labels`.
+5. Opcionalmente interpretar resultados con `generate_descriptions` y `categorize_conditions`.
+6. Finalmente, usar utilidades como `Models` y `Labels` para un análisis adicional.
+
+## Caso de uso (Iris)
+Lo siguiente resume el flujo utilizado en el [notebook de ejemplo](https://colab.research.google.com/drive/11VGeB0V6PLMlQ8Uhba91fJ4UN1Bfbs90?usp=sharing).
+
+### 1. Preparación del modelo
+
+```python
+from pyspark.sql import SparkSession
+from sklearn.datasets import load_iris
+from pyspark.ml.feature import VectorAssembler, StringIndexer
+from pyspark.ml.classification import RandomForestClassifier
+
+spark = SparkSession.builder.appName('Iris').getOrCreate()
+
+# Cargar datos en Spark
+iris = load_iris()
+df = pd.DataFrame(iris.data, columns=iris.feature_names)
+df['species'] = iris.target
+```
+
+```python
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+sns.scatterplot(x=df.columns[0], y=df.columns[1], hue='species', data=df,
+                palette='coolwarm')
+plt.show()
+```
+
+![Dataset](./data/iris_ds.png)
+
+```python
+from InsideForest import Trees, Regions, Labels
+treesSP = Trees('pyspark', n_sample_multiplier=0.05, ef_sample_multiplier=10)
+regions = Regions()
+labels = Labels()
+```
+
+### 2. Obtención de ramas y clusters
+
+```python
+pyspark_mod = treesSP.get_branches(df, 'species', model)
+df_reres = regions.prio_ranges(pyspark_mod, df)
+clusterized, descriptive = regions.labels(df, df_reres, False)
+```
+
+### 3. Visualización
+
+```python
+for df_r in df_reres[:3]:
+    if len(df_r['linf'].columns) > 3:
+        continue
+    regions.plot_multi_dims(df_r, df, 'species')
+```
+
+![Plot 1](./data/plot_1.png)
+
+![Plot 2](./data/plot_2.png)
+
+Las zonas azules resaltan las ramas más relevantes del bosque, revelando dónde se concentra la variable objetivo.
+
+### `Models`
+
+```python
+from InsideForest.models import Models
+
+m = Models()
+fp_rows, rest = m.get_knn_rows(df_train, 'target', criterio_fp=True)
+param_grid = {'n_estimators': [50, 100], 'max_depth': [None, 5]}
+cv_model = m.get_cvRF(X_train, y_train, param_grid)
+```
+
+Proporciona métodos para recuperar observaciones críticas con KNN y ajustar un bosque aleatorio con validación cruzada.
+
+### `Labels`
+
+```python
+from InsideForest.labels import Labels
+
+lb = Labels()
+labels_out = lb.get_labels(df_reres, df, 'target', etq_max=5)
+```
+
+Genera etiquetas descriptivas para las ramas y clusters obtenidos del modelo.
+
+## Licencia
+
+Este proyecto se distribuye bajo la licencia MIT. Consulta [LICENSE](LICENSE) para más detalles.
+
+## Uso de OpenAI para descripciones
+`generate_descriptions` de `InsideForest.descrip` usa la biblioteca `openai`. Se requiere una clave API mediante el argumento `OPENAI_API_KEY` o la variable de entorno del mismo nombre.
+
+Usando las condiciones del ejemplo **Iris** puedes generar descripciones automáticas:
+
+```python
+from InsideForest.descrip import generate_descriptions
+import os
+
+iris_conds = [
+    "4.3 <= sepal length (cm) <= 5.8 and 1.0 <= petal width (cm) <= 1.8"
+]
+os.environ["OPENAI_API_KEY"] = "sk-your-key"
+res = generate_descriptions(iris_conds, OPENAI_API_KEY=os.getenv("OPENAI_API_KEY"))
+```
+
+### `categorize_conditions`
+
+```python
+from InsideForest.descrip import categorize_conditions
+from sklearn.datasets import load_iris
+import pandas as pd
+
+iris = load_iris(as_frame=True)
+df = iris.frame
+df['species'] = iris.target
+
+categories = categorize_conditions(iris_conds, df, n_groups=3)
+```
+
+Generaliza las condiciones de variables numéricas en categorías por niveles.
+
+### `categorize_conditions_generalized`
+
+Ofrece la misma generalización que `categorize_conditions` pero acepta columnas booleanas.
+
+```python
+from InsideForest.descrip import categorize_conditions_generalized
+from sklearn.datasets import load_iris
+import pandas as pd
+
+iris = load_iris(as_frame=True)
+df = iris.frame
+df['species'] = iris.target
+df['large_petal'] = df['petal length (cm)'] > 4
+
+bool_conds = [
+    "large_petal == True and 1.0 <= petal width (cm) <= 1.8",
+]
+categories_bool = categorize_conditions_generalized(bool_conds, df, n_groups=2)
+```
+
+### `build_conditions_table`
+
+Construye una tabla ordenada con condiciones categorizadas y sus métricas.
+
+```python
+from InsideForest.descrip import build_conditions_table
+
+effectiveness = [0.75]
+weights = [len(df)]
+
+table = build_conditions_table(bool_conds, df, effectiveness, weights, n_groups=2)
+```
+
+Esto produce un `DataFrame` resumen donde cada condición se etiqueta por grupo junto con la efectividad y el peso proporcionados.
+

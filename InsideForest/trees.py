@@ -17,13 +17,13 @@ class Trees:
 
 
   def transform_tree_structure(self, tree_str):
-    # Separar el string en árboles individuales
+    # Split the string into individual trees
     trees = tree_str.strip().split('\n  Tree')
     tree_dict = {}
 
     for i, tree in enumerate(trees):
       if i == 0:
-        # Ignorar la primera línea si es la descripción del modelo
+        # Ignore first line if it's the model description
         if tree.startswith('RandomForestClassificationModel'):
           continue
 
@@ -33,18 +33,18 @@ class Trees:
       lines = tree.strip().split('\n')
       tree_name = "Tree " + lines[0].split('(')[0].strip()
 
-      # Determinar el número de espacios a eliminar basado en las líneas después de la línea "Tree"
+      # Determine the number of spaces to remove based on lines after "Tree"
       min_indent = min((len(line) - len(line.lstrip())) for line in lines[1:] if line.strip())
 
-      # Inicializar la lista que contendrá la estructura transformada
+      # Initialize list to hold the transformed structure
       transformed_lines = []
 
       for line in lines[1:]:
 
-        # Eliminar la indentación mínima determinada
+        # Remove the minimum indentation
         adjusted_line = line[min_indent:]
 
-        # Reemplazar los espacios iniciales por "|   "
+        # Replace leading spaces with "|   "
 
         for i, s in enumerate(adjusted_line):
             if s != ' ':
@@ -53,9 +53,7 @@ class Trees:
         indent = i * '|   '
         stripped_line = adjusted_line.strip()
 
-        # print(adjusted_line, i)
-
-        # Reemplazar "If" y "Else" por "|---"
+        # Replace "If" and "Else" with "|---"
         if stripped_line.startswith('If') or stripped_line.startswith('Else'):
           condition = stripped_line.split('(')[1].split(')')[0]
           transformed_lines.append(f"{indent}|--- {condition}")
@@ -63,7 +61,7 @@ class Trees:
           prediction = stripped_line.split(': ')[1]
           transformed_lines.append(f"{indent}|--- class: {prediction}")
 
-      # Guardar el árbol transformado en el diccionario
+      # Save the transformed tree in the dictionary
       tree_dict[tree_name] = '\n'.join(transformed_lines).replace('feature ','feature_')
 
     return tree_dict
@@ -79,7 +77,7 @@ class Trees:
 
 
   def get_rangos(self, regr, data1, verbose=0):
-    # Esta función puede tardar mucho, añadimos tqdm para el bucle principal.
+    # This function may be slow; add tqdm to the main loop.
 
     if self.lang == 'pyspark':
       arboles_estimadores = self.transform_tree_structure(regr.toDebugString)
@@ -90,8 +88,8 @@ class Trees:
     df_info = []
     n_estimador = 0
 
-    # Usamos tqdm en el for, si verbose=0, disable=True, si verbose=1, disable=False
-    for arbol_individual in tqdm(arboles_estimadores, disable=(verbose == 0), desc="Procesando árboles"):
+    # Use tqdm in the loop; disable when verbose=0
+    for arbol_individual in tqdm(arboles_estimadores, disable=(verbose == 0), desc="Processing trees"):
       if self.lang == 'pyspark':
         r = arbol_individual
       else:
@@ -100,7 +98,7 @@ class Trees:
       columnas_nombres = list(data1.columns)
       columnas_nombres.reverse()
 
-      # Reemplazo de feature indices por nombres
+      # Replace feature indices with names
       for i, feat in enumerate(columnas_nombres):
         r = r.replace('feature_' + str(len(columnas_nombres) - i - 1), feat)
 
@@ -125,20 +123,20 @@ class Trees:
         if len(estructura_rep) != len(set(estructura_rep)):
           seen = set()
           new_path = []
-          # Recorremos path_[0] en orden inverso
+          # Traverse path_[0] in reverse order
           for elem in reversed(path_[0]):
-            # Conteo de '|' en el elemento actual
+            # Count '|' in the current element
             bc = elem.count('|')
-            
-            # Si no lo hemos visto aún, lo añadimos (porque es la última vez que aparece)
+
+            # If not seen yet, add it (last occurrence)
             if bc not in seen:
               new_path.append(elem)
               seen.add(bc)
-          
-          # new_path está invertido, lo devolvemos a su orden natural
+
+          # new_path is reversed; restore natural order
           new_path.reverse()
-          
-          # Reemplazamos el path original
+
+          # Replace original path
           path_[0] = new_path
 
         paths.append([x for x in path_ if x != ''])
@@ -166,16 +164,16 @@ class Trees:
       n_estimador += 1
 
       if verbose == 1 and n_estimador % 10 == 0:
-        logger.info(f"Procesados {n_estimador} árboles")
+        logger.info(f"Processed {n_estimador} trees")
 
     return pd.concat(df_info)
 
 
   def get_fro(self, df_full_arboles): 
-    # Expresión regular que busca:
-    # Grupo 1: un texto sin espacios (la feature)
-    # Grupo 2: un operador entre <=, >=, < o >
-    # Grupo 3: un número (posiblemente decimal)
+    # Regular expression that captures:
+    # Group 1: a non-space text (the feature)
+    # Group 2: an operator among <=, >=, < or >
+    # Group 3: a number (possibly decimal)
     pattern = re.compile(r'^(\S+)\s*(<=|>=|<|>)\s*([0-9.]+)$')
 
     def parse_regla(regla):
@@ -188,12 +186,12 @@ class Trees:
         else:
             return None, None, None
 
-    # Aplicamos la función de parseo a cada fila de 'Regla'
+    # Apply the parsing function to each 'Regla' row
     df_full_arboles[['feature', 'operador', 'rangos']] = df_full_arboles['Regla'].apply(
         lambda x: parse_regla(x)
     ).apply(pd.Series)
 
-    # Remover las filas que no se pudieron parsear
+    # Remove rows that could not be parsed
     df_full_arboles = df_full_arboles.dropna(subset=['operador', 'rangos'])
 
     return df_full_arboles
@@ -218,11 +216,11 @@ class Trees:
 
     reglas = []
 
-    # Añadimos tqdm sobre top_100_ramas para ver progreso
-    for arbol_num in tqdm(top_100_ramas, disable=(verbose == 0), desc="Procesando ramas"):
-      # Mantenemos este log pero lo hacemos condicional
+    # Add tqdm over top_100_ramas to show progress
+    for arbol_num in tqdm(top_100_ramas, disable=(verbose == 0), desc="Processing branches"):
+      # Keep this log but make it conditional
       if arbol_num % 50 == 0 and verbose == 1:
-        logger.info(f"Procesando rama del árbol: {arbol_num}")
+        logger.info(f"Processing tree branch: {arbol_num}")
 
       ag_arbol = agrupacion[(agrupacion['N_arbol'] == arbol_num)]
       for regla_num in ag_arbol.N_regla.unique():
@@ -268,48 +266,48 @@ class Trees:
       agrupacion_max = agrupacion['max'].reset_index()
       agrupacion_max = agrupacion_max[agrupacion_max['operador'] == '>']
 
-      # (Podríamos usar agrupacion_mean si lo necesitas luego; en el ejemplo no se reusa directamente)
+      # (We could use agrupacion_mean later; not reused in this example)
       agrupacion_mean = agrupacion['mean'].reset_index()
 
-      # 3) Concatenamos las filas con operador <= y >, y ordenamos
+      # 3) Concatenate rows with operator <= and >, and sort
       agrupacion = pd.concat([agrupacion_min, agrupacion_max]).sort_values(['N_arbol', 'N_regla'])
 
-      # 4) Seleccionamos los top 100 árboles
+      # 4) Select the top 100 trees
       top_100_arboles = agrupacion['N_arbol'].unique()[:no_branch_lim]
 
-      # 5) Iteramos por cada árbol y regla para construir una única máscara booleana por regla
+      # 5) Iterate over each tree and rule to build a single boolean mask per rule
       reglas = []
 
       for arbol_num in tqdm(top_100_arboles, disable=(verbose == 0), desc="Procesando ramas"):
-          # Imprimimos (opcional) según el valor de verbose
+          # Log (optional) depending on verbose
           if arbol_num % 50 == 0 and verbose == 1:
-              logger.info(f"Procesando rama del árbol: {arbol_num}")
+              logger.info(f"Processing tree branch: {arbol_num}")
 
-          # Subconjunto del pivot para este árbol
+          # Subset of the pivot for this tree
           ag_arbol = agrupacion[agrupacion['N_arbol'] == arbol_num]
 
-          # Recorremos cada regla de ese árbol
+          # Traverse each rule of that tree
           for regla_num in ag_arbol['N_regla'].unique():
               ag_regla = ag_arbol[ag_arbol['N_regla'] == regla_num]
 
-              # Obtenemos pares (feature, valor) según operador
+              # Obtain (feature, value) pairs by operator
               men_ = ag_regla[ag_regla['operador'] == '<='][['feature', 'rangos']].values
               may_ = ag_regla[ag_regla['operador'] == '>'][['feature', 'rangos']].values
 
-              # Construimos la máscara booleana para filtrar data1 en un único paso
+              # Build a boolean mask to filter data1 in a single step
               mask = np.ones(len(data1), dtype=bool)
 
-              # Agregamos condiciones de <=
+              # Add <= conditions
               for col, val in men_:
                   mask &= (data1[col] <= val)
 
-              # Agregamos condiciones de >
+              # Add > conditions
               for col, val in may_:
                   mask &= (data1[col] > val)
 
-              # Calculamos n_sample y ef_sample
-              n_sample = mask.sum()  # número de filas que cumplen todas las condiciones
-              # Evitamos error en caso de n_sample = 0
+              # Calculate n_sample and ef_sample
+              n_sample = mask.sum()  # number of rows meeting all conditions
+              # Avoid error when n_sample = 0
               ef_sample = data1.loc[mask, var_obj].mean() if n_sample > 0 else 0
 
               # Creamos una copia para esa regla, asignando los valores calculados
@@ -319,7 +317,7 @@ class Trees:
 
               reglas.append(ag_regla_copy)
 
-      # 6) Concatenamos todos los resultados y ordenamos por las métricas solicitadas
+      # 6) Concatenate all results and sort by requested metrics
       resultado = pd.concat(reglas, ignore_index=True)
       resultado = resultado.sort_values(by=['ef_sample', 'n_sample'], ascending=False)
       
@@ -408,17 +406,17 @@ class Trees:
 
   def get_branches(self, df, var_obj, regr, no_trees_search=500, verbose=0):
     """
-    Función principal para extraer los rectángulos (reglas) de los árboles.
-    :param df: DataFrame original
-    :param var_obj: Nombre de la columna objetivo
-    :param regr: Modelo (RandomForest u otro) entrenado
-    :param verbose: 0 = sin prints ni barra de progreso, 1 = con prints y tqdm
-    :return: Lista de DataFrames con los rectángulos separados por dimensión
+    Main function to extract rectangles (rules) from trees.
+    :param df: Original DataFrame
+    :param var_obj: Name of target column
+    :param regr: Trained model (RandomForest or others)
+    :param verbose: 0 = no prints/progress bar, 1 = prints and tqdm
+    :return: List of DataFrames with rectangles separated by dimension
     """
     if var_obj not in df.columns:
        raise KeyError(f"Target column '{var_obj}' does not exist in the DataFrame")
 
-    # Separamos X e ignoramos la columna objetivo
+    # Separate X and ignore target column
     df_copy = df.copy()
     cat_cols = df_copy.select_dtypes(['category']).columns
     for col in cat_cols:
@@ -426,38 +424,38 @@ class Trees:
     X = df_copy.drop(columns=[var_obj]).fillna(0)
 
     if verbose==1:
-       logger.info("Llamamos a get_rangos para extraer limites de los arboles")
+       logger.info("Calling get_rangos to extract tree limits")
     try:
        df_full_arboles = self.get_rangos(regr, X, verbose)
     except Exception as exc:
-       logger.exception("Error obteniendo rangos de los árboles: %s", exc)
+       logger.exception("Error obtaining tree ranges: %s", exc)
        raise
 
     if verbose==1:
-       logger.info("Extraer las reglas con regex")
+       logger.info("Extract rules with regex")
     
     try:
        df_full_arboles = self.get_fro(df_full_arboles)
     except Exception as exc:
-       logger.exception("Error aplicando regex a los árboles: %s", exc)
+       logger.exception("Error applying regex to the trees: %s", exc)
        raise
 
     if verbose==1:
-       logger.info("Obtenemos un resumen de los  árboles")
+       logger.info("Obtaining a summary of the trees")
     
     try:
        df_summ = self.get_summary_optimizado(df, df_full_arboles, var_obj, no_trees_search, verbose)
     except Exception as exc:
-       logger.exception("Error generando el resumen de árboles: %s", exc)
+       logger.exception("Error generating tree summary: %s", exc)
        raise
     
     if verbose==1:
-       logger.info("Generamos el df final con forma de rectángulo")
+       logger.info("Generating the final rectangular DataFrame")
        
     try:
        separacion_dim = self.extract_rectangles(df_summ)
     except Exception as exc:
-       logger.exception("Error extrayendo rectángulos: %s", exc)
+       logger.exception("Error extracting rectangles: %s", exc)
        raise
 
     return separacion_dim

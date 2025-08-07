@@ -36,22 +36,22 @@ else:  # Only executed if import succeeded
             _client = OpenAI(api_key=OPENAI_API_KEY)
         except Exception as exc:
             _client = None
-            logging.warning("OpenAI deshabilitado (%s)", exc)
+            logging.warning("OpenAI disabled (%s)", exc)
 
 logger = logging.getLogger(__name__)
 
 def primer_punto_inflexion_decreciente(data, bins=10, window_length=5, polyorder=2):
     """
-    Encuentra el primer punto de inflexión decreciente en un histograma.
+    Find the first decreasing inflection point in a histogram.
 
-    Parámetros:
-    - data: array-like, los datos para construir el histograma.
-    - bins: int o sequence, número de bins o los bordes de los bins.
-    - window_length: int, longitud de la ventana para el filtro Savitzky-Golay.
-    - polyorder: int, orden del polinomio para el filtro Savitzky-Golay.
+    Parameters:
+    - data: array-like, data used to build the histogram.
+    - bins: int or sequence, number of bins or their edges.
+    - window_length: window length for the Savitzky-Golay filter.
+    - polyorder: polynomial order for the Savitzky-Golay filter.
 
-    Retorna:
-    - punto_inflexion: valor del bin donde ocurre el primer punto de inflexión decreciente.
+    Returns:
+    - punto_inflexion: bin value where the first decreasing inflection occurs.
     """
 
     if len(data) == 0:
@@ -59,15 +59,15 @@ def primer_punto_inflexion_decreciente(data, bins=10, window_length=5, polyorder
         return None
 
     try:
-        # Calcular el histograma
+        # Compute the histogram
         counts, bin_edges = np.histogram(data, bins=bins)
         bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
     except Exception as exc:
         logger.exception("Error computing histogram: %s", exc)
         return None
 
-    # Suavizar el histograma para reducir ruido
-    # Asegurarse de que window_length es impar y menor que el tamaño de counts
+    # Smooth the histogram to reduce noise
+    # Ensure window_length is odd and smaller than counts length
     if window_length >= len(counts):
         window_length = len(counts) - 1 if len(counts) % 2 == 0 else len(counts)
     if window_length % 2 == 0:
@@ -81,43 +81,43 @@ def primer_punto_inflexion_decreciente(data, bins=10, window_length=5, polyorder
         logger.exception("Error applying savgol_filter: %s", exc)
         return None
 
-    # Calcular la segunda derivada
+    # Compute the second derivative
     second_derivative = np.gradient(np.gradient(counts_smooth))
 
-    # Encontrar los puntos de inflexión donde la segunda derivada cambia de signo
-    # De positivo a negativo indica un cambio de concavidad hacia abajo (punto de inflexión decreciente)
+    # Find inflection points where second derivative changes sign
+    # Positive to negative indicates concavity change downward
     sign_changes = np.diff(np.sign(second_derivative))
-    # Un cambio de +1 a -1 en la segunda derivada
-    inflection_indices = np.where(sign_changes < 0)[0] + 1  # +1 para corregir el desplazamiento de diff
+    # A change from +1 to -1 in the second derivative
+    inflection_indices = np.where(sign_changes < 0)[0] + 1  # +1 to correct the shift from diff
 
     if len(inflection_indices) == 0:
-        return None  # No se encontró un punto de inflexión decreciente
+        return None  # No decreasing inflection point found
 
-    # Seleccionar el primer punto de inflexión decreciente
+    # Select the first decreasing inflection point
     primer_inflexion = bin_centers[inflection_indices[0]]
 
     return primer_inflexion
 
 def replace_with_dict(df, columns, var_rename):
     """
-    Reemplaza valores en columnas especificadas de un DataFrame usando un diccionario.
-    Reemplaza coincidencias exactas y subcadenas que contienen las claves del diccionario.
+    Replace values in specified DataFrame columns using a dictionary.
+    Matches are exact or substrings containing dictionary keys.
 
-    Parámetros
+    Parameters
     ----------
     df : pd.DataFrame
-        El DataFrame original.
+        Original DataFrame.
     columns : list of str
-        Lista de nombres de columnas donde se aplicarán los reemplazos.
+        Columns where replacements will be applied.
     var_rename : dict
-        Diccionario donde las claves son los valores a reemplazar y los valores son los nuevos valores.
+        Mapping of values to replace and their new values.
 
-    Retorna
+    Returns
     -------
     df_replaced : pd.DataFrame
-        DataFrame con los reemplazos realizados en las columnas especificadas.
+        DataFrame with replacements in the specified columns.
     replace_info : dict
-        Información necesaria para revertir los reemplazos.
+        Information needed to revert the replacements.
     """
     if not isinstance(df, pd.DataFrame):
         raise TypeError("df must be a pandas DataFrame")
@@ -137,12 +137,12 @@ def replace_with_dict(df, columns, var_rename):
             )
             continue
         
-        # Almacenar información de reemplazo por columna
+        # Store replacement info per column
         replace_info[col] = {
             'var_rename': var_rename.copy()
         }
         
-        # Definir la función de reemplazo
+        # Replacement function
         def repl(match):
             return var_rename[match.group(0)]
         
@@ -166,9 +166,9 @@ def get_descripciones_valiosas(
     inflex_pond_inf=0.5
 ):
     """
-    Versión modificada donde NO se filtra el resultado final, 
-    sino que se agrega una columna 'buenos' con valor 1 u 0 
-    según los mismos criterios de inflexión usados en la versión anterior.
+    Modified version where the final result is not filtered,
+    but a column 'buenos' is added with value 1 or 0
+    according to the same inflection criteria used previously.
     """
 
     # --- 1) Ordenamos df_datos_descript ---
@@ -184,34 +184,34 @@ def get_descripciones_valiosas(
         [TARGETS[0], 'cluster']
     ).size().unstack(fill_value=0)
     
-    # Proporción real de la clase 1 en todo el dataset
+    # Real proportion of class 1 in the entire dataset
     proporcion_real = df_datos_clusterizados_desc[TARGETS[0]].value_counts(normalize=True).loc[1]
     
     # Conteo total por cada cluster
     stacked_data_total = stacked_data.sum(axis=0)
     
-    # Proporción de la clase 1 en cada cluster respecto a su total
-    # (es decir, #1 en cluster / total cluster)
+    # Proportion of class 1 in each cluster relative to its total
+    # (i.e., #1 in cluster / total cluster)
     proprcin_ = (stacked_data / stacked_data.sum(axis=0)).loc[1]
     
-    # --- 4) Creamos un dataframe con la razón y el soporte ---
-    #     Los índices son los clusters. En la col[0] = (proporcion cluster / proporcion_real)
+    # --- 4) Create a dataframe with ratio and support ---
+    #     Indexes are clusters. Column[0] = (cluster proportion / global proportion)
     #     En la col[1] = total de ese cluster
     los_custers = pd.concat([proprcin_ / proporcion_real, stacked_data_total], axis=1)
-    # Ordenamos por la primera columna (índice 0), de mayor a menor
+    # Sort by first column (index 0) descending
     los_custers = los_custers.sort_values(by=0, ascending=False)
     
     # --- 5) Hacemos una copia de los_custers para usarla completa,
-    #     y luego generamos la versión "valiosos" (con [1] > 1).
+    #     then generate "valuable" version (with [1] > 1).
     los_custers_original = los_custers.copy()
     los_custers_valiosos = los_custers_original[los_custers_original[1] > 1].copy()
 
-    # --- 6) Escalamos las columnas numéricas en "los_custers_valiosos" ---
+    # --- 6) Scale numeric columns in "los_custers_valiosos" ---
     numeric_cols = los_custers_valiosos.select_dtypes(include=np.number).columns
     scaler = StandardScaler()
     los_custers_valiosos[numeric_cols] = scaler.fit_transform(los_custers_valiosos[numeric_cols])
 
-    # --- 7) Hacemos una copia del DF ya escalado para calcular 'importancia' y puntos de inflexión ---
+    # --- 7) Copy scaled DF to calculate 'importance' and inflection points ---
     los_custers_valiosos_original = copy.deepcopy(los_custers_valiosos)
 
     # Sumamos todas las columnas como "importancia" (en este caso col 0 y col 1, ya escaladas)
@@ -219,8 +219,8 @@ def get_descripciones_valiosas(
     # (No se usa el sort_values("importancia") para filtrar nada, pero lo dejamos si deseas inspeccionarlo)
     # los_custers_valiosos_original = los_custers_valiosos_original.sort_values('importancia', ascending=False)
 
-    # --- 8) Calculamos los puntos de inflexión sobre las columnas 0 y 1 (ya escaladas) ---
-    #     Aquí se asume que la función "primer_punto_inflexion_decreciente" está definida fuera.
+    # --- 8) Calculate inflection points on columns 0 and 1 (already scaled) ---
+    #     assumes "primer_punto_inflexion_decreciente" is defined elsewhere.
     punto = primer_punto_inflexion_decreciente(
         los_custers_valiosos_original[0], bins=20, window_length=5, polyorder=2
     )
@@ -236,39 +236,39 @@ def get_descripciones_valiosas(
         )
     )
 
-    # Creamos la columna "buenos" en los_custers_original
+    # Add a "buenos" column to los_custers_original
     los_custers_original['buenos'] = np.where(cond_buenos, 1, 0)
 
-    # --- 10) Armamos ahora el dataframe final con TODAS las filas y la nueva columna ---
-    # 1) Hacemos copia de df_datos_descript para no tocar el original
+    # --- 10) Build the final DataFrame with all rows and the new column ---
+    # 1) Copy df_datos_descript so the original remains untouched
     df_datos_descript_valiosas = df_datos_descript.copy()
 
-    # 2) Reemplazamos (si aplica) los textos de "cluster_descripcion" según var_rename
+    # 2) Replace, if applicable, text in "cluster_descripcion" according to var_rename
     df_datos_descript_valiosas, _ = replace_with_dict(
         df_datos_descript_valiosas, ['cluster_descripcion'], var_rename
     )
 
-    # 3) Mergeamos la probabilidad (proprcin_) => col 0 = (prop. cluster / proporción_global)
-    #    NOTA: en la salida final lo renombraremos a "Soporte" o el nombre que gustes
+    # 3) Merge probability (proprcin_) => col 0 = (cluster proportion / global proportion)
+    #    NOTE: in the final output this will be renamed to "Soporte" or any name you prefer
     df_datos_descript_valiosas = df_datos_descript_valiosas.merge(
         proprcin_.reset_index(), on='cluster', how='left'
     )
 
-    # 4) Mergeamos los_custers_original para obtener col[0], col[1] y la nueva col 'buenos'
+    # 4) Merge los_custers_original to obtain col[0], col[1], and the new 'buenos' column
     df_datos_descript_valiosas = df_datos_descript_valiosas.merge(
         los_custers_original.reset_index(), on='cluster', how='left'
     )
 
-    # 5) Renombramos las columnas que vienen duplicadas en el merge
+    # 5) Rename duplicated columns from the merge
     df_datos_descript_valiosas = df_datos_descript_valiosas.rename(
         columns={
-            '1_x': 'Probabilidad',      # Proporción de la clase 1 en ese cluster
-            '1_y': 'N_probabilidad',    # Conteo total del cluster
+            '1_x': 'Probabilidad',      # Proportion of class 1 in that cluster
+            '1_y': 'N_probabilidad',    # Total count of the cluster
             0:     'Soporte',           # Ratio (prop.cluster / prop.global)
         }
     )
 
-    # 6) Retornamos el DF final (ya con 'buenos') y la tabla stacked_data
+    # 6) Return the final DataFrame (with 'buenos') and the stacked_data table
     return df_datos_descript_valiosas.drop(columns=['cluster_ponderador']), stacked_data
 
 
@@ -287,10 +287,10 @@ def generate_descriptions(condition_list, language='en', OPENAI_API_KEY=None, de
             }
         default_params = get_default_params()
 
-    # Crear un único mensaje con todas las condiciones
+    # Create a single message with all conditions
     conditions_text = "\n".join([f"{i+1}. {condition}" for i, condition in enumerate(condition_list)])
 
-    # Prompt mejorado para descripciones simples y comprensibles
+    # Improved prompt for simple and clear descriptions
     system_prompt = "You are an assistant that helps to describe dataset groups in very simple terms."
     user_prompt = (
         f"Generate a very simple description for each of the following conditions. "
@@ -314,7 +314,7 @@ def generate_descriptions(condition_list, language='en', OPENAI_API_KEY=None, de
         logger.exception("Error calling the OpenAI API: %s", exc)
         return {'responses': []}
 
-    # Dividir la respuesta en una lista de descripciones por línea
+    # Split the response into a list of descriptions per line
     descriptions = respuesta.choices[0].message.content.strip().split("\n")
     descriptions = [desc.strip() for desc in descriptions if desc.strip()]
 
@@ -323,19 +323,39 @@ def generate_descriptions(condition_list, language='en', OPENAI_API_KEY=None, de
     return result
 
 import re
-import numpy as np   # Asegúrate de tenerlo importado
-import pandas as pd  # solo para el ejemplo, tu código ya lo usa
+import numpy as np   # Ensure it's imported
+import pandas as pd  # for demonstration; your code already uses it
+
 
 def _categorize_conditions(condition_list, df, n_groups=2, handle_bools=False):
+    """Categorize numeric or boolean conditions into percentile labels.
 
-    # ── Validaciones idénticas ──
+    Parameters
+    ----------
+    condition_list : list[str]
+        List of condition strings.
+    df : pd.DataFrame
+        DataFrame used to compute percentiles.
+    n_groups : int, default 2
+        Number of percentile groups.
+    handle_bools : bool, default False
+        Whether to handle boolean conditions.
+
+    Returns
+    -------
+    dict
+        Dictionary with a ``responses`` key mapping to a list of descriptions.
+    """
+
+    # -- Common validations --
     if not isinstance(df, pd.DataFrame) or df.empty:
         return {'error': 'A valid, non-empty pandas DataFrame is required.'}
     if not isinstance(n_groups, int) or n_groups < 2:
         return {'error': 'n_groups must be an integer greater than or equal to 2.'}
-    
+
     df.columns = df.columns.str.replace(' ', '_')
-    # ── Etiquetas de percentil ──
+
+    # -- Percentile labels --
     def format_percentile(p):
         return str(int(p)) if float(p).is_integer() else f"{p:.2f}".rstrip('0').rstrip('.')
 
@@ -344,27 +364,27 @@ def _categorize_conditions(condition_list, df, n_groups=2, handle_bools=False):
         for i in range(n_groups)
     ]
 
-    # ── Umbrales idénticos ──
+    # -- Common thresholds --
     bool_cols = df.select_dtypes(include="bool").columns.tolist() if handle_bools else []
     quantile_points = [i / n_groups for i in range(1, n_groups)]
     thresholds = {c: df[c].quantile(quantile_points).tolist()
                   for c in df.columns if c not in bool_cols}
 
-    # ── Patrones mejorados ──────────────────────────────────────────────
-    # 1) Nombre de columna: letras, números, _, -, ., (), [] …
+    # -- Improved patterns --------------------------------------------------
+    # 1) Column name: letters, numbers, _, -, ., (), [] …
     var_name = r'[A-Za-z0-9_\-\.\(\)\[\]]+'
 
-    # 2) Número:
-    #    - Parte entera opcional
-    #    - Punto decimal opcional
-    #    - Notación científica opcional (e o E, con signo opcional)
-    #    - Signo ± al inicio opcional
+    # 2) Number:
+    #    - Optional integer part
+    #    - Optional decimal point
+    #    - Optional scientific notation (e or E, with optional sign)
+    #    - Optional leading ± sign
     num = r'[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?'
 
-    pattern_num  = rf'({num})\s*<=\s*({var_name})\s*<=\s*({num})'
+    pattern_num = rf'({num})\s*<=\s*({var_name})\s*<=\s*({num})'
     pattern_bool = rf'({var_name})\s*==\s*(True|False)'
 
-    # ── Procesamiento idéntico ──
+    # -- Common processing --
     descriptions = []
     for condition in condition_list:
         tokens = [t.strip() for t in re.split(r'(?i)\band\b', condition)]
@@ -378,8 +398,7 @@ def _categorize_conditions(condition_list, df, n_groups=2, handle_bools=False):
                 if feat in thresholds:
                     cuts = thresholds[feat]
                     # In case multiple percentiles produce the same cut value,
-                    # ``side='right'`` ensures we keep the higher percentile
-                    # label for that threshold
+                    # ``side='right'`` ensures we keep the higher percentile label
                     category = labels[np.searchsorted(cuts, avg_value, side="right")]
                 elif handle_bools and feat in bool_cols:
                     category = 'TRUE' if avg_value >= 0.5 else 'FALSE'
@@ -408,10 +427,7 @@ def categorize_conditions(condition_list, df, n_groups=2):
 
 
 def categorize_conditions_generalized(condition_list, df, n_groups=2):
-    """Wrapper para retrocompatibilidad.
-
-    Permite procesar condiciones con soporte de booleanos.
-    """
+    """Backward-compatible wrapper that supports boolean conditions."""
     return _categorize_conditions(condition_list, df, n_groups=n_groups, handle_bools=True)
 
 
@@ -424,28 +440,28 @@ def build_conditions_table(
     n_groups=3,
     fill_value="N/A",
 ):
-    """Construye una tabla con descripciones categóricas y métricas.
+    """Build a table with categorical descriptions and metrics.
 
     Parameters
     ----------
     condition_list : list[str]
-        Lista de condiciones en formato ``"min <= VAR <= max …"``.
+        List of conditions in the form ``"min <= VAR <= max …"``.
     df : pd.DataFrame
-        DataFrame de referencia usado para calcular cuantiles.
+        Reference DataFrame used to compute quantiles.
     efectividades : list[float] | pd.Series
-        Métrica de efectividad por cada condición.
+        Effectiveness metric for each condition.
     ponderadores : list[float] | pd.Series | None, default None
-        Métrica opcional (soporte, frecuencia, etc.) por condición.
+        Optional metric (support, frequency, etc.) for each condition.
     n_groups : int, default 3
-        Número de grupos para ``categorize_conditions``.
+        Number of groups for ``categorize_conditions``.
     fill_value : str, default "N/A"
-        Valor para variables ausentes en la descripción de una condición.
+        Value for variables missing in a condition description.
 
     Returns
     -------
     pd.DataFrame
-        Tabla resultante con columnas ``Grupo``, ``Efectividad``, ``Ponderador``
-        y las variables extraídas en orden alfabético.
+        Resulting table with columns ``Grupo``, ``Efectividad``, ``Ponderador``
+        and the extracted variables in alphabetical order.
     """
 
     cat_results = categorize_conditions(condition_list, df, n_groups=n_groups)
@@ -462,11 +478,11 @@ def build_conditions_table(
     rows = []
     n = len(descriptions)
     if len(efectividades) != n:
-        raise ValueError("`efectividades` debe tener la misma longitud que `condition_list`")
+        raise ValueError("`efectividades` must have the same length as `condition_list`")
     if ponderadores is None:
         ponderadores = [np.nan] * n
     elif len(ponderadores) != n:
-        raise ValueError("`ponderadores` debe tener la misma longitud que `condition_list`")
+        raise ValueError("`ponderadores` must have the same length as `condition_list`")
 
     for idx, desc in enumerate(descriptions):
         row = {
@@ -490,27 +506,27 @@ from typing import Union, Dict, List, Any
 
 def _parse_relative_description(desc: Union[str, float, None]) -> Dict[str, str]:
     """
-    Convierte una cadena del tipo
+    Convert a string like
         'petal_width_(cm) = Percentile 80, sepal_length_(cm) = Percentile 40.'
-    en un diccionario
+    into a dictionary
         {'petal_width_(cm)': 'PERCENTILE 80',
          'sepal_length_(cm)': 'PERCENTILE 40'}
-    
-    Si la entrada no es texto válido ‒NaN, None, ''‒ devuelve {}.
+
+    If the input is not valid text (NaN, None, ''), return {}.
     """
     if not isinstance(desc, str) or not desc.strip():
         return {}
     
-    # Eliminamos el punto final (si existe) y separamos por comas.
+    # Remove final period (if present) and split by commas.
     tokens: List[str] = [t.strip().rstrip('.')            # “petal = Percentile 25”
                          for t in desc.split(',')
                          if t.strip()]
-    
+
     pares: Dict[str, str] = {}
     for token in tokens:
-        if ' = ' in token:                                # Seguro que existe por formato
+        if ' = ' in token:                                # Guaranteed by format
             var, cat = token.split(' = ', 1)
-            pares[var.strip()] = cat.strip().upper()      # Normalizamos a MAYÚSCULAS
+            pares[var.strip()] = cat.strip().upper()      # Normalize to UPPERCASE
     return pares
 
 
@@ -520,38 +536,36 @@ def expandir_categorias(
         inplace: bool = False
     ) -> pd.DataFrame:
     """
-    A partir de *df[desc_col]* crea una columna nueva por cada variable
-    mencionada en **cluster_desc_relative** y coloca la categoría (Percentile 10,
-    Percentile 25…);
-    donde la variable no se mencione, deja `NaN`.
+    From *df[desc_col]* create a new column for each variable mentioned in
+    **cluster_desc_relative** and place its category (Percentile 10, Percentile 25…).
+    Where the variable is not mentioned, leave `NaN`.
 
     Parameters
     ----------
     df : pd.DataFrame
-        DataFrame original.
+        Original DataFrame.
     desc_col : str, default 'cluster_desc_relative'
-        Nombre de la columna que contiene las descripciones.
+        Name of the column containing the descriptions.
     inplace : bool, default False
-        - True : añade las columnas directamente en `df` y lo devuelve.
-        - False: devuelve **una copia** con las columnas nuevas, dejando
-          `df` intacto.
+        - True: add columns directly to `df` and return it.
+        - False: return **a copy** with the new columns, leaving `df` untouched.
 
     Returns
     -------
     pd.DataFrame
-        DataFrame con las columnas adicionales de categorías.
+        DataFrame with the additional category columns.
     """
     if desc_col not in df.columns:
         raise KeyError(f'Column "{desc_col}" does not exist in the DataFrame.')
     
-    # 1) Transformamos cada descripción en un dict variable → categoría.
+    # 1) Transform each description into a variable → category dict.
     mapeos: pd.Series = df[desc_col].apply(_parse_relative_description)
     
-    # 2) Convertimos la serie de dicts en DataFrame columnar (wide).
+    # 2) Convert the series of dicts into a columnar DataFrame (wide).
     cat_df: pd.DataFrame = pd.json_normalize(mapeos)
-    # Las columnas ausentes en una fila quedan automáticamente como NaN.
-    
-    # 3) Unimos al original.
+    # Missing columns in a row automatically become NaN.
+
+    # 3) Join back to the original.
     if inplace:
         for col in cat_df.columns:
             df[col] = cat_df[col]
@@ -561,11 +575,10 @@ def expandir_categorias(
 
 
 
-# ───────────────────────────── utilidades ─────────────────────────────
+# ----------------------------- utilities -----------------------------
 
 def feature_cols(df: pd.DataFrame) -> List[str]:
-    """Devuelve las columnas de características (todo lo que
-    esté a la derecha de 'cluster_desc_relative')."""
+    """Return feature columns (everything to the right of 'cluster_desc_relative')."""
     idx = df.columns.get_loc('cluster_desc_relative')
     return list(df.columns[idx + 1:])
 
@@ -575,28 +588,27 @@ def encode_features(df: pd.DataFrame,
                     *,
                     scale: bool = True) -> pd.DataFrame:
     """
-    Convierte variables ordinales según `ord_map` y, opcionalmente,
-    escala numéricamente cada columna al rango [0, 1].
+    Convert ordinal variables using ``ord_map`` and optionally scale each column to [0, 1].
 
     Parameters
     ----------
-    df : DataFrame fuente
-    ord_map : dict  mapa de texto→valor ordinal
-    scale : bool    si True, normaliza columnas no constantes
+    df : Source DataFrame
+    ord_map : dict mapping text to ordinal value
+    scale : bool, if True, normalize non-constant columns
 
     Returns
     -------
-    DataFrame con las columnas transformadas
+    DataFrame with transformed columns
     """
     feats = feature_cols(df)
     enc = df[feats].copy()
 
     for c in feats:
-        # mapea solo objetos (categóricas/ordinales)
+        # map only objects (categorical/ordinal)
         if enc[c].dtype == object:
             enc[c] = enc[c].map(ord_map)
 
-        # re-escala si tiene más de un valor distinto
+        # rescale if it has more than one distinct value
         if scale and enc[c].dropna().nunique() > 1:
             enc[c] = (enc[c] - enc[c].min()) / (enc[c].max() - enc[c].min())
 
@@ -608,7 +620,7 @@ def similarity(a_idx: int,
                df_enc: pd.DataFrame,
                *,
                cov_weight: bool = True) -> float:
-    """Similitud (1-distancia media absoluta) entre dos filas ya codificadas."""
+    """Similarity (1 - mean absolute distance) between two encoded rows."""
     v_a, v_b = df_enc.iloc[a_idx], df_enc.iloc[b_idx]
     mask = ~(v_a.isna() | v_b.isna())
     if mask.sum() == 0:
@@ -618,20 +630,20 @@ def similarity(a_idx: int,
     return sim * (mask.sum() / df_enc.shape[1]) if cov_weight else sim
 
 
-# ───────────────────────────── API de alto nivel ─────────────────────────────
+# ----------------------------- high-level API -----------------------------
 
 def similarity_matrix(df: pd.DataFrame,
                       ord_map: Dict[str, int],
                       *,
                       cov_weight: bool = True) -> pd.DataFrame:
     """
-    Matriz de similitud S (diagonal = 1).
+    Similarity matrix ``S`` (diagonal = 1).
 
     Parameters
     ----------
-    df         : DataFrame con los clusters y sus features
-    ord_map    : dict mapa ordinal que se usará en `encode_features`
-    cov_weight : bool pondera la similitud por cobertura de datos no-nulos
+    df         : DataFrame with clusters and their features
+    ord_map    : dict mapping used in ``encode_features``
+    cov_weight : bool weights similarity by coverage of non-null data
     """
     df_enc = encode_features(df.reset_index(drop=True), ord_map)
     n = len(df_enc)
@@ -650,29 +662,29 @@ def cluster_pairs_sim(df: pd.DataFrame,
                       metric: str = 'cluster_ef_sample',
                       cov_weight: bool = True) -> pd.DataFrame:
     """
-    Devuelve un DataFrame con:
-      cluster_1 | cluster_2 | similitud | delta_<metric> | score
+    Return a DataFrame with columns:
+      cluster_1 | cluster_2 | similarity | delta_<metric> | score
 
-    El score prioriza pares con alta similitud y mejora positiva
-    en la métrica indicada.
+    The score prioritizes pairs with high similarity and positive improvement
+    in the specified metric.
     """
     df_r = df.reset_index(drop=True)
     df_enc = encode_features(df_r, ord_map)
     n = len(df_r)
 
-    # — recolectamos pares —
+    # -- collect pairs --
     pairs: List[Tuple[str, str, float, float]] = []
     for i, j in combinations(range(n), 2):
         sim = similarity(i, j, df_enc, cov_weight=cov_weight)
         delta = abs(df_r.at[j, metric] - df_r.at[i, metric])
         pairs.append((df_r.at[i, 'cluster'], df_r.at[j, 'cluster'], sim, delta))
 
-    # — escala robusta para deltas positivos —
+    # -- robust scale for positive deltas --
     pos_deltas = np.array([d for *_, d in pairs if d > 0])
     mad = np.median(np.abs(pos_deltas - np.median(pos_deltas))) + 1e-9
     sigma_rob = 1.4826 * mad if pos_deltas.size else 1.0
 
-    # — calculamos score —
+    # -- compute score --
     rows = []
     for c1, c2, sim, delta in pairs:
         grow = 1 - np.exp(-max(0, delta) / sigma_rob)
@@ -687,22 +699,22 @@ def cluster_pairs_sim(df: pd.DataFrame,
 def get_frontiers(df_datos_descript: pd.DataFrame,
                   df: pd.DataFrame,
                   divide: int = 5) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """Genera fronteras entre clusters a partir de descripciones.
+    """Generate cluster frontiers from descriptions.
 
     Parameters
     ----------
     df_datos_descript : pd.DataFrame
-        DataFrame con descripciones de clusters.
+        DataFrame with cluster descriptions.
     df : pd.DataFrame
-        DataFrame de referencia para calcular percentiles.
+        Reference DataFrame to compute percentiles.
     divide : int, default 5
-        Número de divisiones para ``categorize_conditions``.
+        Number of divisions for ``categorize_conditions``.
 
     Returns
     -------
     tuple(pd.DataFrame, pd.DataFrame)
-        ``df_datos_explain`` con columnas expandidas y ``frontiers`` con
-        pares de clusters ordenados por score.
+        ``df_datos_explain`` with expanded columns and ``frontiers`` with
+        cluster pairs ordered by score.
     """
     descrip_generales = [
         x for x in df_datos_descript['cluster_descripcion'].unique().tolist()
@@ -734,8 +746,8 @@ def get_frontiers(df_datos_descript: pd.DataFrame,
 # ╭──────────────────╮
 # │  INIT OpenAI SDK │
 # ╰──────────────────╯
-# Las utilidades siguientes permiten generar hipótesis y traducir
-# reglas en texto comprensible.
+# The following utilities generate hypotheses and translate
+# rules into readable text.
 
 
 def get_range_re() -> re.Pattern:
@@ -839,10 +851,10 @@ def _rule_to_text(rule: str, meta_df: pd.DataFrame, *, lang: str) -> str:
 
 def _list_rules_to_text(col, meta_df, *, lang: str, placeholder: str = "—") -> str:
     """
-    Convierte lista o str-lista a texto legible.
-    Devuelve 'placeholder' si la lista está vacía.
+    Convert a list or string-list into readable text.
+    Return 'placeholder' if the list is empty.
     """
-    # 1) Normaliza a lista
+    # 1) Normalize to list
     if col is None or (isinstance(col, float) and pd.isna(col)):
         col = []
     elif isinstance(col, str):
@@ -853,11 +865,11 @@ def _list_rules_to_text(col, meta_df, *, lang: str, placeholder: str = "—") ->
     if not isinstance(col, (list, tuple)):
         col = [col]
 
-    # 2) Sin reglas → placeholder
+    # 2) No rules → placeholder
     if len(col) == 0 or all(str(r).strip() == "" for r in col):
         return placeholder
 
-    # 3) Traducción normal
+    # 3) Standard translation
     return ", ".join(_rule_to_text(r, meta_df, lang=lang) for r in col)
 
 
@@ -871,7 +883,7 @@ def _local_hypothesis_text(inter_txt: str, a_txt: str, b_txt: str,
                            p_a: float, p_b: float, delta: float,
                            target_lbl: str, side: list[str], *,
                            lang: str) -> str:
-    """Genera texto local para la hipótesis (A vs B con intersección común)."""
+    """Generate localized hypothesis text (A vs B with a common intersection)."""
     sig_word = _local_significance(delta, lang=lang)
 
     side_txt = ""
@@ -880,7 +892,7 @@ def _local_hypothesis_text(inter_txt: str, a_txt: str, b_txt: str,
         side_txt = ("\n\n**Posibles efectos secundarios**" if lang == "es"
                     else "\n\n**Possible side-effects**") + se
 
-    # Encabezados
+    # Headers
     header_ctx = ("**Reglas compartidas (intersección)**"
                   if lang == "es" else "**Shared rules (intersection)**")
     header_a   = "**Subgrupo A**" if lang == "es" else "**Subgroup A**"
@@ -888,7 +900,7 @@ def _local_hypothesis_text(inter_txt: str, a_txt: str, b_txt: str,
     header_an  = ("**Análisis y recomendaciones**"
                   if lang == "es" else "**Analysis & Recommendations**")
 
-    # Cuerpo de análisis
+    # Analysis body
     analysis = (
         f"Resultado {sig_word}. Ajustar las variables que diferencian A y B "
         f"podría aumentar la probabilidad de {target_lbl.lower()}."
@@ -914,7 +926,7 @@ def _local_hypothesis_text(inter_txt: str, a_txt: str, b_txt: str,
 def _gpt_hypothesis(payload: dict[str, Any], *,
                     model: str,
                     temperature: float) -> Optional[str]:
-    """Wrapper: envía a GPT el payload y devuelve el reporte estructurado."""
+    """Wrapper: send payload to GPT and return the structured report."""
     if _client is None:
         return None
     try:
@@ -968,12 +980,12 @@ def generar_hypotesis(meta_df: pd.DataFrame,
                       gpt_model: str = "gpt-4o-mini",
                       temperature: float = 0.2) -> str:
     """
-    Crea un reporte de hipótesis comparando los subgrupos
-    (intersección ∧ A) vs (intersección ∧ B).
+    Create a hypothesis report comparing the subgroups
+    (intersection ∧ A) vs (intersection ∧ B).
     """
     row = exp_df.iloc[0]
 
-    # Posibles efectos secundarios
+    # Possible side effects
     side = []
     for col in ("only_cluster_A", "only_cluster_B"):
         for tok in _extract_tokens(pd.Series([row[col]])):

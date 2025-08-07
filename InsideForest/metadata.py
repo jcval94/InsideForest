@@ -135,13 +135,11 @@ class MetaExtractor:
     @staticmethod
     def _extract_tokens(series: pd.Series) -> Set[str]:
         """
-        Extrae de una Serie de pandas todos los nombres de variable que aparezcan:
-        • En comparaciones con operadores (<=, >=, <, >, ==, !=), incluyendo
-            números en notación científica y con guiones bajos como separadores
-            (p. ej. 1_000_000, 3.2e-4).
-        • En tokens con formato prefijo__nombre (p. ej. cat__score).
+        Extract all variable names appearing in a pandas Series:
+        • In comparisons with operators (<=, >=, <, >, ==, !=), including numbers in scientific notation and with underscores as separators (e.g. 1_000_000, 3.2e-4).
+        • In tokens formatted as prefix__name (e.g. cat__score).
 
-        Devuelve un conjunto único de nombres de variable.
+        Returns a unique set of variable names.
         """
         # 1) convertimos la serie a un solo string
         text = " ".join(series.dropna().astype(str))
@@ -150,9 +148,9 @@ class MetaExtractor:
         var_re = r"[A-Za-z_][A-Za-z0-9_\.\[\]]*"       # variables Python-like
         num_re = r"""
             [-+]?                                     # signo opcional
-            \d[\d_]*                                  # parte entera (1 ó 1_000_000)
-            (?:\.\d[\d_]*)?                           # parte decimal opcional
-            (?:[eE][-+]?\d+)?                         # notación científica opcional
+            \d[\d_]*                                  # integer part (1 or 1_000_000)
+            (?:\.\d[\d_]*)?                           # optional decimal part
+            (?:[eE][-+]?\d+)?                         # optional scientific notation
         """
         op_re  = r"(?:<=|>=|<|>|==|!=)"                # operadores permitidos
 
@@ -170,7 +168,7 @@ class MetaExtractor:
         for m in compare_re.finditer(text):
             for side in ("left", "right"):
                 lex = m.group(side)
-                # si lex es variable (no numérico), la añadimos
+                # if lex is a variable (non-numeric) add it
                 if re.fullmatch(var_re, lex) and not re.fullmatch(num_re, lex):
                     tokens.add(lex)
 
@@ -197,7 +195,7 @@ class MetaExtractor:
         hit, score = _fuzzy_extract(canon_lc, [v.lower() for v in self.meta.index])
         return hit if hit and score >= 65 else None
 
-    # ───────────────────────── API pública ─────────────────────────
+    # ───────────────────────── Public API ─────────────────────────
     def extract(
         self,
         df_QW: pd.DataFrame,
@@ -237,23 +235,23 @@ class MetaExtractor:
 # 1. UTILITARIOS DE PARSEO
 # ------------------------------------------------------------------ #
 def parse_rule_string(rule_str: str) -> list[str]:
-    """Devuelve lista de condiciones limpias quitando AND y espacios extra."""
+    """Return list of cleaned conditions removing AND and extra spaces."""
     if pd.isna(rule_str):
         return []
-    # Normaliza espacios y quita paréntesis (si hubiera)
+    # Normalize spaces and remove parentheses if present
     parts = [re.sub(r'\s+', ' ', p.strip('() ')) for p in rule_str.split('AND')]
-    return [p for p in parts if p]                 # sin strings vacíos
+    return [p for p in parts if p]                 # no empty strings
 
 def token_from_condition(cond: str) -> str | None:
     """
-    Extrae el token de la variable dentro de la condición.
-    Ej.: '-3.2 <= num__age <= 1.5' → 'num__age'
+    Extract the variable token within a condition.
+    Example: '-3.2 <= num__age <= 1.5' → 'num__age'
     """
-    # busca la palabra con '__' (primera preferencia)
+    # search for word containing '__' first
     for word in cond.split():
         if '__' in word:
             return word
-    # respaldo: primera palabra alfabética
+    # fallback: first word containing alphabetic characters
     for word in cond.split():
         if re.search(r'[A-Za-z]', word):
             return word
@@ -269,15 +267,15 @@ def conditions_to_tokens(conds: list[str]) -> set[str]:
 def experiments_from_df2(df2: pd.DataFrame,
                          meta: pd.DataFrame) -> pd.DataFrame:
     """
-    Devuelve UNA fila por par de clústeres con:
-      · variables_a : lista de tokens exclusivos del clúster menos efectivo
-      · variables_b : lista de tokens exclusivos del clúster más efectivo
-      · difficulty_a : máx(actionability.increase_difficulty) en variables_a
-      · difficulty_b : máx(actionability.decrease_difficulty) en variables_b
-      · n_intersection, n_only_a, n_only_b (conteos)
-      · score (penaliza difficulty_a, exclusivas y premia intersección)
+    Return one row per pair of clusters with:
+      · variables_a: tokens exclusive to the less effective cluster
+      · variables_b: tokens exclusive to the more effective cluster
+      · difficulty_a: max(actionability.increase_difficulty) for variables_a
+      · difficulty_b: max(actionability.decrease_difficulty) for variables_b
+      · n_intersection, n_only_a, n_only_b (counts)
+      · score (penalizes difficulty_a, exclusives and rewards intersection)
     """
-    # --- tabla de acción -----------------------------
+    # --- action table -----------------------------
     meta_idx = meta.set_index('rule_token')
 
     recs = []
@@ -290,12 +288,12 @@ def experiments_from_df2(df2: pd.DataFrame,
         only_a     = sorted(conds_a - conds_b)
         only_b     = sorted(conds_b - conds_a)
 
-        # Determinar qué clúster es el de menor efectividad
+        # Determine which cluster has lower effectiveness
         delta_ef   = row_a['cluster_ef_sample'] - row_b['cluster_ef_sample']
         row_a_subset, row_b_subset = (row_a, row_b) if delta_ef < 0 else (row_b, row_a)
         only_subset_a, only_subset_b = (only_a, only_b) if delta_ef < 0 else (only_b, only_a)
 
-        # -------------------- listas de tokens exclusivas ------------------
+        # -------------------- lists of exclusive tokens ------------------
         def to_tokens(cond_list):
             return sorted({token_from_condition(c) for c in cond_list
                            if token_from_condition(c) is not None})
@@ -303,7 +301,7 @@ def experiments_from_df2(df2: pd.DataFrame,
         vars_a = to_tokens(only_subset_a)
         vars_b = to_tokens(only_subset_b)
 
-        # -------------------- máximos de dificultad ------------------------
+        # -------------------- maximum difficulty ------------------------
         def max_difficulty(tokens, col):
             vals = [meta_idx.at[t, col] for t in tokens
                     if t in meta_idx.index and pd.notna(meta_idx.at[t, col])]
@@ -354,7 +352,7 @@ def experiments_from_df2(df2: pd.DataFrame,
 # ------------------------------------------------------------------ #
 def run_experiments(mx, df2_dict: dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    Genera y consolida hipótesis para un diccionario de Df2.
+    Generate and consolidate hypotheses for a dictionary of Df2.
     """
     all_hypotheses = []
 
