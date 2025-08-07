@@ -8,7 +8,7 @@ import os
 import re
 from functools import lru_cache
 from itertools import combinations
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -24,9 +24,10 @@ except Exception as exc:  # pragma: no cover - import failure path
 else:  # Only executed if import succeeded
     try:
         from google.colab import userdata  # type: ignore
-        OPENAI_API_KEY = userdata.get('OPENAI_API_KEY')
+
+        OPENAI_API_KEY = userdata.get("OPENAI_API_KEY")
     except Exception:
-        OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+        OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
     if not OPENAI_API_KEY:
         _client = None
@@ -39,6 +40,7 @@ else:  # Only executed if import succeeded
             logging.warning("OpenAI disabled (%s)", exc)
 
 logger = logging.getLogger(__name__)
+
 
 def primer_punto_inflexion_decreciente(data, bins=10, window_length=5, polyorder=2):
     """
@@ -76,7 +78,9 @@ def primer_punto_inflexion_decreciente(data, bins=10, window_length=5, polyorder
         window_length = polyorder + 2 if (polyorder + 2) % 2 != 0 else polyorder + 3
 
     try:
-        counts_smooth = savgol_filter(counts, window_length=window_length, polyorder=polyorder)
+        counts_smooth = savgol_filter(
+            counts, window_length=window_length, polyorder=polyorder
+        )
     except Exception as exc:
         logger.exception("Error applying savgol_filter: %s", exc)
         return None
@@ -88,7 +92,9 @@ def primer_punto_inflexion_decreciente(data, bins=10, window_length=5, polyorder
     # Positive to negative indicates concavity change downward
     sign_changes = np.diff(np.sign(second_derivative))
     # A change from +1 to -1 in the second derivative
-    inflection_indices = np.where(sign_changes < 0)[0] + 1  # +1 to correct the shift from diff
+    inflection_indices = (
+        np.where(sign_changes < 0)[0] + 1
+    )  # +1 to correct the shift from diff
 
     if len(inflection_indices) == 0:
         return None  # No decreasing inflection point found
@@ -97,6 +103,7 @@ def primer_punto_inflexion_decreciente(data, bins=10, window_length=5, polyorder
     primer_inflexion = bin_centers[inflection_indices[0]]
 
     return primer_inflexion
+
 
 def replace_with_dict(df, columns, var_rename):
     """
@@ -124,37 +131,33 @@ def replace_with_dict(df, columns, var_rename):
 
     df_replaced = df.copy()
     replace_info = {}
-    
+
     # Ordenar las claves por longitud descendente para evitar conflictos en subcadenas
     sorted_keys = sorted(var_rename.keys(), key=len, reverse=True)
     escaped_keys = [re.escape(k) for k in sorted_keys]
-    pattern = re.compile('|'.join(escaped_keys))
-    
+    pattern = re.compile("|".join(escaped_keys))
+
     for col in columns:
         if col not in df_replaced.columns:
-            logger.warning(
-                f"Warning: column '{col}' not found in the DataFrame."
-            )
+            logger.warning(f"Warning: column '{col}' not found in the DataFrame.")
             continue
-        
+
         # Store replacement info per column
-        replace_info[col] = {
-            'var_rename': var_rename.copy()
-        }
-        
+        replace_info[col] = {"var_rename": var_rename.copy()}
+
         # Replacement function
         def repl(match):
             return var_rename[match.group(0)]
-        
+
         try:
-            df_replaced[col] = df_replaced[col].astype(str).str.replace(pattern, repl, regex=True)
+            df_replaced[col] = (
+                df_replaced[col].astype(str).str.replace(pattern, repl, regex=True)
+            )
         except Exception as exc:
             logger.exception("Error replacing values in column %s: %s", col, exc)
             continue
-    
+
     return df_replaced, replace_info
-
-
 
 
 def get_descripciones_valiosas(
@@ -163,7 +166,7 @@ def get_descripciones_valiosas(
     TARGETS,
     var_rename,
     inflex_pond_sup=0.4,
-    inflex_pond_inf=0.5
+    inflex_pond_inf=0.5,
 ):
     """
     Modified version where the final result is not filtered,
@@ -172,35 +175,41 @@ def get_descripciones_valiosas(
     """
 
     # --- 1) Ordenamos df_datos_descript ---
-    df_datos_descript = df_datos_descript.sort_values('cluster_ponderador', ascending=False)
+    df_datos_descript = df_datos_descript.sort_values(
+        "cluster_ponderador", ascending=False
+    )
 
     # --- 2) Merge para tener descripciones en df clusterizados ---
     df_datos_clusterizados_desc = df_datos_clusterizados.merge(
-        df_datos_descript, on='cluster', how='left'
+        df_datos_descript, on="cluster", how="left"
     )
-    
+
     # --- 3) Generamos la matriz (unstack) para conteo de TARGETS[0] vs cluster ---
-    stacked_data = df_datos_clusterizados_desc.groupby(
-        [TARGETS[0], 'cluster']
-    ).size().unstack(fill_value=0)
-    
+    stacked_data = (
+        df_datos_clusterizados_desc.groupby([TARGETS[0], "cluster"])
+        .size()
+        .unstack(fill_value=0)
+    )
+
     # Real proportion of class 1 in the entire dataset
-    proporcion_real = df_datos_clusterizados_desc[TARGETS[0]].value_counts(normalize=True).loc[1]
-    
+    proporcion_real = (
+        df_datos_clusterizados_desc[TARGETS[0]].value_counts(normalize=True).loc[1]
+    )
+
     # Conteo total por cada cluster
     stacked_data_total = stacked_data.sum(axis=0)
-    
+
     # Proportion of class 1 in each cluster relative to its total
     # (i.e., #1 in cluster / total cluster)
     proprcin_ = (stacked_data / stacked_data.sum(axis=0)).loc[1]
-    
+
     # --- 4) Create a dataframe with ratio and support ---
     #     Indexes are clusters. Column[0] = (cluster proportion / global proportion)
     #     En la col[1] = total de ese cluster
     los_custers = pd.concat([proprcin_ / proporcion_real, stacked_data_total], axis=1)
     # Sort by first column (index 0) descending
     los_custers = los_custers.sort_values(by=0, ascending=False)
-    
+
     # --- 5) Hacemos una copia de los_custers para usarla completa,
     #     then generate "valuable" version (with [1] > 1).
     los_custers_original = los_custers.copy()
@@ -209,13 +218,15 @@ def get_descripciones_valiosas(
     # --- 6) Scale numeric columns in "los_custers_valiosos" ---
     numeric_cols = los_custers_valiosos.select_dtypes(include=np.number).columns
     scaler = StandardScaler()
-    los_custers_valiosos[numeric_cols] = scaler.fit_transform(los_custers_valiosos[numeric_cols])
+    los_custers_valiosos[numeric_cols] = scaler.fit_transform(
+        los_custers_valiosos[numeric_cols]
+    )
 
     # --- 7) Copy scaled DF to calculate 'importance' and inflection points ---
     los_custers_valiosos_original = copy.deepcopy(los_custers_valiosos)
 
     # Sumamos todas las columnas como "importancia" (en este caso col 0 y col 1, ya escaladas)
-    los_custers_valiosos_original['importancia'] = los_custers_valiosos.sum(axis=1)
+    los_custers_valiosos_original["importancia"] = los_custers_valiosos.sum(axis=1)
     # (No se usa el sort_values("importancia") para filtrar nada, pero lo dejamos si deseas inspeccionarlo)
     # los_custers_valiosos_original = los_custers_valiosos_original.sort_values('importancia', ascending=False)
 
@@ -228,16 +239,14 @@ def get_descripciones_valiosas(
         los_custers_valiosos_original[1], bins=20, window_length=5, polyorder=2
     )
 
-    cond_buenos = (
-        (los_custers_original[1] > 1) & (  # (1) total > 1
-            (los_custers_original[0] > (punto * inflex_pond_sup)) |  # (2a)
-            (los_custers_original[1] > punto_1)                    |  # (2b)
-            (los_custers_original[0] < inflex_pond_inf)               # (2c)
-        )
+    cond_buenos = (los_custers_original[1] > 1) & (  # (1) total > 1
+        (los_custers_original[0] > (punto * inflex_pond_sup))  # (2a)
+        | (los_custers_original[1] > punto_1)  # (2b)
+        | (los_custers_original[0] < inflex_pond_inf)  # (2c)
     )
 
     # Add a "buenos" column to los_custers_original
-    los_custers_original['buenos'] = np.where(cond_buenos, 1, 0)
+    los_custers_original["buenos"] = np.where(cond_buenos, 1, 0)
 
     # --- 10) Build the final DataFrame with all rows and the new column ---
     # 1) Copy df_datos_descript so the original remains untouched
@@ -245,50 +254,56 @@ def get_descripciones_valiosas(
 
     # 2) Replace, if applicable, text in "cluster_descripcion" according to var_rename
     df_datos_descript_valiosas, _ = replace_with_dict(
-        df_datos_descript_valiosas, ['cluster_descripcion'], var_rename
+        df_datos_descript_valiosas, ["cluster_descripcion"], var_rename
     )
 
     # 3) Merge probability (proprcin_) => col 0 = (cluster proportion / global proportion)
     #    NOTE: in the final output this will be renamed to "Soporte" or any name you prefer
     df_datos_descript_valiosas = df_datos_descript_valiosas.merge(
-        proprcin_.reset_index(), on='cluster', how='left'
+        proprcin_.reset_index(), on="cluster", how="left"
     )
 
     # 4) Merge los_custers_original to obtain col[0], col[1], and the new 'buenos' column
     df_datos_descript_valiosas = df_datos_descript_valiosas.merge(
-        los_custers_original.reset_index(), on='cluster', how='left'
+        los_custers_original.reset_index(), on="cluster", how="left"
     )
 
     # 5) Rename duplicated columns from the merge
     df_datos_descript_valiosas = df_datos_descript_valiosas.rename(
         columns={
-            '1_x': 'Probabilidad',      # Proportion of class 1 in that cluster
-            '1_y': 'N_probabilidad',    # Total count of the cluster
-            0:     'Soporte',           # Ratio (prop.cluster / prop.global)
+            "1_x": "Probabilidad",  # Proportion of class 1 in that cluster
+            "1_y": "N_probabilidad",  # Total count of the cluster
+            0: "Soporte",  # Ratio (prop.cluster / prop.global)
         }
     )
 
     # 6) Return the final DataFrame (with 'buenos') and the stacked_data table
-    return df_datos_descript_valiosas.drop(columns=['cluster_ponderador']), stacked_data
+    return df_datos_descript_valiosas.drop(columns=["cluster_ponderador"]), stacked_data
 
 
-def generate_descriptions(condition_list, language='en', OPENAI_API_KEY=None, default_params=None):
+def generate_descriptions(
+    condition_list, language="en", OPENAI_API_KEY=None, default_params=None
+):
 
     client = OpenAI(api_key=OPENAI_API_KEY)
 
     if default_params is None:
+
         def get_default_params():
             return {
-                'model': 'gpt-4-turbo',
-                'temperature': 0.5,
-                'max_tokens': 1500,
-                'n': 1,
-                'stop': None,
+                "model": "gpt-4-turbo",
+                "temperature": 0.5,
+                "max_tokens": 1500,
+                "n": 1,
+                "stop": None,
             }
+
         default_params = get_default_params()
 
     # Create a single message with all conditions
-    conditions_text = "\n".join([f"{i+1}. {condition}" for i, condition in enumerate(condition_list)])
+    conditions_text = "\n".join(
+        [f"{i+1}. {condition}" for i, condition in enumerate(condition_list)]
+    )
 
     # Improved prompt for simple and clear descriptions
     system_prompt = "You are an assistant that helps to describe dataset groups in very simple terms."
@@ -302,29 +317,22 @@ def generate_descriptions(condition_list, language='en', OPENAI_API_KEY=None, de
 
     mensajes = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt}
+        {"role": "user", "content": user_prompt},
     ]
 
     try:
-        respuesta = client.chat.completions.create(
-            messages=mensajes,
-            **default_params
-        )
+        respuesta = client.chat.completions.create(messages=mensajes, **default_params)
     except Exception as exc:
         logger.exception("Error calling the OpenAI API: %s", exc)
-        return {'responses': []}
+        return {"responses": []}
 
     # Split the response into a list of descriptions per line
     descriptions = respuesta.choices[0].message.content.strip().split("\n")
     descriptions = [desc.strip() for desc in descriptions if desc.strip()]
 
     # Return a dictionary with the responses
-    result = {'responses': descriptions}
+    result = {"responses": descriptions}
     return result
-
-import re
-import numpy as np   # Ensure it's imported
-import pandas as pd  # for demonstration; your code already uses it
 
 
 def _categorize_conditions(condition_list, df, n_groups=2, handle_bools=False):
@@ -349,15 +357,17 @@ def _categorize_conditions(condition_list, df, n_groups=2, handle_bools=False):
 
     # -- Common validations --
     if not isinstance(df, pd.DataFrame) or df.empty:
-        return {'error': 'A valid, non-empty pandas DataFrame is required.'}
+        return {"error": "A valid, non-empty pandas DataFrame is required."}
     if not isinstance(n_groups, int) or n_groups < 2:
-        return {'error': 'n_groups must be an integer greater than or equal to 2.'}
+        return {"error": "n_groups must be an integer greater than or equal to 2."}
 
-    df.columns = df.columns.str.replace(' ', '_')
+    df.columns = df.columns.str.replace(" ", "_")
 
     # -- Percentile labels --
     def format_percentile(p):
-        return str(int(p)) if float(p).is_integer() else f"{p:.2f}".rstrip('0').rstrip('.')
+        return (
+            str(int(p)) if float(p).is_integer() else f"{p:.2f}".rstrip("0").rstrip(".")
+        )
 
     labels = [
         f"Percentile {format_percentile((i + 1) * 100 / n_groups)}"
@@ -365,29 +375,34 @@ def _categorize_conditions(condition_list, df, n_groups=2, handle_bools=False):
     ]
 
     # -- Common thresholds --
-    bool_cols = df.select_dtypes(include="bool").columns.tolist() if handle_bools else []
+    bool_cols = (
+        df.select_dtypes(include="bool").columns.tolist() if handle_bools else []
+    )
     quantile_points = [i / n_groups for i in range(1, n_groups)]
-    thresholds = {c: df[c].quantile(quantile_points).tolist()
-                  for c in df.columns if c not in bool_cols}
+    thresholds = {
+        c: df[c].quantile(quantile_points).tolist()
+        for c in df.columns
+        if c not in bool_cols
+    }
 
     # -- Improved patterns --------------------------------------------------
     # 1) Column name: letters, numbers, _, -, ., (), [] …
-    var_name = r'[A-Za-z0-9_\-\.\(\)\[\]]+'
+    var_name = r"[A-Za-z0-9_\-\.\(\)\[\]]+"
 
     # 2) Number:
     #    - Optional integer part
     #    - Optional decimal point
     #    - Optional scientific notation (e or E, with optional sign)
     #    - Optional leading ± sign
-    num = r'[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?'
+    num = r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?"
 
-    pattern_num = rf'({num})\s*<=\s*({var_name})\s*<=\s*({num})'
-    pattern_bool = rf'({var_name})\s*==\s*(True|False)'
+    pattern_num = rf"({num})\s*<=\s*({var_name})\s*<=\s*({num})"
+    pattern_bool = rf"({var_name})\s*==\s*(True|False)"
 
     # -- Common processing --
     descriptions = []
     for condition in condition_list:
-        tokens = [t.strip() for t in re.split(r'(?i)\band\b', condition)]
+        tokens = [t.strip() for t in re.split(r"(?i)\band\b", condition)]
 
         parts = []
         for token in tokens:
@@ -401,9 +416,9 @@ def _categorize_conditions(condition_list, df, n_groups=2, handle_bools=False):
                     # ``side='right'`` ensures we keep the higher percentile label
                     category = labels[np.searchsorted(cuts, avg_value, side="right")]
                 elif handle_bools and feat in bool_cols:
-                    category = 'TRUE' if avg_value >= 0.5 else 'FALSE'
+                    category = "TRUE" if avg_value >= 0.5 else "FALSE"
                 else:
-                    category = 'N/A'
+                    category = "N/A"
                 parts.append(f"{feat} = {category}")
                 continue
 
@@ -412,24 +427,27 @@ def _categorize_conditions(condition_list, df, n_groups=2, handle_bools=False):
                 if m_bool:
                     feat, val = m_bool.groups()
                     if feat in bool_cols:
-                        category = 'TRUE' if val == 'True' else 'FALSE'
+                        category = "TRUE" if val == "True" else "FALSE"
                     else:
-                        category = 'N/A'
+                        category = "N/A"
                     parts.append(f"{feat} = {category}")
 
-        descriptions.append(', '.join(parts) + '.')
+        descriptions.append(", ".join(parts) + ".")
 
-    return {'responses': descriptions}
+    return {"responses": descriptions}
 
 
 def categorize_conditions(condition_list, df, n_groups=2):
-    return _categorize_conditions(condition_list, df, n_groups=n_groups, handle_bools=True)
+    return _categorize_conditions(
+        condition_list, df, n_groups=n_groups, handle_bools=True
+    )
 
 
 def categorize_conditions_generalized(condition_list, df, n_groups=2):
     """Backward-compatible wrapper that supports boolean conditions."""
-    return _categorize_conditions(condition_list, df, n_groups=n_groups, handle_bools=True)
-
+    return _categorize_conditions(
+        condition_list, df, n_groups=n_groups, handle_bools=True
+    )
 
 
 def build_conditions_table(
@@ -478,7 +496,9 @@ def build_conditions_table(
     rows = []
     n = len(descriptions)
     if len(efectividades) != n:
-        raise ValueError("`efectividades` must have the same length as `condition_list`")
+        raise ValueError(
+            "`efectividades` must have the same length as `condition_list`"
+        )
     if ponderadores is None:
         ponderadores = [np.nan] * n
     elif len(ponderadores) != n:
@@ -501,9 +521,6 @@ def build_conditions_table(
     return pd.DataFrame(rows, columns=final_cols)
 
 
-import pandas as pd
-from typing import Union, Dict, List, Any
-
 def _parse_relative_description(desc: Union[str, float, None]) -> Dict[str, str]:
     """
     Convert a string like
@@ -516,25 +533,25 @@ def _parse_relative_description(desc: Union[str, float, None]) -> Dict[str, str]
     """
     if not isinstance(desc, str) or not desc.strip():
         return {}
-    
+
     # Remove final period (if present) and split by commas.
-    tokens: List[str] = [t.strip().rstrip('.')            # “petal = Percentile 25”
-                         for t in desc.split(',')
-                         if t.strip()]
+    tokens: List[str] = [
+        t.strip().rstrip(".")  # “petal = Percentile 25”
+        for t in desc.split(",")
+        if t.strip()
+    ]
 
     pares: Dict[str, str] = {}
     for token in tokens:
-        if ' = ' in token:                                # Guaranteed by format
-            var, cat = token.split(' = ', 1)
-            pares[var.strip()] = cat.strip().upper()      # Normalize to UPPERCASE
+        if " = " in token:  # Guaranteed by format
+            var, cat = token.split(" = ", 1)
+            pares[var.strip()] = cat.strip().upper()  # Normalize to UPPERCASE
     return pares
 
 
 def expandir_categorias(
-        df: pd.DataFrame,
-        desc_col: str = 'cluster_desc_relative',
-        inplace: bool = False
-    ) -> pd.DataFrame:
+    df: pd.DataFrame, desc_col: str = "cluster_desc_relative", inplace: bool = False
+) -> pd.DataFrame:
     """
     From *df[desc_col]* create a new column for each variable mentioned in
     **cluster_desc_relative** and place its category (Percentile 10, Percentile 25…).
@@ -557,10 +574,10 @@ def expandir_categorias(
     """
     if desc_col not in df.columns:
         raise KeyError(f'Column "{desc_col}" does not exist in the DataFrame.')
-    
+
     # 1) Transform each description into a variable → category dict.
     mapeos: pd.Series = df[desc_col].apply(_parse_relative_description)
-    
+
     # 2) Convert the series of dicts into a columnar DataFrame (wide).
     cat_df: pd.DataFrame = pd.json_normalize(mapeos)
     # Missing columns in a row automatically become NaN.
@@ -574,19 +591,18 @@ def expandir_categorias(
         return pd.concat([df.copy(), cat_df], axis=1)
 
 
-
 # ----------------------------- utilities -----------------------------
+
 
 def feature_cols(df: pd.DataFrame) -> List[str]:
     """Return feature columns (everything to the right of 'cluster_desc_relative')."""
-    idx = df.columns.get_loc('cluster_desc_relative')
-    return list(df.columns[idx + 1:])
+    idx = df.columns.get_loc("cluster_desc_relative")
+    return list(df.columns[idx + 1 :])
 
 
-def encode_features(df: pd.DataFrame,
-                    ord_map: Dict[str, int],
-                    *,
-                    scale: bool = True) -> pd.DataFrame:
+def encode_features(
+    df: pd.DataFrame, ord_map: Dict[str, int], *, scale: bool = True
+) -> pd.DataFrame:
     """
     Convert ordinal variables using ``ord_map`` and optionally scale each column to [0, 1].
 
@@ -615,11 +631,9 @@ def encode_features(df: pd.DataFrame,
     return enc
 
 
-def similarity(a_idx: int,
-               b_idx: int,
-               df_enc: pd.DataFrame,
-               *,
-               cov_weight: bool = True) -> float:
+def similarity(
+    a_idx: int, b_idx: int, df_enc: pd.DataFrame, *, cov_weight: bool = True
+) -> float:
     """Similarity (1 - mean absolute distance) between two encoded rows."""
     v_a, v_b = df_enc.iloc[a_idx], df_enc.iloc[b_idx]
     mask = ~(v_a.isna() | v_b.isna())
@@ -632,10 +646,10 @@ def similarity(a_idx: int,
 
 # ----------------------------- high-level API -----------------------------
 
-def similarity_matrix(df: pd.DataFrame,
-                      ord_map: Dict[str, int],
-                      *,
-                      cov_weight: bool = True) -> pd.DataFrame:
+
+def similarity_matrix(
+    df: pd.DataFrame, ord_map: Dict[str, int], *, cov_weight: bool = True
+) -> pd.DataFrame:
     """
     Similarity matrix ``S`` (diagonal = 1).
 
@@ -647,7 +661,7 @@ def similarity_matrix(df: pd.DataFrame,
     """
     df_enc = encode_features(df.reset_index(drop=True), ord_map)
     n = len(df_enc)
-    clusters = df['cluster'].tolist()
+    clusters = df["cluster"].tolist()
     S = pd.DataFrame(np.eye(n), index=clusters, columns=clusters)
 
     for i, j in combinations(range(n), 2):
@@ -656,11 +670,13 @@ def similarity_matrix(df: pd.DataFrame,
     return S
 
 
-def cluster_pairs_sim(df: pd.DataFrame,
-                      ord_map: Dict[str, int],
-                      *,
-                      metric: str = 'cluster_ef_sample',
-                      cov_weight: bool = True) -> pd.DataFrame:
+def cluster_pairs_sim(
+    df: pd.DataFrame,
+    ord_map: Dict[str, int],
+    *,
+    metric: str = "cluster_ef_sample",
+    cov_weight: bool = True,
+) -> pd.DataFrame:
     """
     Return a DataFrame with columns:
       cluster_1 | cluster_2 | similarity | delta_<metric> | score
@@ -677,7 +693,7 @@ def cluster_pairs_sim(df: pd.DataFrame,
     for i, j in combinations(range(n), 2):
         sim = similarity(i, j, df_enc, cov_weight=cov_weight)
         delta = abs(df_r.at[j, metric] - df_r.at[i, metric])
-        pairs.append((df_r.at[i, 'cluster'], df_r.at[j, 'cluster'], sim, delta))
+        pairs.append((df_r.at[i, "cluster"], df_r.at[j, "cluster"], sim, delta))
 
     # -- robust scale for positive deltas --
     pos_deltas = np.array([d for *_, d in pairs if d > 0])
@@ -691,14 +707,15 @@ def cluster_pairs_sim(df: pd.DataFrame,
         score = sim * grow
         rows.append([c1, c2, round(sim, 3), round(delta, 3), round(score, 3)])
 
-    return pd.DataFrame(rows,
-                        columns=['cluster_1', 'cluster_2',
-                                 'similitud', f'delta_{metric}', 'score'])
+    return pd.DataFrame(
+        rows,
+        columns=["cluster_1", "cluster_2", "similitud", f"delta_{metric}", "score"],
+    )
 
 
-def get_frontiers(df_datos_descript: pd.DataFrame,
-                  df: pd.DataFrame,
-                  divide: int = 5) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def get_frontiers(
+    df_datos_descript: pd.DataFrame, df: pd.DataFrame, divide: int = 5
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Generate cluster frontiers from descriptions.
 
     Parameters
@@ -717,29 +734,28 @@ def get_frontiers(df_datos_descript: pd.DataFrame,
         cluster pairs ordered by score.
     """
     descrip_generales = [
-        x for x in df_datos_descript['cluster_descripcion'].unique().tolist()
+        x
+        for x in df_datos_descript["cluster_descripcion"].unique().tolist()
         if isinstance(x, str)
     ]
 
     descrip = categorize_conditions(descrip_generales, df, divide)
-    df_datos_descript['cluster_desc_relative'] = (
-        df_datos_descript['cluster_descripcion'].replace(
-            {k: v for k, v in zip(descrip_generales, descrip['responses'])}
-        )
-    )
+    df_datos_descript["cluster_desc_relative"] = df_datos_descript[
+        "cluster_descripcion"
+    ].replace({k: v for k, v in zip(descrip_generales, descrip["responses"])})
 
     df_datos_explain = expandir_categorias(df_datos_descript)
-    df_datos_explain = df_datos_explain[df_datos_explain['cluster_n_sample'] > 0]
+    df_datos_explain = df_datos_explain[df_datos_explain["cluster_n_sample"] > 0]
 
     ORD_MAP_LOCAL = {f"PERCENTILE {i}": i for i in range(1, 101)}
-    df_datos_explain_gen = (
-        df_datos_explain.sort_values('cluster_n_sample', ascending=False).head(40)
-    )
+    df_datos_explain_gen = df_datos_explain.sort_values(
+        "cluster_n_sample", ascending=False
+    ).head(40)
     similarity_matrix(df_datos_explain_gen, ORD_MAP_LOCAL)
     frontiers = cluster_pairs_sim(
-        df_datos_explain_gen, ORD_MAP_LOCAL, metric='cluster_ef_sample'
+        df_datos_explain_gen, ORD_MAP_LOCAL, metric="cluster_ef_sample"
     )
-    frontiers.sort_values('score', ascending=False, inplace=True)
+    frontiers.sort_values("score", ascending=False, inplace=True)
     return df_datos_explain, frontiers
 
 
@@ -768,8 +784,8 @@ def _tpl_rules(lang: str) -> dict[str, str]:
             "es": "{label} entre {low:,.2f} y {high:,.2f}",
             "en": "{label} between {low:,.2f} and {high:,.2f}",
         },
-        "is":      {"es": "Es {label}",    "en": "Is {label}"},
-        "not":     {"es": "No es {label}", "en": "Is not {label}"},
+        "is": {"es": "Es {label}", "en": "Is {label}"},
+        "not": {"es": "No es {label}", "en": "Is not {label}"},
         "generic": {"es": "Condición sobre {label}", "en": "Condition on {label}"},
     }
     return {k: v[lang] for k, v in base.items()}
@@ -777,61 +793,69 @@ def _tpl_rules(lang: str) -> dict[str, str]:
 
 def get_FALLBACK_LABELS(df_meta_sub):
 
-  idiomas_d = [y.split('.')[-1] for y in [x for x in df_meta_sub.columns if 'description' in x]]
-  df_lang = {}
-  for y in idiomas_d:
-    df_by_lang = []
-    for x in df_meta_sub.columns:
-      if x.endswith('.'+y):
-        df_by_lang.append(x)
+    idiomas_d = [
+        y.split(".")[-1] for y in [x for x in df_meta_sub.columns if "description" in x]
+    ]
+    df_lang = {}
+    for y in idiomas_d:
+        df_by_lang = []
+        for x in df_meta_sub.columns:
+            if x.endswith("." + y):
+                df_by_lang.append(x)
 
-    df_lang[y] = (df_meta_sub[['rule_token']+df_by_lang].drop_duplicates())
+        df_lang[y] = df_meta_sub[["rule_token"] + df_by_lang].drop_duplicates()
 
+    dicts_rts = [
+        {(x, ess_): z for x, y, z in df_lang[ess_].values} for ess_ in df_lang.keys()
+    ]
 
-  dicts_rts = [{(x, ess_):z for x, y, z in df_lang[ess_].values} for ess_ in df_lang.keys()]
+    def concatenate_dictionaries(list_of_dicts):
+        result_dict = {}
+        for d in list_of_dicts:
+            result_dict.update(d)
+        return result_dict
 
-  def concatenate_dictionaries(list_of_dicts):
-    result_dict = {}
-    for d in list_of_dicts:
-      result_dict.update(d)
-    return result_dict
-
-  return concatenate_dictionaries(dicts_rts)
+    return concatenate_dictionaries(dicts_rts)
 
 
 def _extract_tokens(series: pd.Series) -> Set[str]:
     token_re = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
-    return {m.group(0)
-            for txt in series.astype(str)
-            for m in token_re.finditer(txt)}
+    return {m.group(0) for txt in series.astype(str) for m in token_re.finditer(txt)}
 
 
-def _meta_lookup(token: str, meta: pd.DataFrame, *, lang: str
-                 ) -> Tuple[str, str, str, str | None]:
+def _meta_lookup(
+    token: str, meta: pd.DataFrame, *, lang: str
+) -> Tuple[str, str, str, str | None]:
     col_lbl = f"identity.label_i18n.{lang}"
     col_des = f"identity.description_i18n.{lang}"
-    row     = meta.loc[meta["rule_token"] == token]
+    row = meta.loc[meta["rule_token"] == token]
     _FALLBACK_LABELS = get_FALLBACK_LABELS(meta)
 
     if not row.empty:
         r = row.iloc[0]
         return (
-            str(r.get(col_lbl) or _FALLBACK_LABELS.get((token, lang), token)).capitalize(),
+            str(
+                r.get(col_lbl) or _FALLBACK_LABELS.get((token, lang), token)
+            ).capitalize(),
             str(r.get(col_des) or ""),
             str(r.get("domain.categorical.codes") or ""),
-            str(r.get("actionability.side_effects") or "") or None
+            str(r.get("actionability.side_effects") or "") or None,
         )
     return (_FALLBACK_LABELS.get((token, lang), token).capitalize(), "", "", None)
 
 
 def _rule_to_text(rule: str, meta_df: pd.DataFrame, *, lang: str) -> str:
     toks = _extract_tokens(pd.Series([rule]))
-    tok  = next(iter(toks)) if toks else None
+    tok = next(iter(toks)) if toks else None
 
     m = get_range_re().search(rule)
     low = high = None
     if m:
-        low, high, tok = float(m["low"].replace("_", "")), float(m["high"].replace("_", "")), m["tok"]
+        low, high, tok = (
+            float(m["low"].replace("_", "")),
+            float(m["high"].replace("_", "")),
+            m["tok"],
+        )
 
     if tok is None:
         return rule
@@ -840,8 +864,10 @@ def _rule_to_text(rule: str, meta_df: pd.DataFrame, *, lang: str) -> str:
     tpl = _tpl_rules(lang)
     if tok.startswith("cat__"):
         if low is not None and high is not None:
-            if high <= 0.5: return tpl["not"].format(label=label)
-            if low  >= 0.5: return tpl["is"].format(label=label)
+            if high <= 0.5:
+                return tpl["not"].format(label=label)
+            if low >= 0.5:
+                return tpl["is"].format(label=label)
         return tpl["generic"].format(label=label)
 
     if low is not None and high is not None:
@@ -879,33 +905,50 @@ def _local_significance(delta: float, *, lang: str) -> str:
     return "significant" if abs(delta) > 0.1 else "exploratory"
 
 
-def _local_hypothesis_text(inter_txt: str, a_txt: str, b_txt: str,
-                           p_a: float, p_b: float, delta: float,
-                           target_lbl: str, side: list[str], *,
-                           lang: str) -> str:
+def _local_hypothesis_text(
+    inter_txt: str,
+    a_txt: str,
+    b_txt: str,
+    p_a: float,
+    p_b: float,
+    delta: float,
+    target_lbl: str,
+    side: list[str],
+    *,
+    lang: str,
+) -> str:
     """Generate localized hypothesis text (A vs B with a common intersection)."""
     sig_word = _local_significance(delta, lang=lang)
 
     side_txt = ""
     if side:
         se = "\n- " + "\n- ".join(sorted(set(side)))
-        side_txt = ("\n\n**Posibles efectos secundarios**" if lang == "es"
-                    else "\n\n**Possible side-effects**") + se
+        side_txt = (
+            "\n\n**Posibles efectos secundarios**"
+            if lang == "es"
+            else "\n\n**Possible side-effects**"
+        ) + se
 
     # Headers
-    header_ctx = ("**Reglas compartidas (intersección)**"
-                  if lang == "es" else "**Shared rules (intersection)**")
-    header_a   = "**Subgrupo A**" if lang == "es" else "**Subgroup A**"
-    header_b   = "**Subgrupo B**" if lang == "es" else "**Subgroup B**"
-    header_an  = ("**Análisis y recomendaciones**"
-                  if lang == "es" else "**Analysis & Recommendations**")
+    header_ctx = (
+        "**Reglas compartidas (intersección)**"
+        if lang == "es"
+        else "**Shared rules (intersection)**"
+    )
+    header_a = "**Subgrupo A**" if lang == "es" else "**Subgroup A**"
+    header_b = "**Subgrupo B**" if lang == "es" else "**Subgroup B**"
+    header_an = (
+        "**Análisis y recomendaciones**"
+        if lang == "es"
+        else "**Analysis & Recommendations**"
+    )
 
     # Analysis body
     analysis = (
         f"Resultado {sig_word}. Ajustar las variables que diferencian A y B "
         f"podría aumentar la probabilidad de {target_lbl.lower()}."
-        if lang == "es" else
-        f"{sig_word.capitalize()} result. Adjusting features that differentiate "
+        if lang == "es"
+        else f"{sig_word.capitalize()} result. Adjusting features that differentiate "
         f"A and B could raise the probability of {target_lbl.lower()}."
     )
 
@@ -923,9 +966,9 @@ def _local_hypothesis_text(inter_txt: str, a_txt: str, b_txt: str,
     )
 
 
-def _gpt_hypothesis(payload: dict[str, Any], *,
-                    model: str,
-                    temperature: float) -> Optional[str]:
+def _gpt_hypothesis(
+    payload: dict[str, Any], *, model: str, temperature: float
+) -> Optional[str]:
     """Wrapper: send payload to GPT and return the structured report."""
     if _client is None:
         return None
@@ -949,7 +992,7 @@ def _gpt_hypothesis(payload: dict[str, Any], *,
                         "7) A/B Testing Actions"
                         "Choose Language with the 'lang' field "
                         "and honour the variable labels supplied."
-                    )
+                    ),
                 },
                 {
                     "role": "user",
@@ -971,14 +1014,16 @@ def _gpt_hypothesis(payload: dict[str, Any], *,
         return None
 
 
-def generar_hypotesis(meta_df: pd.DataFrame,
-                      exp_df: pd.DataFrame,
-                      *,
-                      target: str,
-                      lang: str = "es",
-                      use_gpt: bool = False,
-                      gpt_model: str = "gpt-4o-mini",
-                      temperature: float = 0.2) -> str:
+def generar_hypotesis(
+    meta_df: pd.DataFrame,
+    exp_df: pd.DataFrame,
+    *,
+    target: str,
+    lang: str = "es",
+    use_gpt: bool = False,
+    gpt_model: str = "gpt-4o-mini",
+    temperature: float = 0.2,
+) -> str:
     """
     Create a hypothesis report comparing the subgroups
     (intersection ∧ A) vs (intersection ∧ B).
@@ -1000,26 +1045,26 @@ def generar_hypotesis(meta_df: pd.DataFrame,
             "target": _meta_lookup(target, meta_df, lang=lang)[0],
             "target_description": _meta_lookup(target, meta_df, lang=lang)[1],
             "shared_rules": row["intersection"],
-            "subgroup_a":   row["only_cluster_A"],
-            "subgroup_b":   row["only_cluster_B"],
+            "subgroup_a": row["only_cluster_A"],
+            "subgroup_b": row["only_cluster_B"],
             "metrics": {
-                "p_a":   row["cluster_ef_A"],
-                "p_b":   row["cluster_ef_B"],
+                "p_a": row["cluster_ef_A"],
+                "p_b": row["cluster_ef_B"],
                 "delta": row["delta_ef"],
             },
             "tokens_info": {
                 t: {
-                    "label":        _meta_lookup(t, meta_df, lang=lang)[0],
-                    "description":  _meta_lookup(t, meta_df, lang=lang)[1],
-                    "domain":       _meta_lookup(t, meta_df, lang=lang)[2],
-                    "side_effect":  _meta_lookup(t, meta_df, lang=lang)[3],
+                    "label": _meta_lookup(t, meta_df, lang=lang)[0],
+                    "description": _meta_lookup(t, meta_df, lang=lang)[1],
+                    "domain": _meta_lookup(t, meta_df, lang=lang)[2],
+                    "side_effect": _meta_lookup(t, meta_df, lang=lang)[3],
                 }
                 for t in (
                     _extract_tokens(pd.Series([row["intersection"]]))
                     | _extract_tokens(pd.Series([row["only_cluster_A"]]))
                     | _extract_tokens(pd.Series([row["only_cluster_B"]]))
                 )
-            }
+            },
         }
 
         txt = _gpt_hypothesis(payload, model=gpt_model, temperature=temperature)
@@ -1027,15 +1072,19 @@ def generar_hypotesis(meta_df: pd.DataFrame,
             return txt
 
     # ===== LOCAL PATH =====
-    inter_txt = _list_rules_to_text(row["intersection"],      meta_df, lang=lang)
-    a_txt     = _list_rules_to_text(row["only_cluster_A"],    meta_df, lang=lang)
-    b_txt     = _list_rules_to_text(row["only_cluster_B"],    meta_df, lang=lang)
+    inter_txt = _list_rules_to_text(row["intersection"], meta_df, lang=lang)
+    a_txt = _list_rules_to_text(row["only_cluster_A"], meta_df, lang=lang)
+    b_txt = _list_rules_to_text(row["only_cluster_B"], meta_df, lang=lang)
     target_lbl = _meta_lookup(target, meta_df, lang=lang)[0]
 
     return _local_hypothesis_text(
-        inter_txt, a_txt, b_txt,
-        row["cluster_ef_A"], row["cluster_ef_B"], row["delta_ef"],
-        target_lbl, side, lang=lang
+        inter_txt,
+        a_txt,
+        b_txt,
+        row["cluster_ef_A"],
+        row["cluster_ef_B"],
+        row["delta_ef"],
+        target_lbl,
+        side,
+        lang=lang,
     )
-
-
