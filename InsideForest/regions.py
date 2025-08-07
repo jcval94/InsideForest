@@ -429,27 +429,42 @@ class Regions:
     return df_res
 
 
-  def plot_bidim(self, df, df_sep_dm_agg, eje_x, eje_y, var_obj):
-    """Plot two-dimensional regions and data."""
+  def plot_bidim(self, df, df_sep_dm_agg, x_axis, y_axis, var_obj):
+    """Plot two-dimensional regions and associated data points.
 
-    df_sep_dm_agg['derecha'] = df_sep_dm_agg[('lsup',eje_x)]-\
-    df_sep_dm_agg[('linf',eje_x)]
-    df_sep_dm_agg['arriba'] = df_sep_dm_agg[('lsup',eje_y)]-\
-    df_sep_dm_agg[('linf',eje_y)]
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Original dataset used for plotting.
+    df_sep_dm_agg : pd.DataFrame
+        DataFrame containing region limits with ``linf`` and ``lsup``.
+    x_axis : str
+        Name of the column to use on the x-axis.
+    y_axis : str
+        Name of the column to use on the y-axis.
+    var_obj : str
+        Target variable used for coloring the scatter plot.
+    """
 
-    eis_ = df_sep_dm_agg['linf'].values
-    ders_ = df_sep_dm_agg['derecha'].values
-    arrs_ = df_sep_dm_agg['arriba'].values
+    df_sep_dm_agg['width'] = df_sep_dm_agg[('lsup', x_axis)] - \
+                            df_sep_dm_agg[('linf', x_axis)]
+    df_sep_dm_agg['height'] = df_sep_dm_agg[('lsup', y_axis)] - \
+                             df_sep_dm_agg[('linf', y_axis)]
 
-    ax = sns.scatterplot(x=eje_x, y=eje_y, hue=var_obj, palette='RdBu', data=df)
+    lower_bounds = df_sep_dm_agg['linf'].values
+    width = df_sep_dm_agg['width'].values
+    height = df_sep_dm_agg['height'].values
+
+    ax = sns.scatterplot(x=x_axis, y=y_axis, hue=var_obj,
+                         palette='RdBu', data=df)
     norm = plt.Normalize(df[var_obj].min(), df[var_obj].max())
     sm = plt.cm.ScalarMappable(cmap="RdBu", norm=norm)
     sm.set_array([])
-    for i in range(len(eis_)):
-      if i>25:
+    for i in range(len(lower_bounds)):
+      if i > 25:
         break
-      # i = len(eis_)-i-1
-      ax.add_patch(Rectangle(eis_[i], ders_[i], arrs_[i], alpha=0.15, color='#0099FF'))
+      ax.add_patch(Rectangle(lower_bounds[i], width[i], height[i],
+                             alpha=0.15, color='#0099FF'))
     # Remove the legend and add a colorbar
     ax.get_legend().remove()
     ax.figure.colorbar(sm, ax=ax)
@@ -458,18 +473,18 @@ class Regions:
   def plot_scatter3d(self, df_r, df, ax, var_obj):
     """Draw a 3D scatter plot of the data associated with a region."""
 
-    dimesniones_fd = df_r['linf'].columns
-    df_scatter = df[list(dimesniones_fd)+[var_obj]].copy()
-    df_scatter.replace(dict(zip([True,False],[1,0])), inplace=True)
+    dimension_columns = df_r['linf'].columns
+    df_scatter = df[list(dimension_columns) + [var_obj]].copy()
+    df_scatter.replace(dict(zip([True, False], [1, 0])), inplace=True)
 
-    valores_target = list(df_scatter[var_obj].unique())
-    colores_disc = ['red','blue','green','yellow','orange']
-    replace_var = dict(zip(valores_target,colores_disc[:len(valores_target)]))
+    target_values = list(df_scatter[var_obj].unique())
+    discrete_colors = ['red', 'blue', 'green', 'yellow', 'orange']
+    replace_var = dict(zip(target_values, discrete_colors[:len(target_values)]))
 
-    # Generamos los puntos del scatter plot
-    xs = df_scatter[dimesniones_fd[0]].values
-    ys = df_scatter[dimesniones_fd[1]].values
-    zs = df_scatter[dimesniones_fd[2]].values
+    # Generate scatter plot points
+    xs = df_scatter[dimension_columns[0]].values
+    ys = df_scatter[dimension_columns[1]].values
+    zs = df_scatter[dimension_columns[2]].values
     colors = df_scatter[var_obj].replace(replace_var).values
     hex_colors = [mcolors.to_hex(c) for c in colors]
     # Draw the points
@@ -498,43 +513,65 @@ class Regions:
     ax = fig.add_subplot(111, projection='3d')
 
     for i in range(df_r.shape[0]):
-        self.plot_rect3d(df_r,i, ax)
+        self.plot_rect3d(df_r, i, ax)
 
-    self.plot_scatter3d(df_r,df, ax, var_obj)
-    
-    dimesniones_fd = df_r['linf'].columns
+    self.plot_scatter3d(df_r, df, ax, var_obj)
+
+    dimension_columns = df_r['linf'].columns
     # Configure axis labels
-    ax.set_xlabel(str(dimesniones_fd[0]))
-    ax.set_ylabel(str(dimesniones_fd[1]))
-    ax.set_zlabel(str(dimesniones_fd[2]))
+    ax.set_xlabel(str(dimension_columns[0]))
+    ax.set_ylabel(str(dimension_columns[1]))
+    ax.set_zlabel(str(dimension_columns[2]))
 
     plt.show()
     
     
   def plot_multi_dims(self, df_sep_dm_agg, df, var_obj):
-    """Visualize adapting to the number of dimensions."""
+    """Visualize the regions adapting to the number of dimensions.
 
-    dimensiss = df_sep_dm_agg['linf'].columns
-    # print(len(dimensiss), dimensiss)
-    if len(dimensiss)==1:
-      eje_x = dimensiss.tolist()[0]
-      eje_y = 'altura'
-      df_a = df.copy()
-      df_a.loc[:,eje_y] = 1
-      meddd_p = abs((df_sep_dm_agg['linf']-df_sep_dm_agg['lsup']).mean()[0])
-      df_sep_dm_agg[('lsup', eje_y)] = 1+meddd_p
-      df_sep_dm_agg[('linf', eje_y)] = 1-meddd_p
-    
-      self.plot_bidim(df_a,df_sep_dm_agg, eje_x, eje_y, var_obj)
-    elif len(dimensiss)==2:
-      df_a = df.copy()
-      eje_x, eje_y = dimensiss.tolist()
-      self.plot_bidim(df_a,df_sep_dm_agg, eje_x, eje_y, var_obj)
-    elif len(dimensiss)==3:
-      self.plot_tridim(df_sep_dm_agg,df,var_obj)
+    Parameters
+    ----------
+    df_sep_dm_agg : pd.DataFrame
+        DataFrame containing aggregated region limits with ``linf`` and ``lsup``.
+    df : pd.DataFrame
+        Original dataset used for plotting.
+    var_obj : str
+        Target variable used for coloring the plots.
+
+    Behavior
+    --------
+    - 1 dimension: Creates a temporary height axis and plots in 2D.
+    - 2 dimensions: Plots regions and data in 2D.
+    - 3 dimensions: Delegates plotting to ``plot_tridim``.
+    - More than 3 dimensions: Currently only selects the first three
+      dimensions for plotting.
+
+    Returns
+    -------
+    None
+        This function generates plots and does not return a value.
+    """
+
+    dimensions = df_sep_dm_agg['linf'].columns
+    if len(dimensions) == 1:
+      x_axis = dimensions.tolist()[0]
+      y_axis = 'height'
+      df_tmp = df.copy()
+      df_tmp.loc[:, y_axis] = 1
+      median_padding = abs((df_sep_dm_agg['linf'] - df_sep_dm_agg['lsup']).mean()[0])
+      df_sep_dm_agg[('lsup', y_axis)] = 1 + median_padding
+      df_sep_dm_agg[('linf', y_axis)] = 1 - median_padding
+
+      self.plot_bidim(df_tmp, df_sep_dm_agg, x_axis, y_axis, var_obj)
+    elif len(dimensions) == 2:
+      df_tmp = df.copy()
+      x_axis, y_axis = dimensions.tolist()
+      self.plot_bidim(df_tmp, df_sep_dm_agg, x_axis, y_axis, var_obj)
+    elif len(dimensions) == 3:
+      self.plot_tridim(df_sep_dm_agg, df, var_obj)
     else:
-      ddimee = dimensiss.tolist()
-      eje_x, eje_y, eje_z = ddimee[0], ddimee[1], ddimee[1]
+      dims_list = dimensions.tolist()
+      x_axis, y_axis, z_axis = dims_list[0], dims_list[1], dims_list[2]
 
 
   
