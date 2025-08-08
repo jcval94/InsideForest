@@ -8,6 +8,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import re
+import ast
 
 from matplotlib.patches import Rectangle
 from collections import Counter, defaultdict
@@ -657,10 +658,43 @@ class Regions:
         plt.show()
 
 
-  def plot_experiments(self, df, intersection, only_cluster_a,
-                       only_cluster_b, variables_a, variables_b,
-                       interactive=False):
-    """Plot experiment subsets defined by exclusive rules."""
+  def plot_experiments(self, df, table_row, interactive=False):
+    """Plot experiment subsets defined by exclusive rules.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataset containing the variables to plot.
+    table_row : Mapping or pd.Series
+        Row from the experiments table. It must provide the following
+        columns already parsed or as string representations of Python
+        lists: ``intersection``, ``only_cluster_a``, ``only_cluster_b``,
+        ``variables_a`` and ``variables_b``.
+    interactive : bool, optional
+        If ``True`` the plot is displayed in interactive mode. By
+        default, ``False``.
+    """
+
+    def _parse_list(value):
+      """Return a Python list from strings or other iterables."""
+      if value is None or (isinstance(value, float) and np.isnan(value)):
+        return []
+      if isinstance(value, str):
+        try:
+          return ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+          return []
+      if isinstance(value, (list, tuple, set)):
+        return list(value)
+      return [value]
+
+    # Extract parameters from the table row
+    get = table_row.get if hasattr(table_row, "get") else table_row.__getitem__
+    intersection = _parse_list(get("intersection", []))
+    only_cluster_a = _parse_list(get("only_cluster_a", []))
+    only_cluster_b = _parse_list(get("only_cluster_b", []))
+    variables_a = _parse_list(get("variables_a", []))
+    variables_b = _parse_list(get("variables_b", []))
 
     def _apply_conditions(data, conds):
       for cond in conds:
