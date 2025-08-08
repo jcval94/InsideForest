@@ -3,6 +3,7 @@ README.md
 setup.py
 InsideForest/__init__.py
 InsideForest/descrip.py
+InsideForest/inside_forest.py
 InsideForest/labels.py
 InsideForest/metadata.py
 InsideForest/models.py
