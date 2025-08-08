@@ -128,6 +128,34 @@ labels_out = lb.get_labels(priority_ranges, df, 'target', max_labels=5)
 
 Generates descriptive labels for the branches and clusters obtained from the model.
 
+### `plot_experiments`
+
+```python
+from InsideForest.regions import Regions
+from sklearn.datasets import load_iris
+import pandas as pd
+
+# Example row from an experiments table
+experiment = {
+    "intersection": "[5.45 <= petal_length <= 8.9]",
+    "only_cluster_a": "[-0.9 <= sepal_width <= 1.55, 4.75 <= sepal_length <= 6.0]",
+    "only_cluster_b": "[1.0 <= petal_width <= 3.0, 1.7 <= sepal_width <= 3.3]",
+    "variables_a": "['sepal_length', 'sepal_width']",
+    "variables_b": "['petal_width', 'sepal_length', 'sepal_width']"
+}
+
+iris = load_iris()
+df = pd.DataFrame(
+    iris.data,
+    columns=[c.replace(' (cm)', '').replace(' ', '_') for c in iris.feature_names]
+)
+
+regions = Regions()
+regions.plot_experiments(df, experiment, interactive=False)
+```
+
+Compares clusters A and B using the rules provided by a row from the experiments table.
+
 ## License
 
 This project is distributed under the MIT license. See [LICENSE](LICENSE) for details.
