@@ -44,6 +44,27 @@ The typical order for applying InsideForest is:
 5. Optionally interpret results with `generate_descriptions` and `categorize_conditions`.
 6. Finally, use helpers such as `Models` and `Labels` for further analysis.
 
+## InsideForest wrapper
+For a simplified workflow you can use the `InsideForest` class, which combines
+the random forest training and region labeling steps:
+
+```python
+from sklearn.datasets import load_iris
+from InsideForest import InsideForest
+
+iris = load_iris()
+X, y = iris.data, iris.target
+
+in_f = InsideForest(
+    rf_params={"random_state": 15},
+    tree_params={"mode": "py", "n_sample_multiplier": 0.05, "ef_sample_multiplier": 10},
+)
+
+in_f.fit(X, y)
+pred_labels = in_f.predict(X)  # cluster labels for X
+training_labels = in_f.labels_  # labels for the training data
+```
+
 ## Use case (Iris)
 The following summarizes the flow used in the [example notebook](https://colab.research.google.com/drive/11VGeB0V6PLMlQ8Uhba91fJ4UN1Bfbs90?usp=sharing).
 

@@ -44,6 +44,27 @@ El orden típico para aplicar InsideForest es:
 5. Opcionalmente interpretar resultados con `generate_descriptions` y `categorize_conditions`.
 6. Finalmente, usar utilidades como `Models` y `Labels` para un análisis adicional.
 
+## Ejemplo con InsideForest
+Para un flujo simplificado puedes utilizar la clase `InsideForest`, que combina
+el entrenamiento del bosque aleatorio y la asignación de regiones:
+
+```python
+from sklearn.datasets import load_iris
+from InsideForest import InsideForest
+
+iris = load_iris()
+X, y = iris.data, iris.target
+
+in_f = InsideForest(
+    rf_params={"random_state": 15},
+    tree_params={"mode": "py", "n_sample_multiplier": 0.05, "ef_sample_multiplier": 10},
+)
+
+in_f.fit(X, y)
+pred_labels = in_f.predict(X)  # etiquetas de cluster para X
+etiquetas_entrenamiento = in_f.labels_  # etiquetas para los datos de entrenamiento
+```
+
 ## Caso de uso (Iris)
 Lo siguiente resume el flujo utilizado en el [notebook de ejemplo](https://colab.research.google.com/drive/11VGeB0V6PLMlQ8Uhba91fJ4UN1Bfbs90?usp=sharing).
 
