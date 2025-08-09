@@ -176,46 +176,49 @@ class Labels:
         for branch_index in range(num_branches - 1):
             if branch_index >= len(range_dataframes):
                 continue
-            current_range_df = range_dataframes[branch_index].copy()
+            current_range_df = range_dataframes[branch_index]
             current_range_df = current_range_df[
-                [(a, b) for a, b in current_range_df.columns if 'altura' != b]
+                [(a, b) for a, b in current_range_df.columns if "altura" != b]
             ]
             interval_descriptions = self.get_intervals(
                 current_range_df.head(max_labels)
             )
+            num_rows = len(interval_descriptions)
+            if num_rows == 0:
+                continue
             try:
-                branch_dfs = [
-                    self.get_branch(df, current_range_df, i)
-                    for i in range(0, max_labels + 1)
+                variables = current_range_df["linf"].columns
+                data_matrix = df[variables].to_numpy(copy=False)
+                lower_bounds = current_range_df["linf"].to_numpy(copy=False)[
+                    :num_rows
                 ]
-                score_population = [
-                    (x[target_var].mean(), x[target_var].count())
-                    for x in branch_dfs
-                    if x is not None
+                upper_bounds = current_range_df["lsup"].to_numpy(copy=False)[
+                    :num_rows
                 ]
-                target_population = [
-                    x[x[target_var] == 0]
-                    for x in branch_dfs
-                    if x is not None
-                ]
+                masks = np.all(
+                    (data_matrix[None, :, :] <= upper_bounds[:, None, :])
+                    & (data_matrix[None, :, :] > lower_bounds[:, None, :]),
+                    axis=2,
+                )
+                target_array = df[target_var].to_numpy(copy=False)
             except KeyError as exc:
                 logger.exception(
                     "Missing columns when obtaining labels: %s",
                     exc,
                 )
                 continue
-            if len(target_population) == 0:
-                continue
-            labels_dict = {
-                description: [score, population]
-                for population, score, description in zip(
-                    target_population,
-                    score_population,
-                    interval_descriptions,
-                )
-                if population.shape[0] > 0
-            }
-            labels_list.append(labels_dict)
+            labels_dict = {}
+            for mask, description in zip(masks, interval_descriptions):
+                if not mask.any():
+                    continue
+                population_mask = mask & (target_array == 0)
+                if not population_mask.any():
+                    continue
+                score = (target_array[mask].mean(), int(mask.sum()))
+                population = df.loc[population_mask]
+                labels_dict[description] = [score, population]
+            if labels_dict:
+                labels_list.append(labels_dict)
 
         return labels_list
 
