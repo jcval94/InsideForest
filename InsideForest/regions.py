@@ -15,11 +15,12 @@ from matplotlib.patches import Rectangle
 from collections import Counter, defaultdict
 from typing import Sequence, Mapping, Any, List
 from itertools import combinations
-import random, math
+import math
 
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import linkage, fcluster
 import logging
+from .cluster_selector import balance_lists_n_clusters, max_prob_clusters
 
 logger = logging.getLogger(__name__)
 
@@ -1547,233 +1548,6 @@ class Regions:
     return df_clusterizado_add.drop(columns='clusters_key')
 
 
-  def balance_lists_n_clusters(
-    self,
-    records: Sequence[Sequence[Any]],
-    n_clusters: int | None = None,
-    *,
-    max_iter: int = 20_000,
-    restarts: int = 4,
-    T0: float = 1.0,
-    alpha: float = 0.999,
-    seed: int | None = None
-  ) -> List[Any]:
-    """
-    Asigna **un único valor por fila** optimizando dos objetivos con *peso idéntico*:
-
-    • |distinct - n_clusters| →   acercarse al nº deseado de clusters  
-      (si `n_clusters` es `None`, se toma el mínimo posible de forma natural).
-
-    • Desbalance absoluto    →   Σ |c_v – ideal| / n, donde `ideal = n / k`.
-
-    Parameters
-    ----------
-    records : Sequence[Sequence[Any]]
-      Lista de listas con los valores candidatos por fila.
-    n_clusters : int | None
-      Número de clusters deseado. Si `None` se minimiza automáticamente.
-    max_iter : int
-      Iteraciones de Simulated Annealing por reinicio.
-    restarts : int
-      Número de reinicios aleatorios.
-    T0, alpha : float
-      Temperatura inicial y factor de enfriamiento.
-    seed : int | None
-      Para reproducibilidad.
-    """
-    rng = random.Random(seed)
-    records = [row if row else [-1] for row in records]
-    n = len(records)
-
-    # Utilidades internas -------------------------------------------------
-    def imbalance(cnt: Counter):
-      k = len(cnt)
-      if k == 0:
-        return 1.0
-      ideal = n / k
-      return sum(abs(c - ideal) for c in cnt.values()) / n
-
-    def score(assign: List[Any]) -> float:
-      cnt = Counter(assign)
-      k = len(cnt)
-      if n_clusters is None:
-        cluster_term = k / n  # minimizar k
-      else:
-        cluster_term = abs(k - n_clusters) / n
-      return cluster_term + imbalance(cnt)
-
-    def neighbour(assign: List[Any]) -> List[Any]:
-      """Mueve una fila a otra opción válida (aleatorio)."""
-      i = rng.randrange(n)
-      row = records[i]
-      cur = assign[i]
-      alt = [v for v in row if v != cur]
-      if not alt:  # fila sin alternativas
-        return assign
-      new = assign[:]
-      new[i] = rng.choice(alt)
-      return new
-
-    # Inicialización razonable ------------------------------------------
-    val_rows = defaultdict(list)
-    for idx, row in enumerate(records):
-      for v in row:
-        val_rows[v].append(idx)
-
-    remaining = set(range(n))
-    chosen: List[Any] = []
-    while remaining:
-      best = max(val_rows, key=lambda v: len(set(val_rows[v]) & remaining))
-      chosen.append(best)
-      remaining -= set(val_rows[best])
-
-    if n_clusters is not None and len(chosen) < n_clusters:
-      extras = sorted(
-        (v for v in val_rows if v not in chosen),
-        key=lambda v: -len(val_rows[v])
-      )
-      chosen.extend(extras[: n_clusters - len(chosen)])
-
-    def initial_assignment() -> List[Any]:
-      cnt: Counter = Counter()
-      assign: List[Any] = [None] * n
-      for i, row in enumerate(records):
-        opts = [v for v in row if v in chosen] or row
-        v = min(opts, key=lambda x: (cnt[x], x))
-        assign[i] = v
-        cnt[v] += 1
-      return assign
-
-    # Simulated Annealing -------------------------------------------------
-    best_global, best_score = None, float("inf")
-    for _ in range(restarts):
-      cur = initial_assignment()
-      cur_score = score(cur)
-      best_local, best_local_score = cur[:], cur_score
-      T = T0
-      for _ in range(max_iter):
-        nxt = neighbour(cur)
-        if nxt is cur:
-          continue
-        nxt_score = score(nxt)
-        accept = nxt_score < cur_score or rng.random() < math.exp((cur_score - nxt_score) / T)
-        if accept:
-          cur, cur_score = nxt, nxt_score
-          if cur_score < best_local_score:
-            best_local, best_local_score = cur[:], cur_score
-        T *= alpha
-      if best_local_score < best_score:
-        best_global, best_score = best_local, best_local_score
-
-    return best_global
-
-  def max_prob_clusters(
-    self,
-    records: Sequence[Sequence[Any]],
-    probs: Mapping[Any, float],
-    n_clusters: int | None = None,
-    *,
-    max_iter: int = 20_000,
-    restarts: int = 4,
-    T0: float = 1.0,
-    alpha: float = 0.999,
-    seed: int | None = None
-  ) -> List[Any]:
-    """
-    Selecciona **un valor por fila** cumpliendo:
-      • Si `n_clusters` es `None`  →  minimiza el nº de valores distintos.
-      • Si `n_clusters` es un entero:
-          – intenta devolver EXACTAMENTE ese nº de clusters, maximizando la suma de probabilidades.
-          – si es imposible, usa el valor factible más próximo (`k_min` o `k_max`).
-    """
-    rng = random.Random(seed)
-    n = len(records)
-    records = [row if row else [None] for row in records]
-
-    # Paso 1: greedy set-cover para k_min -------------------------------
-    value_rows = defaultdict(set)
-    for i, row in enumerate(records):
-      for v in row:
-        value_rows[v].add(i)
-
-    remaining = set(range(n))
-    S: set[Any] = set()
-    while remaining:
-      best = max(
-        value_rows,
-        key=lambda v: (len(value_rows[v] & remaining), probs.get(v, 0.0))
-      )
-      S.add(best)
-      remaining -= value_rows[best]
-
-    k_min = len(S)
-    k_max = len(value_rows)
-
-    # Paso 2: determinar k_target ---------------------------------------
-    if n_clusters is None:
-      k_target = k_min
-    else:
-      k_target = max(k_min, min(n_clusters, k_max))
-
-    if k_target > k_min:
-      extras = sorted(
-        (v for v in value_rows if v not in S),
-        key=lambda v: probs.get(v, 0.0),
-        reverse=True
-      )
-      S.update(extras[: k_target - k_min])
-
-    S = set(list(S)[:k_target])  # asegura |S| == k_target
-
-    # Paso 3: asignación greedy -----------------------------------------
-    assign: List[Any] = []
-    for row in records:
-      opts = [v for v in row if v in S]
-      if not opts:
-        best = max(row, key=lambda v: probs.get(v, 0.0))
-        if best not in S and len(S) == k_target:
-          worst = min(S, key=lambda v: probs.get(v, 0.0))
-          S.remove(worst)
-          S.add(best)
-        opts = [v for v in row if v in S]
-      assign.append(max(opts, key=lambda v: probs.get(v, 0.0)))
-
-    # Paso 4: Simulated Annealing ---------------------------------------
-    B = n + 1  # peso que penaliza cambiar k
-
-    def cost(ass: List[Any]) -> float:
-      k = len(set(ass))
-      return abs(k - k_target) * B - sum(probs.get(v, 0.0) for v in ass)
-
-    def neighbour(ass: List[Any]) -> List[Any]:
-      i = rng.randrange(n)
-      cur_row = records[i]
-      cur_v = ass[i]
-      alt = [v for v in cur_row if v in S and v != cur_v]
-      if not alt:
-        return ass
-      new = ass[:]
-      new[i] = rng.choice(alt)
-      return new
-
-    best_global, best_c = assign[:], cost(assign)
-    for _ in range(restarts):
-      cur, cur_c = assign[:], best_c
-      T = T0
-      for _ in range(max_iter):
-        nxt = neighbour(cur)
-        if nxt is cur:
-          T *= alpha
-          continue
-        nxt_c = cost(nxt)
-        if nxt_c < cur_c or rng.random() < math.exp((cur_c - nxt_c) / T):
-          cur, cur_c = nxt, nxt_c
-          if cur_c < best_c:
-            best_global, best_c = cur[:], cur_c
-        T *= alpha
-
-    return best_global
-
   def labels(self, df, df_reres, n_clusters = None,
              include_summary_cluster=False,
              balanced=False):
@@ -1831,11 +1605,11 @@ class Regions:
 
     # Tratamiento de los clusters para agregar n_cluster
     if balanced:
-      labels = self.balance_lists_n_clusters(records=records, 
-                                             n_clusters=n_clusters, seed=1)
+      labels = balance_lists_n_clusters(records=records,
+                                        n_clusters=n_clusters, seed=1)
     else:
-      labels = self.max_prob_clusters(records=records, probs=probas, 
-                                      n_clusters=n_clusters, seed=1)
+      labels = max_prob_clusters(records=records, probs=probas,
+                                 n_clusters=n_clusters, seed=1)
     
     if not include_summary_cluster:
        rem_cols = ['n_clusters','ponderadores_list','ponderador_mean']
