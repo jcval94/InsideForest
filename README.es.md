@@ -35,6 +35,26 @@ pip install InsideForest
 - seaborn
 - openai
 
+## Benchmark
+
+Ejecuta el benchmark comparativo contra KMeans y DBSCAN:
+
+```bash
+python -m experiments.benchmark
+```
+
+Este comando imprime tablas por cada conjunto de datos con `purity`,
+`macro F1`, `target-divergence` y tiempo de ejecución. Salida de ejemplo
+para el conjunto de dígitos:
+
+```
+=== Dataset: Digits ===
+            algorithm  purity   f1  divergence  runtime
+         InsideForest   0.216 0.00       0.279   48.097
+         KMeans(k=10)   0.673 0.62       0.711    0.037
+DBSCAN(eps=0.5,min=5)   0.102 0.00       0.000    0.009
+```
+
 ## Flujo básico
 El orden típico para aplicar InsideForest es:
 1. Entrenar un modelo de bosque de decisión o `RandomForest`.
