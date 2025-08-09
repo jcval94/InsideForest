@@ -1,4 +1,5 @@
 import pandas as pd
+import joblib
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.exceptions import NotFittedError
 from sklearn.utils.validation import check_is_fitted
@@ -191,6 +192,67 @@ class _BaseInsideForest:
         )
         df_clusterizado["cluster"] = df_clusterizado["cluster"].fillna(value=-1)
         return df_clusterizado["cluster"].to_numpy()
+
+    def save(self, filepath: str):
+        """Save the fitted model and derived attributes to ``filepath``.
+
+        Parameters
+        ----------
+        filepath : str
+            Destination path where the model will be serialized.
+        """
+
+        payload = {
+            "rf": self.rf,
+            "rf_params": self.rf_params,
+            "tree_params": self.tree_params,
+            "var_obj": self.var_obj,
+            "n_clusters": self.n_clusters,
+            "include_summary_cluster": self.include_summary_cluster,
+            "balanced": self.balanced,
+            "divide": self.divide,
+            "labels_": self.labels_,
+            "feature_names_": self.feature_names_,
+            "df_clusters_descript_": self.df_clusters_descript_,
+            "df_reres_": self.df_reres_,
+            "df_datos_explain_": self.df_datos_explain_,
+            "frontiers_": self.frontiers_,
+        }
+        joblib.dump(payload, filepath)
+
+    @classmethod
+    def load(cls, filepath: str):
+        """Load a previously saved InsideForest model from ``filepath``.
+
+        Parameters
+        ----------
+        filepath : str
+            Path to the serialized model file.
+
+        Returns
+        -------
+        Instance of ``cls``
+            Restored model with fitted attributes.
+        """
+
+        payload = joblib.load(filepath)
+        model = cls(
+            rf_params=payload["rf_params"],
+            tree_params=payload["tree_params"],
+            var_obj=payload["var_obj"],
+            n_clusters=payload["n_clusters"],
+            include_summary_cluster=payload["include_summary_cluster"],
+            balanced=payload["balanced"],
+            divide=payload["divide"],
+        )
+        model.rf = payload["rf"]
+        model.labels_ = payload["labels_"]
+        model.feature_names_ = payload["feature_names_"]
+        model.df_clusters_descript_ = payload["df_clusters_descript_"]
+        model.df_reres_ = payload["df_reres_"]
+        model.df_datos_explain_ = payload["df_datos_explain_"]
+        model.frontiers_ = payload["frontiers_"]
+        return model
 
 
 class InsideForestClassifier(_BaseInsideForest):

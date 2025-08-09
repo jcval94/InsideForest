@@ -74,6 +74,20 @@ pred_labels = in_f.predict(X_rest)  # cluster labels for the remaining data
 training_labels = in_f.labels_  # labels for the training subset
 ```
 
+### Saving and loading models
+
+Both `InsideForestClassifier` and `InsideForestRegressor` include
+convenience methods to persist a fitted instance using `joblib`:
+
+```python
+in_f.save("model.joblib")
+loaded = InsideForestClassifier.load("model.joblib")
+```
+
+The loaded model restores the underlying random forest and computed
+attributes, allowing you to continue generating labels or predictions
+without re-fitting.
+
 ## Use case (Iris)
 The following summarizes the flow used in the [example notebook](https://colab.research.google.com/drive/11VGeB0V6PLMlQ8Uhba91fJ4UN1Bfbs90?usp=sharing).
 

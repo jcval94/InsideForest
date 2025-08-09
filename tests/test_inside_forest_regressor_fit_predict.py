@@ -110,3 +110,19 @@ def test_fit_accepts_trained_rf_without_refitting():
     assert preds.shape == (4,)
     assert np.array_equal(preds, model.labels_)
 
+
+def test_save_and_load_roundtrip(tmp_path):
+    X = pd.DataFrame(data={"feat1": [0, 1, 2, 3], "feat2": [3, 2, 1, 0]})
+    y = [0.1, 0.2, 0.3, 0.4]
+    model = InsideForestRegressor(rf_params={"n_estimators": 5, "random_state": 0})
+    model.fit(X=X, y=y)
+    preds = model.predict(X=X)
+    filepath = tmp_path / "reg.joblib"
+    model.save(str(filepath))
+
+    loaded = InsideForestRegressor.load(str(filepath))
+    loaded_preds = loaded.predict(X=X)
+
+    assert np.array_equal(model.labels_, loaded.labels_)
+    assert np.array_equal(preds, loaded_preds)
+
