@@ -14,6 +14,7 @@ def test_get_params_returns_init_values():
         include_summary_cluster=True,
         balanced=True,
         divide=3,
+        get_detail=True,
     )
     params = model.get_params()
     assert params["rf_params"]["n_estimators"] == 5
@@ -22,6 +23,7 @@ def test_get_params_returns_init_values():
     assert params["include_summary_cluster"] is True
     assert params["balanced"] is True
     assert params["divide"] == 3
+    assert params["get_detail"] is True
 
 
 def test_set_params_updates_attributes():
@@ -36,6 +38,9 @@ def test_set_params_updates_attributes():
 
     model.set_params(n_clusters=7)
     assert model.n_clusters == 7
+
+    model.set_params(get_detail=True)
+    assert model.get_detail is True
 
     with pytest.raises(ValueError):
         model.set_params(unknown=1)

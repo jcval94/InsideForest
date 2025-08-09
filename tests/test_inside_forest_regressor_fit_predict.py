@@ -165,3 +165,17 @@ def test_score_matches_rf_and_normalizes_input():
     expected = model.rf.score(X_norm, y)
     assert model.score(X_messy, y) == pytest.approx(expected)
 
+
+def test_fit_respects_get_detail_flag_regressor():
+    X = pd.DataFrame(data={'feat1': [0, 1, 2, 3], 'feat2': [3, 2, 1, 0]})
+    y = [0.1, 0.4, 0.2, 0.3]
+    model = InsideForestRegressor(rf_params={'n_estimators': 5, 'random_state': 0})
+    model.fit(X=X, y=y)
+    assert model.df_clusters_descript_ is None
+
+    model_detail = InsideForestRegressor(
+        rf_params={'n_estimators': 5, 'random_state': 0}, get_detail=True
+    )
+    model_detail.fit(X=X, y=y)
+    assert model_detail.df_clusters_descript_ is not None
+

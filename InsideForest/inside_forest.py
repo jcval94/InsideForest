@@ -38,6 +38,9 @@ class _BaseInsideForest:
     divide : int, default 5
         Value forwarded to :func:`get_frontiers` when computing cluster
         frontiers.
+    get_detail : bool, default False
+        When ``True`` :meth:`fit` computes and stores additional cluster
+        details and frontiers.
     """
 
     def __init__(
@@ -50,6 +53,7 @@ class _BaseInsideForest:
         include_summary_cluster=False,
         balanced=False,
         divide=5,
+        get_detail=False,
     ):
         self.rf_params = rf_params or {}
         self.tree_params = tree_params or {}
@@ -58,6 +62,7 @@ class _BaseInsideForest:
         self.include_summary_cluster = include_summary_cluster
         self.balanced = balanced
         self.divide = divide
+        self.get_detail = get_detail
 
         self.rf = rf_cls(**self.rf_params)
         self.trees = Trees(**self.tree_params)
@@ -94,6 +99,7 @@ class _BaseInsideForest:
             "include_summary_cluster": self.include_summary_cluster,
             "balanced": self.balanced,
             "divide": self.divide,
+            "get_detail": self.get_detail,
         }
 
     def set_params(self, **params):
@@ -132,6 +138,7 @@ class _BaseInsideForest:
                 "include_summary_cluster",
                 "balanced",
                 "divide",
+                "get_detail",
             }:
                 setattr(self, key, value)
             else:
@@ -141,6 +148,9 @@ class _BaseInsideForest:
 
     def fit(self, X, y=None, rf=None):
         """Fit the internal random forest and compute cluster labels.
+
+        Whether detailed cluster information is computed depends on the
+        ``get_detail`` attribute set during initialization.
 
         Parameters
         ----------
@@ -205,26 +215,41 @@ class _BaseInsideForest:
             df=df, var_obj=self.var_obj, regr=self.rf
         )
         df_reres = self.regions.prio_ranges(separacion_dim=separacion_dim, df=df)
-        df_datos_clusterizados, df_clusters_descripcion = self.regions.labels(
-            df=df,
-            df_reres=df_reres,
-            n_clusters=self.n_clusters,
-            include_summary_cluster=self.include_summary_cluster,
-            balanced=self.balanced,
-        )
 
-        df_datos_clusterizados["cluster"] = df_datos_clusterizados["cluster"].fillna(
-            value=-1
-        )
-        self.labels_ = df_datos_clusterizados["cluster"].to_numpy()
-        self.df_clusters_descript_ = df_clusters_descripcion
-        self.df_reres_ = df_reres
+        if self.get_detail:
+            df_datos_clusterizados, df_clusters_descripcion, labels = self.regions.labels(
+                df=df,
+                df_reres=df_reres,
+                n_clusters=self.n_clusters,
+                include_summary_cluster=self.include_summary_cluster,
+                balanced=self.balanced,
+                return_dfs=True,
+            )
+            labels = pd.Series(labels).fillna(value=-1).to_numpy()
+            self.labels_ = labels
+            self.df_clusters_descript_ = df_clusters_descripcion
+            self.df_reres_ = df_reres
 
-        df_datos_explain, frontiers = get_frontiers(
-            df_datos_descript=df_clusters_descripcion, df=df, divide=self.divide
-        )
-        self.df_datos_explain_ = df_datos_explain
-        self.frontiers_ = frontiers
+            df_datos_explain, frontiers = get_frontiers(
+                df_datos_descript=df_clusters_descripcion, df=df, divide=self.divide
+            )
+            self.df_datos_explain_ = df_datos_explain
+            self.frontiers_ = frontiers
+        else:
+            labels = self.regions.labels(
+                df=df,
+                df_reres=df_reres,
+                n_clusters=self.n_clusters,
+                include_summary_cluster=self.include_summary_cluster,
+                balanced=self.balanced,
+                return_dfs=False,
+            )
+            labels = pd.Series(labels).fillna(value=-1).to_numpy()
+            self.labels_ = labels
+            self.df_reres_ = df_reres
+            self.df_clusters_descript_ = None
+            self.df_datos_explain_ = None
+            self.frontiers_ = None
 
         return self
 
@@ -314,15 +339,16 @@ class _BaseInsideForest:
                     f"{', '.join(self.feature_names_)}."
                 ) from err
 
-        df_clusterizado, _ = self.regions.labels(
+        labels = self.regions.labels(
             df=X_df,
             df_reres=self.df_reres_,
             n_clusters=self.n_clusters,
             include_summary_cluster=False,
             balanced=self.balanced,
+            return_dfs=False,
         )
-        df_clusterizado["cluster"] = df_clusterizado["cluster"].fillna(value=-1)
-        return df_clusterizado["cluster"].to_numpy()
+        labels = pd.Series(labels).fillna(value=-1).to_numpy()
+        return labels
 
     def score(self, X, y):
         """Return the score of the underlying random forest on the given data.
@@ -376,6 +402,7 @@ class _BaseInsideForest:
             "include_summary_cluster": self.include_summary_cluster,
             "balanced": self.balanced,
             "divide": self.divide,
+            "get_detail": self.get_detail,
             "labels_": self.labels_,
             "feature_names_": self.feature_names_,
             "df_clusters_descript_": self.df_clusters_descript_,
@@ -409,6 +436,7 @@ class _BaseInsideForest:
             include_summary_cluster=payload["include_summary_cluster"],
             balanced=payload["balanced"],
             divide=payload["divide"],
+            get_detail=payload.get("get_detail", False),
         )
         model.rf = payload["rf"]
         model.labels_ = payload["labels_"]
@@ -433,6 +461,7 @@ class InsideForestClassifier(_BaseInsideForest):
         include_summary_cluster=False,
         balanced=False,
         divide=5,
+        get_detail=False,
     ):
         super().__init__(
             RandomForestClassifier,
@@ -443,6 +472,7 @@ class InsideForestClassifier(_BaseInsideForest):
             include_summary_cluster=include_summary_cluster,
             balanced=balanced,
             divide=divide,
+            get_detail=get_detail,
         )
 
 
@@ -459,6 +489,7 @@ class InsideForestRegressor(_BaseInsideForest):
         include_summary_cluster=False,
         balanced=False,
         divide=5,
+        get_detail=False,
     ):
         super().__init__(
             RandomForestRegressor,
@@ -469,6 +500,7 @@ class InsideForestRegressor(_BaseInsideForest):
             include_summary_cluster=include_summary_cluster,
             balanced=balanced,
             divide=divide,
+            get_detail=get_detail,
         )
 
 
