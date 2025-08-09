@@ -1,5 +1,5 @@
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.exceptions import NotFittedError
 from sklearn.utils.validation import check_is_fitted
 
@@ -8,16 +8,17 @@ from .regions import Regions
 from .descrip import get_frontiers
 
 
-class InsideForest:
-    """Wrapper model that combines a RandomForest and the Trees/Regions
-    utilities to provide cluster labels for the training data.
+class _BaseInsideForest:
+    """Internal base class handling shared ``fit`` and ``predict`` logic.
 
     Parameters
     ----------
+    rf_cls : type
+        Random forest estimator class to instantiate (classifier or regressor).
     rf_params : dict, optional
-        Parameters passed directly to ``RandomForestClassifier``.
+        Parameters passed directly to the random forest estimator.
     tree_params : dict, optional
-        Parameters passed to :class:`Trees`.
+        Parameters forwarded to :class:`Trees`.
     var_obj : str, default "target"
         Name of the column created for the target variable when building the
         internal DataFrame used for rule extraction.
@@ -36,6 +37,7 @@ class InsideForest:
 
     def __init__(
         self,
+        rf_cls,
         rf_params=None,
         tree_params=None,
         var_obj="target",
@@ -52,8 +54,7 @@ class InsideForest:
         self.balanced = balanced
         self.divide = divide
 
-        # Instantiate internal helpers
-        self.rf = RandomForestClassifier(**self.rf_params)
+        self.rf = rf_cls(**self.rf_params)
         self.trees = Trees(**self.tree_params)
         self.regions = Regions()
 
@@ -66,7 +67,7 @@ class InsideForest:
         self.frontiers_ = None
 
     def fit(self, X, y=None, rf=None):
-        """Fit the internal RandomForest and compute cluster labels.
+        """Fit the internal random forest and compute cluster labels.
 
         Parameters
         ----------
@@ -75,11 +76,11 @@ class InsideForest:
         y : array-like, optional
             Target vector. If not provided and ``X`` is a DataFrame containing
             ``var_obj``, that column will be used as the target.
-        rf : RandomForestClassifier, optional
-            Custom ``RandomForestClassifier`` instance to use during fitting.
-            If ``None``, the classifier created during initialization is used.
-            If the provided estimator is already trained, it will be used as
-            is without additional fitting.
+        rf : estimator, optional
+            Custom random forest instance to use during fitting. If ``None``,
+            the estimator created during initialization is used. If the
+            provided estimator is already trained, it will be used as is
+            without additional fitting.
 
         Raises
         ------
@@ -112,7 +113,7 @@ class InsideForest:
         X_df.columns = [str(c).replace(" ", "_") for c in X_df.columns]
         self.feature_names_ = list(X_df.columns)
 
-        # Allow passing a custom RandomForestClassifier
+        # Allow passing a custom random forest estimator
         if rf is not None:
             self.rf = rf
 
@@ -130,9 +131,7 @@ class InsideForest:
         separacion_dim = self.trees.get_branches(
             df=df, var_obj=self.var_obj, regr=self.rf
         )
-        df_reres = self.regions.prio_ranges(
-            separacion_dim=separacion_dim, df=df
-        )
+        df_reres = self.regions.prio_ranges(separacion_dim=separacion_dim, df=df)
         df_datos_clusterizados, df_clusters_descripcion = self.regions.labels(
             df=df,
             df_reres=df_reres,
@@ -192,3 +191,60 @@ class InsideForest:
         )
         df_clusterizado["cluster"] = df_clusterizado["cluster"].fillna(value=-1)
         return df_clusterizado["cluster"].to_numpy()
+
+
+class InsideForestClassifier(_BaseInsideForest):
+    """Wrapper model that combines a ``RandomForestClassifier`` with the
+    Trees/Regions utilities to provide cluster labels for the training data."""
+
+    def __init__(
+        self,
+        rf_params=None,
+        tree_params=None,
+        var_obj="target",
+        n_clusters=None,
+        include_summary_cluster=False,
+        balanced=False,
+        divide=5,
+    ):
+        super().__init__(
+            RandomForestClassifier,
+            rf_params=rf_params,
+            tree_params=tree_params,
+            var_obj=var_obj,
+            n_clusters=n_clusters,
+            include_summary_cluster=include_summary_cluster,
+            balanced=balanced,
+            divide=divide,
+        )
+
+
+class InsideForestRegressor(_BaseInsideForest):
+    """Wrapper model that combines a ``RandomForestRegressor`` with the
+    Trees/Regions utilities to provide cluster labels for the training data."""
+
+    def __init__(
+        self,
+        rf_params=None,
+        tree_params=None,
+        var_obj="target",
+        n_clusters=None,
+        include_summary_cluster=False,
+        balanced=False,
+        divide=5,
+    ):
+        super().__init__(
+            RandomForestRegressor,
+            rf_params=rf_params,
+            tree_params=tree_params,
+            var_obj=var_obj,
+            n_clusters=n_clusters,
+            include_summary_cluster=include_summary_cluster,
+            balanced=balanced,
+            divide=divide,
+        )
+
+
+# Backward compatibility alias
+InsideForest = InsideForestClassifier
+

@@ -4,15 +4,15 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import pandas as pd
 import numpy as np
 import pytest
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestRegressor
 
-from InsideForest import InsideForestClassifier
+from InsideForest import InsideForestRegressor
 
 
 def test_inside_forest_fit_predict_runs():
-    X = pd.DataFrame(data={'feat1': [0, 1, 2, 3], 'feat2': [3, 2, 1, 0]})
-    y = [0, 1, 0, 1]
-    model = InsideForestClassifier(rf_params={'n_estimators': 5, 'random_state': 0})
+    X = pd.DataFrame(data={"feat1": [0, 1, 2, 3], "feat2": [3, 2, 1, 0]})
+    y = [0.1, 0.2, 0.3, 0.4]
+    model = InsideForestRegressor(rf_params={"n_estimators": 5, "random_state": 0})
     fitted = model.fit(X=X, y=y)
     assert fitted is model
     preds = model.predict(X=X)
@@ -21,27 +21,29 @@ def test_inside_forest_fit_predict_runs():
 
 
 def test_predict_before_fit_raises():
-    model = InsideForestClassifier()
-    X = pd.DataFrame(data={'feat1': [0], 'feat2': [0]})
+    model = InsideForestRegressor()
+    X = pd.DataFrame(data={"feat1": [0], "feat2": [0]})
     with pytest.raises(RuntimeError):
         model.predict(X=X)
 
 
 def test_fit_accepts_df_with_target_column():
-    df = pd.DataFrame(data={
-        'feat1': [0, 1, 2, 3],
-        'feat2': [3, 2, 1, 0],
-        'target': [0, 1, 0, 1]
-    })
-    model = InsideForestClassifier(rf_params={'n_estimators': 5, 'random_state': 0})
+    df = pd.DataFrame(
+        data={
+            "feat1": [0, 1, 2, 3],
+            "feat2": [3, 2, 1, 0],
+            "target": [0.1, 0.2, 0.3, 0.4],
+        }
+    )
+    model = InsideForestRegressor(rf_params={"n_estimators": 5, "random_state": 0})
     fitted = model.fit(X=df)
     assert fitted is model
     assert model.labels_.shape[0] == len(df)
 
 
 def test_fit_df_missing_target_raises():
-    df = pd.DataFrame(data={'feat1': [0, 1], 'feat2': [1, 0]})
-    model = InsideForestClassifier()
+    df = pd.DataFrame(data={"feat1": [0, 1], "feat2": [1, 0]})
+    model = InsideForestRegressor()
     with pytest.raises(ValueError):
         model.fit(X=df)
 
@@ -49,13 +51,13 @@ def test_fit_df_missing_target_raises():
 def test_custom_label_and_frontier_params():
     df = pd.DataFrame(
         data={
-            'feat1': [0, 1, 2, 3],
-            'feat2': [3, 2, 1, 0],
-            'target': [0, 1, 0, 1],
+            "feat1": [0, 1, 2, 3],
+            "feat2": [3, 2, 1, 0],
+            "target": [0.1, 0.2, 0.3, 0.4],
         }
     )
-    model = InsideForestClassifier(
-        rf_params={'n_estimators': 5, 'random_state': 0},
+    model = InsideForestRegressor(
+        rf_params={"n_estimators": 5, "random_state": 0},
         n_clusters=2,
         include_summary_cluster=True,
         balanced=True,
@@ -70,10 +72,10 @@ def test_custom_label_and_frontier_params():
 
 
 def test_fit_accepts_custom_rf_instance():
-    X = pd.DataFrame(data={'feat1': [0, 1, 2, 3], 'feat2': [3, 2, 1, 0]})
-    y = [0, 1, 0, 1]
-    rf = RandomForestClassifier(n_estimators=5, random_state=0)
-    model = InsideForestClassifier()
+    X = pd.DataFrame(data={"feat1": [0, 1, 2, 3], "feat2": [3, 2, 1, 0]})
+    y = [0.1, 0.2, 0.3, 0.4]
+    rf = RandomForestRegressor(n_estimators=5, random_state=0)
+    model = InsideForestRegressor()
     fitted = model.fit(X=X, y=y, rf=rf)
     assert fitted is model
     assert model.rf is rf
@@ -83,7 +85,7 @@ def test_fit_accepts_custom_rf_instance():
 
 
 def test_fit_accepts_trained_rf_without_refitting():
-    class TrackingRF(RandomForestClassifier):
+    class TrackingRF(RandomForestRegressor):
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
             self.fit_calls = 0
@@ -92,13 +94,13 @@ def test_fit_accepts_trained_rf_without_refitting():
             self.fit_calls += 1
             return super().fit(X, y, **kwargs)
 
-    X = pd.DataFrame(data={'feat1': [0, 1, 2, 3], 'feat2': [3, 2, 1, 0]})
-    y = [0, 1, 0, 1]
+    X = pd.DataFrame(data={"feat1": [0, 1, 2, 3], "feat2": [3, 2, 1, 0]})
+    y = [0.1, 0.2, 0.3, 0.4]
     rf = TrackingRF(n_estimators=5, random_state=0)
     rf.fit(X, y)
     assert rf.fit_calls == 1
 
-    model = InsideForestClassifier()
+    model = InsideForestRegressor()
     fitted = model.fit(X=X, y=y, rf=rf)
     assert fitted is model
     assert model.rf is rf
@@ -107,3 +109,4 @@ def test_fit_accepts_trained_rf_without_refitting():
     preds = model.predict(X=X)
     assert preds.shape == (4,)
     assert np.array_equal(preds, model.labels_)
+
