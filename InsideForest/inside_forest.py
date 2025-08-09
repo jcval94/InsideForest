@@ -12,6 +12,10 @@ from .descrip import get_frontiers
 class _BaseInsideForest:
     """Internal base class handling shared ``fit`` and ``predict`` logic.
 
+    After fitting, the random forest's feature importances can be inspected
+    via the :attr:`feature_importances_` property or visualized with the
+    :meth:`plot_importances` method.
+
     Parameters
     ----------
     rf_cls : type
@@ -155,6 +159,52 @@ class _BaseInsideForest:
         self.frontiers_ = frontiers
 
         return self
+
+    @property
+    def feature_importances_(self):
+        """Feature importances of the fitted random forest.
+
+        Returns
+        -------
+        ndarray of shape (n_features,)
+            Importance of each feature as computed by the underlying random
+            forest.
+
+        Raises
+        ------
+        NotFittedError
+            If the internal random forest has not been fitted yet.
+        """
+
+        check_is_fitted(self.rf)
+        return self.rf.feature_importances_
+
+    def plot_importances(self):
+        """Plot feature importances of the underlying random forest.
+
+        Returns
+        -------
+        matplotlib.axes.Axes
+            Axes object containing a bar chart of feature importances.
+        """
+
+        check_is_fitted(self.rf)
+
+        import numpy as np
+        import matplotlib.pyplot as plt
+
+        importances = self.rf.feature_importances_
+        indices = np.argsort(importances)[::-1]
+        feature_names = [self.feature_names_[i] for i in indices]
+
+        fig, ax = plt.subplots()
+        ax.bar(range(len(importances)), importances[indices])
+        ax.set_xticks(range(len(importances)))
+        ax.set_xticklabels(feature_names, rotation=90)
+        ax.set_ylabel("Feature importance")
+        ax.set_title("Feature importances")
+        fig.tight_layout()
+        return ax
 
     def predict(self, X):
         """Assign cluster labels to new data based on learned regions.

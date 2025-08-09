@@ -74,6 +74,14 @@ pred_labels = in_f.predict(X_rest)  # etiquetas de cluster para los datos restan
 etiquetas_entrenamiento = in_f.labels_  # etiquetas para el subconjunto de entrenamiento
 ```
 
+Después del ajuste, puedes consultar las importancias de las variables del
+bosque aleatorio y visualizarlas opcionalmente:
+
+```python
+importancias = in_f.feature_importances_
+ejes = in_f.plot_importances()
+```
+
 ### Guardar y cargar modelos
 
 Las clases `InsideForestClassifier` e `InsideForestRegressor` incluyen
