@@ -27,6 +27,16 @@ def test_predict_before_fit_raises():
         model.predict(X=X)
 
 
+def test_predict_missing_columns_raises():
+    X = pd.DataFrame(data={'feat1': [0, 1, 2, 3], 'feat2': [3, 2, 1, 0]})
+    y = [0, 1, 0, 1]
+    model = InsideForestClassifier(rf_params={'n_estimators': 5, 'random_state': 0})
+    model.fit(X=X, y=y)
+    X_missing = pd.DataFrame(data={'feat1': [0, 1]})
+    with pytest.raises(ValueError, match="feat2"):
+        model.predict(X=X_missing)
+
+
 def test_fit_accepts_df_with_target_column():
     df = pd.DataFrame(data={
         'feat1': [0, 1, 2, 3],
