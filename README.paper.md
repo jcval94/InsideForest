@@ -119,6 +119,39 @@ Se cumple $0 \le \pi_C \le 1$.
 
 lo que permite priorizar segmentos con mayor pureza o soporte. Estas métricas se traducen en etiquetas textuales que describen los intervalos dominantes y su comportamiento estadístico.
 
+### 2.6 Generador de hipótesis
+Un paso adicional consiste en encontrar pares de regiones casi idénticas en su descripción pero con comportamientos opuestos respecto a la variable objetivo. Sea $\mathcal{R} = \{R_1,\ldots,R_m\}$ el conjunto de regiones obtenidas tras el clustering, cada una caracterizada por su hiperrectángulo y la tasa de la clase positiva $\pi(R_i)$. Definimos una medida de similitud basada en el coeficiente de Jaccard entre volúmenes:
+
+$$
+s(R_i,R_j) = \frac{\operatorname{vol}(R_i \cap R_j)}{\operatorname{vol}(R_i \cup R_j)}.
+$$
+
+La diferencia de efectividad entre dos regiones se cuantifica como:
+
+$$
+\Delta \pi(R_i,R_j) = \left|\pi(R_i) - \pi(R_j)\right|.
+$$
+
+El generador de hipótesis busca el par $(R_i,R_j)$ que maximiza $\Delta \pi$ sujeto a una alta similitud $s$:
+
+$$
+\left(R^*,R^{\prime *}\right) = \arg\max_{R_i,R_j} \Delta \pi(R_i,R_j)\quad \text{s.a.}\quad s(R_i,R_j) \ge \tau,
+$$
+
+donde $\tau$ es un umbral cercano a 1 que garantiza que las reglas difieren en pocos intervalos. Estas parejas permiten plantear hipótesis del tipo “variar mínimamente la condición $x_j < t$ reduce la efectividad del segmento”. El algoritmo opera en tres pasos:
+
+1. Calcular las intersecciones de todos los pares de regiones y sus volúmenes.
+2. Filtrar los pares con $s(R_i,R_j) \ge \tau$.
+3. Ordenar los candidatos por $\Delta \pi$ y reportar los de mayor diferencia.
+
+Esta búsqueda resalta contrastes sutiles y sugiere experimentos sobre cuáles condiciones impulsan o deterioran el desempeño.
+
+## Trabajo relacionado
+
+Los métodos de clustering basados en reglas buscan segmentos explicables mediante condiciones lógicas. Atzmueller (2015) revisa el campo de *subgroup discovery*, donde los clusters se describen con reglas if-then que maximizan medidas de calidad. Otros trabajos como Bay y Pazzani (2001) o Dong y Li (1999) proponen *contrast set mining* para detectar patrones que distinguen subpoblaciones. En interpretabilidad de bosques, enfoques como RuleFit (Friedman y Popescu, 2008) y inTrees (Deng, 2014) extraen reglas representativas de conjuntos de árboles para explicar sus predicciones.
+
+InsideForest comparte la idea de obtener reglas interpretables, pero se diferencia al utilizar el bosque aleatorio como generador de regiones y luego agruparlas mediante un proceso de clustering supervisado. Mientras los métodos anteriores se enfocan en generar reglas o interpretaciones individuales, InsideForest prioriza segmentos con alta pureza respecto a la clase objetivo, incorpora un generador de hipótesis para contrastar regiones similares con resultados dispares y provee un flujo unificado para etiquetar y describir dichas regiones.
+
 ## 3. Arquitectura del repositorio
 La organización del código refleja el proceso anterior en módulos especializados:
 
@@ -802,6 +835,11 @@ La implementación real del módulo incluye detalles de ingeniería como:
 - Breiman, L. (2001). *Random Forests*. Machine Learning, 45(1), 5-32.
 - Pedregosa, F., et al. (2011). *Scikit-learn: Machine Learning in Python*. Journal of Machine Learning Research, 12, 2825-2830.
 - Ester, M., et al. (1996). *A Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise*. Proceedings of KDD.
+- Atzmueller, M. (2015). *Subgroup discovery*. WIREs Data Mining and Knowledge Discovery, 5(1), 35-49.
+- Friedman, J. H., & Popescu, B. E. (2008). *Predictive learning via rule ensembles*. Annals of Applied Statistics, 2(3), 916-954.
+- Deng, H. (2014). *Interpreting tree ensembles with inTrees*. arXiv preprint arXiv:1408.5456.
+- Bay, S. D., & Pazzani, M. J. (2001). *Detecting change in categorical data: Mining contrast sets*. KDD.
+- Dong, G., & Li, J. (1999). *Efficient mining of emerging patterns: Discovering trends and differences*. KDD.
 
 ### 11.8 Agradecimientos
 
