@@ -180,15 +180,44 @@ La organización del código refleja el proceso anterior en módulos especializa
 - `Descrip` genera descripciones en lenguaje natural, generaliza condiciones y construye tablas de interpretación.
 
 ## 4. Metodología de uso
-El flujo típico para aplicar InsideForest incluye:
+El método central `InsideForest.fit(X, y)` ejecuta una secuencia determinista de pasos que convierte un `RandomForest` en regiones interpretables y etiquetas de cluster. El flujo puede resumirse como:
 
-1. **Preparación de datos**: se selecciona un subconjunto representativo para entrenar el bosque, normalizando variables según sea necesario.
-2. **Entrenamiento**: `InsideForest` entrena un `RandomForest` y almacena los árboles resultantes.
-3. **Extracción de ramas**: `Trees.get_branches` transforma cada árbol en reglas de intervalo con información de soporte y pureza.
-4. **Priorización de regiones**: `Regions.prio_ranges` agrupa y ordena las reglas según su relevancia, densidad y pureza.
-5. **Etiquetado**: `Regions.labels` asigna a cada observación el cluster más representativo mediante comparación volumétrica.
-6. **Descripción**: `Labels` y `Descrip` generan explicaciones textuales y visualizaciones cuantitativas.
+1. **Preparación de datos**: se construye un `DataFrame` `X_df` (las columnas se renombran con `_`) y se obtiene el vector objetivo `y`.
+2. **Entrenamiento del bosque**: se ajusta un `RandomForest` sobre $(X_df, y)$ obteniendo estimadores $\{T_b\}_{b=1}^B$.
+3. **Extracción de reglas**: `Trees.get_branches` recorre cada $T_b$ y genera hiperrectángulos candidatos a partir de las hojas más efectivas.
+4. **Agregación de regiones**: `Regions.prio_ranges` fusiona reglas solapadas y prioriza por soporte y efectividad.
+5. **Etiquetado de observaciones**: `Regions.labels` evalúa cada registro $x_i$ frente a las regiones y asigna el cluster de mayor peso.
+6. **Análisis adicional**: funciones de correlación permiten estudiar combinaciones de clusters y su relación con la variable objetivo.
 
+En lo que sigue se detallan las funciones esenciales y su encadenamiento dentro de `fit`.
+
+
+
+### Funciones de extracción
+`Trees.get_branches` se invoca dentro de `fit` inmediatamente después del entrenamiento y encadena las funciones siguientes:
+- `get_rangos(regr, data1, verbose=0)`: para cada árbol $T_b$ se calcula el percentil $Q_{0.9}$ de los valores de sus hojas $\{v_l\}$. Solo se conservan las rutas $R = \{c_k\}_{k=1}^m$ cuyas hojas cumplen $v_l \ge Q_{0.9}$. Cada condición $c_k$ del tipo $x_{f_k}\;\texttt{op}_k\;\theta_k$ recibe un peso $w_k = 2/(d_k+1)$ con $d_k$ la profundidad del nodo. **Entrada**: estimador entrenado `regr` y matriz de características `data1`. **Salida**: `df_full_arboles` con columnas `Regla`, `Importancia`, `N_regla` y `N_arbol`.
+- `get_fro(df_full_arboles)`: descompone cada texto `Regla` usando la expresión regular `^(\S+)\s*(<=|>=|<|>)\s*([0-9.]+)$` para obtener $(feature, operador, rangos)\in\mathbb{R}$. **Salida**: DataFrame estructurado que alimenta a `get_summary_optimizado`.
+- `get_summary_optimizado(data1, df_full_arboles, var_obj, no_branch_lim=500, verbose=0)`: para cada regla $r$ define la máscara $M_r(i)=\bigwedge_{(f,o,\theta)\in r}\mathbf{1}_{o(x_i[f],\theta)}$. A partir de ella calcula $n_{\text{sample}}(r)=\sum_i M_r(i)$ y $ef_{\text{sample}}(r)=\frac{1}{n_{\text{sample}}(r)}\sum_i M_r(i)\,y_i$. **Salida**: `df_summ` ordenado por efectividad y soporte.
+- `extract_rectangles(df_summ)`: reúne las condiciones de cada $(N_{\text{arbol}},N_{\text{regla}})$ para obtener límites $\text{linf}_j=\max\{\theta\mid(f_j,>,\theta)\in r\}$ y $\text{lsup}_j=\min\{\theta\mid(f_j,\le,\theta)\in r\}$ que definen el hiperrectángulo $R=\prod_j[\text{linf}_j,\text{lsup}_j]$. El peso final de la regla es
+  \[
+    \text{ponderador}=\alpha\frac{n_{\text{sample}}+1}{\max(n_{\text{sample}})+1}+\beta\frac{ef_{\text{sample}}+1}{\max(ef_{\text{sample}})+1},
+  \]
+  con $\alpha = \texttt{self.n_sample_multiplier}$ y $\beta = \texttt{self.ef_sample_multiplier}$. **Salida**: lista de DataFrames con columnas `linf`, `lsup`, `ponderador`, `ef_sample` y `n_sample`.
+
+### Funciones de agregación y etiquetado
+Tras `get_branches`, `fit` llama a `Regions.prio_ranges` y posteriormente a `Regions.labels`, las cuales emplean:
+- `fill_na_pond_fastest(df_sep_dm, df, features_val, verbose)`: reemplaza límites $\pm\infty$ por $\min(df_j)-1$ o $\max(df_j)+1$ para cada dimensión $j$, preservando el `ponderador`. Se invoca al inicio de `get_agg_regions_j`. **Entrada**: DataFrame pivotado `df_sep_dm`, datos originales `df` y lista `features_val`. **Salida**: tabla con límites finitos.
+- `get_agg_regions_j(df_eval, df)`: convierte las reglas en matriz de límites, aplica `fill_na_pond_fastest` y calcula la similitud entre pares mediante la Intersección sobre Unión
+  \[\mathrm{IoU}(R_i,R_j)=\frac{\operatorname{vol}(R_i\cap R_j)}{\operatorname{vol}(R_i)+\operatorname{vol}(R_j)-\operatorname{vol}(R_i\cap R_j)}.\]
+  Con la distancia $d=1-\mathrm{IoU}$ realiza clustering jerárquico y, tras asignar etiquetas, utiliza `group_by_cluster` para resumir cada grupo. **Salida**: regiones agregadas con columna `cluster`.
+- `group_by_cluster(df, cluster_col="cluster")`: dentro de `get_agg_regions_j` consolida cada cluster seleccionando la primera ocurrencia de sus métricas y registra `count=|C|`. **Salida**: resumen por cluster.
+- `set_multiindex(df, cluster_col="cluster")`: reorganiza las columnas como `(\text{linf},\text{dim})` y `(\text{lsup},\text{dim})`, sitúa `cluster` como índice y mueve métricas a un nivel `metrics`. Su resultado alimenta a `prio_ranges`.
+- `asignar_clusters_a_datos(df_datos, df_reglas, keep_all_clusters=True)`: para cada registro $x_i$ evalúa $M_c(x_i)=\bigwedge_{j}\mathbf{1}_{\text{linf}_{c,j}\le x_{i,j}\le \text{lsup}_{c,j}}$. Se asigna $\arg\max_c\,\text{ponderador}_c\,M_c(x_i)$ y, si `keep_all_clusters=True`, se guarda la lista $\{c\mid M_c(x_i)=1\}$. **Salida**: `df_datos_clusterizados` y un resumen de cada cluster.
+- `get_clusters_importantes(df_clusterizado)`: a partir de la columna `clusters_list` genera una matriz binaria $B\in\{0,1\}^{n\times m}$, elige $\varepsilon$ con `get_eps_multiple_groups_opt` y llama a `apply_clustering_and_similarity` para obtener etiquetas de DBSCAN y KMeans. Se conservan las combinaciones frecuentes y se añade `active_clusters`. **Salida**: DataFrame enriquecido para análisis correlacional.
+- `apply_clustering_and_similarity(df, cluster_columns, dbscan_params=None, kmeans_params=None)`: recibe $B$, aplica DBSCAN y KMeans sobre las columnas `cluster_*` y calcula las correlaciones de Pearson $\rho(\text{label}, B_c)$ identificando la columna más afín a cada partición. Devuelve el DataFrame con `db_labels`, `km_labels` y columnas `*_most_similar_cluster`.
+- `obtener_clusters(df_clust, cluster_objetivo, n=5, direccion='ambos')`: sobre la matriz de correlaciones $\rho_{c,c'}$ producida por `get_clusters_importantes`, selecciona los $n$ clusters con mayor asociación positiva, negativa o ambas respecto a `cluster_objetivo`.
+
+Estas funciones completan el flujo de `fit`, produciendo etiquetas finales y medidas de importancia por región.
 ## 5. Caso de estudio: conjunto Iris
 Para ilustrar el flujo, se usa el clásico conjunto `Iris` (150 observaciones, 4 variables numéricas y 3 especies):
 
