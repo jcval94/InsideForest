@@ -1,5 +1,6 @@
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.cluster import DBSCAN, KMeans
+from sklearn.metrics import pairwise_distances
 
 import pandas as pd
 import numpy as np
@@ -117,42 +118,112 @@ class Regions:
       ]
     return resultado
   
-  def get_eps_multiple_groups_opt(self, data, eps_min=1e-5, eps_max=None):
-    """Compute an optimal ``eps`` value for DBSCAN on multi-dimensional data."""
+  def get_eps_multiple_groups_opt(
+      self,
+      data,
+      eps_min: float = 1e-5,
+      eps_max: float | None = None,
+      *,
+      strategy: str = "binary",
+      grid_points: int = 75,
+      min_samples: int = 2,
+      max_precompute: int = 4000,
+      tol: float = 1e-6,
+      max_iter: int = 32,
+      target_clusters: int | None = None,
+  ):
+    """Compute an ``eps`` value for DBSCAN that yields multiple groups.
 
-    if len(data)==1:
-      return 1e-2
-    elif len(data)==2:
-      return .5
-    if eps_max is None:
-      eps_max = np.max(np.sqrt(np.sum((data - np.mean(data, axis=0)) ** 2, axis=1)))
-      if eps_max<=1e-10:
-        eps_max=0.1
-    eps_values = np.linspace(eps_min, eps_max, num=75)
-    n_groups = []
-    last_unique_labels = None
-    was_multiple_groups = False
-    for eps in eps_values:
-      if eps <= 0:
-        continue
-      dbscan = DBSCAN(eps=eps, min_samples=2)
-      labels = dbscan.fit_predict(data)
-      unique_labels = np.unique(labels)
-      if unique_labels.size > 1:
-        n_groups.append(unique_labels.size)
-        last_unique_labels = unique_labels.size
-        was_multiple_groups = True
-      elif unique_labels.size == 1 and was_multiple_groups:
-        break
-    if len(n_groups)==0:
-      return (eps_min + eps_max) / 2
-    mode_indices = self.posiciones_valores_frecuentes(n_groups)
-    if len(mode_indices) == 1:
-      return eps_values[mode_indices[0]]
+    Parameters
+    ----------
+    data : array-like
+        Dataset to cluster.
+    eps_min, eps_max : float, optional
+        Search interval bounds for ``eps``. ``eps_max`` defaults to the maximum
+        pairwise distance (or an upper bound when distances aren't precomputed).
+    strategy : {"binary", "grid"}
+        Strategy to search for ``eps``. ``binary`` performs a binary search,
+        ``grid`` sweeps ``grid_points`` evenly spaced values between ``eps_min``
+        and ``eps_max``.
+    grid_points : int, default 75
+        Number of grid points when ``strategy='grid'``.
+    min_samples : int, default 2
+        ``min_samples`` parameter for DBSCAN.
+    max_precompute : int, default 4000
+        Maximum number of samples for which the pairwise distance matrix is
+        precomputed. Above this limit the Euclidean metric is used directly.
+    tol : float, default 1e-6
+        Relative tolerance to stop the binary search.
+    max_iter : int, default 32
+        Maximum iterations for the binary search.
+    target_clusters : int, optional
+        Desired number of clusters. Defaults to 2 (i.e. obtain at least two
+        clusters).
+    """
+
+    X = np.asarray(data)
+    n = len(X)
+    if n == 0:
+      return eps_min
+    if n == 1:
+      return max(eps_min, 0.0)
+    if n == 2:
+      d12 = float(np.linalg.norm(X[0] - X[1]))
+      return max(eps_min, d12)
+
+    use_precomputed = n <= max_precompute
+    if use_precomputed:
+      D = pairwise_distances(X)
+      if eps_max is None:
+        eps_max = float(np.nanmax(D))
     else:
-      mean_grupos = [n_groups[i] for i in mode_indices]
-      dist_to_mean = [np.abs(x - np.mean(mean_grupos)) for x in mean_grupos]
-      return eps_values[mode_indices[np.argmin(dist_to_mean)]]
+      D = None
+      if eps_max is None:
+        c = X.mean(axis=0)
+        eps_max = float(2.0 * np.max(np.linalg.norm(X - c, axis=1)))
+
+    eps_min = max(np.finfo(float).eps, float(eps_min))
+    if not np.isfinite(eps_max) or eps_max <= eps_min:
+      eps_max = eps_min * 10.0
+
+    def fit_dbscan(eps: float) -> int:
+      if use_precomputed:
+        labels = DBSCAN(eps=eps, min_samples=min_samples, metric="precomputed").fit_predict(D)
+      else:
+        labels = DBSCAN(eps=eps, min_samples=min_samples).fit_predict(X)
+      lbl = np.asarray(labels)
+      mask = lbl != -1
+      return 0 if not np.any(mask) else int(np.unique(lbl[mask]).size)
+
+    target = 2 if target_clusters is None else int(target_clusters)
+
+    if strategy == "grid":
+      eps_values = np.linspace(eps_min, eps_max, num=max(2, grid_points))
+      k_values = [fit_dbscan(eps) for eps in eps_values]
+      ok = [i for i, k in enumerate(k_values) if k >= target]
+      if ok:
+        return float(eps_values[min(ok)])
+
+      counts = Counter(k_values)
+      mode = max(counts, key=counts.get)
+      idxs = [i for i, k in enumerate(k_values) if k == mode]
+      medias = np.mean([k_values[i] for i in idxs])
+      mejor = min(idxs, key=lambda i: abs(k_values[i] - medias))
+      return float(eps_values[mejor])
+
+    low, high = float(eps_min), float(eps_max)
+    best = None
+    for _ in range(max_iter):
+      mid = 0.5 * (low + high)
+      k = fit_dbscan(mid)
+      if k >= target:
+        best = mid
+        high = mid
+      else:
+        low = mid
+      if abs(high - low) <= tol * max(1.0, high):
+        break
+    return float(best if best is not None else high)
   
     
   def fill_na_pond(self, df_sep_dm, df, features_val):
