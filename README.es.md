@@ -74,6 +74,20 @@ pred_labels = in_f.predict(X_rest)  # etiquetas de cluster para los datos restan
 etiquetas_entrenamiento = in_f.labels_  # etiquetas para el subconjunto de entrenamiento
 ```
 
+### Guardar y cargar modelos
+
+Las clases `InsideForestClassifier` e `InsideForestRegressor` incluyen
+métodos para persistir un modelo entrenado utilizando `joblib`:
+
+```python
+in_f.save("modelo.joblib")
+cargado = InsideForestClassifier.load("modelo.joblib")
+```
+
+El modelo cargado restaura el bosque aleatorio y los atributos
+calculados, permitiendo continuar generando etiquetas o predicciones
+sin volver a entrenar.
+
 ## Caso de uso (Iris)
 Lo siguiente resume el flujo utilizado en el [notebook de ejemplo](https://colab.research.google.com/drive/11VGeB0V6PLMlQ8Uhba91fJ4UN1Bfbs90?usp=sharing).
 
