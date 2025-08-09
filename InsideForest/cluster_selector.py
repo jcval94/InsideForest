@@ -301,92 +301,94 @@ class MenuClusterSelector:
         return self
 
     # --------------- PREDICT ----------------
-    def predict(self, records: Sequence[Sequence[Any]], n_clusters: int | None = None) -> List[Any]:
-        """
-        Asigna 1 valor por fila maximizando J = w_nmi*NMI + w_v*V - lam_k*RegK,
-        usando ascenso coordinado (greedy por mejoras).
-        Si n_clusters=K, primero restringe a un catálogo S de tamaño K (cobertura+calidad).
-        """
-        assert (
-            self.q_ is not None and self.classes_ is not None and self.Py_ is not None
-        ), "Llama fit() primero."
-        rng = np.random.default_rng(self.seed)
+    def _objective(self, C: np.ndarray, Py: np.ndarray, Pv: np.ndarray) -> float:
+        """Compute the global objective J for a given contingency."""
+        nmi = self._nmi_from_soft(C, Py, Pv)
+        vms = self._v_measure_from_soft(C, Py, Pv)
+        reg = self._k_regularizer(Pv, self.target_K, self.lam_k)
+        return self.w_nmi * nmi + self.w_v * vms - reg
 
-        # Garantiza vocabulario (por si aparecen valores nuevos)
-        self._ensure_vocab_for_predict(records)
-        V, T = self.q_.shape
-        Py = self.Py_.copy()
+    def _build_catalog(
+        self,
+        allowed: List[np.ndarray],
+        n_clusters: int | None,
+        V: int,
+        Py: np.ndarray,
+    ) -> List[np.ndarray]:
+        """Restrict menus to a catalog ``S`` of size ``n_clusters`` if provided."""
+        if n_clusters is None:
+            return allowed
 
-        menus_idx = self._menus_indices(records)
-        n = len(menus_idx)
-
-        # --- (opcional) catálogo S de tamaño K ---
-        allowed = [np.array(opts, dtype=int) for opts in menus_idx]
-        if n_clusters is not None:
-            # k_min por cobertura
-            remaining = set(range(n))
-            S = set()
-            # score base por valor: afinidad con prior de clases (log para ser más selectivo)
-            Pt = Py / Py.sum()
-            s_val = np.log(np.clip(self.q_, 1e-12, 1.0)) @ Pt  # (V,)
-            while remaining:
-                # mejor valor por "cobertura ponderada"
-                cover_gain = []
-                for v in range(V):
-                    gain = sum(s_val[v] for i in remaining if v in allowed[i])
-                    cover_gain.append((gain, v))
-                v_best = max(cover_gain)[1]
-                S.add(v_best)
-                covered = [i for i in list(remaining) if v_best in allowed[i]]
-                for i in covered:
-                    remaining.discard(i)
-            k_min = len(S)
-            K = max(k_min, int(n_clusters))
-
-            if K > k_min:
-                extras = sorted(
-                    (v for v in range(V) if v not in S),
-                    key=lambda v: s_val[v],
-                    reverse=True,
-                )[: K - k_min]
-                S.update(extras)
-            elif K < k_min:
-                # imposible cubrir con menos de k_min; usamos k_min.
-                pass
-
-            S = np.array(sorted(S), dtype=int)
-            # Restringe menús a S (si alguna fila queda vacía, mantiene su menú original)
-            for i in range(n):
-                inter = np.intersect1d(allowed[i], S, assume_unique=False)
-                allowed[i] = inter if inter.size > 0 else allowed[i]
-
-        # ---------- inicialización ----------
+        n = len(allowed)
+        remaining = set(range(n))
+        S: set[int] = set()
         Pt = Py / Py.sum()
-        base_score_v = (np.log(np.clip(self.q_, 1e-12, 1.0)) @ Pt)  # (V,)
+        s_val = np.log(np.clip(self.q_, 1e-12, 1.0)) @ Pt  # (V,)
+
+        while remaining:
+            cover_gain = []
+            for v in range(V):
+                gain = sum(s_val[v] for i in remaining if v in allowed[i])
+                cover_gain.append((gain, v))
+            v_best = max(cover_gain)[1]
+            S.add(v_best)
+            covered = [i for i in list(remaining) if v_best in allowed[i]]
+            for i in covered:
+                remaining.discard(i)
+
+        k_min = len(S)
+        K = max(k_min, int(n_clusters))
+        if K > k_min:
+            extras = sorted(
+                (v for v in range(V) if v not in S),
+                key=lambda v: s_val[v],
+                reverse=True,
+            )[: K - k_min]
+            S.update(extras)
+        elif K < k_min:
+            pass  # imposible cubrir con menos de k_min; usamos k_min
+
+        S_arr = np.array(sorted(S), dtype=int)
+        for i in range(n):
+            inter = np.intersect1d(allowed[i], S_arr, assume_unique=False)
+            allowed[i] = inter if inter.size > 0 else allowed[i]
+        return allowed
+
+    def _initial_assignment(
+        self, allowed: List[np.ndarray], Py: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+        """Return initial assignment and contingency matrices."""
+        Pt = Py / Py.sum()
+        base_score_v = np.log(np.clip(self.q_, 1e-12, 1.0)) @ Pt
+        n = len(allowed)
+        V, T = self.q_.shape
         assign = np.empty(n, dtype=int)
         for i in range(n):
             cand = allowed[i]
-            # mejor v del menú por score base
-            v0 = cand[np.argmax(base_score_v[cand])]
-            assign[i] = v0
+            assign[i] = cand[np.argmax(base_score_v[cand])]
 
-        # Construye C, Pv del estado actual
         C = np.zeros((T, V), dtype=np.float64)
         Pv = np.zeros(V, dtype=np.float64)
         for i in range(n):
             v = assign[i]
-            C[:, v] += self.q_[v]   # cada fila aporta q_v(y) a la columna v
+            C[:, v] += self.q_[v]
             Pv[v] += 1.0
 
-        def objective(C_: np.ndarray, Py_: np.ndarray, Pv_: np.ndarray) -> float:
-            nmi = self._nmi_from_soft(C_, Py_, Pv_)
-            vms = self._v_measure_from_soft(C_, Py_, Pv_)
-            reg = self._k_regularizer(Pv_, self.target_K, self.lam_k)
-            return self.w_nmi * nmi + self.w_v * vms - reg
+        curJ = self._objective(C, Py, Pv)
+        return assign, C, Pv, curJ
 
-        curJ = objective(C, Py, Pv)
-
-        # ---------- ascenso coordinado ----------
+    def _coordinate_ascent(
+        self,
+        allowed: List[np.ndarray],
+        assign: np.ndarray,
+        C: np.ndarray,
+        Pv: np.ndarray,
+        Py: np.ndarray,
+        curJ: float,
+        rng: np.random.Generator,
+    ) -> np.ndarray:
+        """Optimize assignments via coordinate ascent."""
+        n = len(assign)
         improved = True
         passes = 0
         while improved and passes < self.max_passes:
@@ -398,37 +400,50 @@ class MenuClusterSelector:
                 best_v = v_cur
                 best_J = curJ
 
-                # quitar contribución actual
                 C[:, v_cur] -= self.q_[v_cur]
                 Pv[v_cur] -= 1.0
 
-                # probar candidatos
                 for v_new in allowed[i]:
                     C[:, v_new] += self.q_[v_new]
                     Pv[v_new] += 1.0
 
-                    J_new = objective(C, Py, Pv)
-
+                    J_new = self._objective(C, Py, Pv)
                     if J_new > best_J + self.tol:
                         best_J = J_new
                         best_v = v_new
 
-                    # revertir para probar siguiente
                     C[:, v_new] -= self.q_[v_new]
                     Pv[v_new] -= 1.0
 
-                # aplica mejor
                 C[:, best_v] += self.q_[best_v]
                 Pv[best_v] += 1.0
                 assign[i] = best_v
                 if best_v != v_cur:
                     curJ = best_J
                     improved = True
-                else:
-                    # restaurar curJ si no cambió
-                    pass
+        return assign
 
-        # Mapea a valores originales
+    def predict(self, records: Sequence[Sequence[Any]], n_clusters: int | None = None) -> List[Any]:
+        """
+        Asigna 1 valor por fila maximizando J = w_nmi*NMI + w_v*V - lam_k*RegK,
+        usando ascenso coordinado (greedy por mejoras).
+        Si n_clusters=K, primero restringe a un catálogo S de tamaño K (cobertura+calidad).
+        """
+        assert (
+            self.q_ is not None and self.classes_ is not None and self.Py_ is not None
+        ), "Llama fit() primero."
+        rng = np.random.default_rng(self.seed)
+
+        self._ensure_vocab_for_predict(records)
+        V, _ = self.q_.shape
+        Py = self.Py_.copy()
+        menus_idx = self._menus_indices(records)
+        allowed = [np.array(opts, dtype=int) for opts in menus_idx]
+
+        allowed = self._build_catalog(allowed, n_clusters, V, Py)
+        assign, C, Pv, curJ = self._initial_assignment(allowed, Py)
+        assign = self._coordinate_ascent(allowed, assign, C, Pv, Py, curJ, rng)
+
         return [self.idx_to_value_[j] for j in assign]
 
 
