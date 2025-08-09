@@ -115,6 +115,21 @@ the baselines are summarized below; complete results are available in
 | KMeans(k=3) | 0.87 | 0.87 | 0.87 | 0.71 | 0.69 | 0.66 | 0.80 | 0.53 | 0.03 |
 | DBSCAN(eps=0.5,min=5) | 0.33 | 0.17 | 0.33 | 0.00 | 0.00 | 0.00 | 0.50 | 0.00 | 0.00 |
 
+### RandomForest sweep on additional datasets
+
+We repeated the same 83-run parameter sweep on four additional datasets
+(*Digits*, *Wine*, *Breast Cancer* and *Iris*). The *Titanic* dataset was
+skipped due to download restrictions. The highest-purity configuration for
+each dataset is summarized below; complete results remain in
+`rf_results.csv`.
+
+| Dataset | Algorithm | Purity | Macro F1 | Accuracy | Runtime |
+| --- | --- | --- | --- | --- | --- |
+| breast_cancer | breast_cancer_select_clusters_cfg1 | 0.95 | 0.81 | 0.85 | 0.35 |
+| digits | digits_select_clusters_cfg11 | 0.80 | 0.62 | 0.55 | 2.66 |
+| iris | iris_balance_lists_n_clusters_cfg2 | 0.95 | 0.95 | 0.95 | 0.95 |
+| wine | wine_select_clusters_cfg6 | 1.00 | 0.79 | 0.65 | 1.19 |
+
 ## Basic workflow
 The typical order for applying InsideForest is:
 1. Train a decision forest or `RandomForest` model.
