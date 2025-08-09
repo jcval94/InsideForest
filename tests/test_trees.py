@@ -1,0 +1,51 @@
+import os, sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+import numpy as np
+import pandas as pd
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from InsideForest.trees import Trees
+
+
+def _build_regression_data():
+    X = np.zeros((4, 11))
+    X[:, 1] = [0, 1, 0, 1]
+    X[:, 10] = [0, 0, 1, 1]
+    y = [0, 1, 1, 2]
+    return pd.DataFrame(X, columns=[f"col{i}" for i in range(11)]), y
+
+
+def test_feature_replacement_no_overlap():
+    df, y = _build_regression_data()
+    reg = RandomForestRegressor(n_estimators=1, random_state=0).fit(df, y)
+    t = Trees()
+    res = t.get_rangos(reg, df, percentil=0, n_jobs=1)
+    assert 'feature_' not in ''.join(res['Regla'])
+    assert any(r.strip().startswith('col10') for r in res['Regla'])
+
+
+def test_class_leaf_no_crash():
+    X = pd.DataFrame({'col0': [0, 1, 2, 3]})
+    y = [0, 1, 0, 1]
+    clf = RandomForestClassifier(n_estimators=1, random_state=0).fit(X, y)
+    t = Trees()
+    res = t.get_rangos(clf, X, n_jobs=1)
+    assert isinstance(res, pd.DataFrame)
+
+
+def test_percentil_parameter_affects_output():
+    df, y = _build_regression_data()
+    reg = RandomForestRegressor(n_estimators=1, random_state=0).fit(df, y)
+    t = Trees()
+    res0 = t.get_rangos(reg, df, percentil=0, n_jobs=1)
+    res100 = t.get_rangos(reg, df, percentil=100, n_jobs=1)
+    assert len(res0) >= len(res100)
+
+
+def test_n_jobs_consistency():
+    df, y = _build_regression_data()
+    reg = RandomForestRegressor(n_estimators=1, random_state=0).fit(df, y)
+    t = Trees()
+    res_seq = t.get_rangos(reg, df, percentil=0, n_jobs=1)
+    res_par = t.get_rangos(reg, df, percentil=0, n_jobs=-1)
+    pd.testing.assert_frame_equal(res_seq.sort_index(axis=1), res_par.sort_index(axis=1))

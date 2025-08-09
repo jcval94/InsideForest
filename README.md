@@ -344,3 +344,15 @@ table = build_conditions_table(bool_conds, df, effectiveness, weights, n_groups=
 
 This produces a summary `DataFrame` where each condition is tagged by group along with the provided effectiveness and weight.
 
+## Tests
+
+Latest test run:
+
+```bash
+pytest -q
+```
+
+```
+41 passed
+```
+

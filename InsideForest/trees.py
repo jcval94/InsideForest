@@ -5,6 +5,7 @@ import logging
 
 from sklearn.tree import export_text
 from tqdm import tqdm
+from joblib import Parallel, delayed
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +91,7 @@ class Trees:
       return estructura_iter, camino
 
 
-  def get_rangos(self, regr, data1, verbose=0):
+  def get_rangos(self, regr, data1, verbose=0, percentil=90, n_jobs=-1):
     # This function may be slow; add tqdm to the main loop.
 
     if self.lang == 'pyspark':
@@ -99,22 +100,20 @@ class Trees:
     else:
       arboles_estimadores = regr.estimators_
 
-    df_info = []
-    n_estimador = 0
+    # Build feature name replacement once
+    feature_names = list(map(str, data1.columns))
+    pattern = re.compile(r'\bfeature_(\d+)\b')
+    val_pat = re.compile(r'value:\s*\[?([-+]?\d+(?:\.\d+)?(?:e[-+]?\d+)?)\]?', re.I)
+    cls_pat = re.compile(r'class:\s*(\S+)', re.I)
 
-    # Use tqdm in the loop; disable when verbose=0
-    for arbol_individual in tqdm(arboles_estimadores, disable=(verbose == 0), desc="Processing trees"):
+    def process_tree(n_estimador, arbol_individual):
       if self.lang == 'pyspark':
         r = arbol_individual
       else:
         r = export_text(arbol_individual)
 
-      columnas_nombres = list(data1.columns)
-      columnas_nombres.reverse()
-
-      # Replace feature indices with names
-      for i, feat in enumerate(columnas_nombres):
-        r = r.replace('feature_' + str(len(columnas_nombres) - i - 1), feat)
+      # Replace all feature indices using numeric regex
+      r = pattern.sub(lambda m: feature_names[int(m.group(1))], r)
 
       estructura = r.split('\n')
       estructura_iter = estructura.copy()
@@ -125,24 +124,13 @@ class Trees:
           continue
         estructura_iter, path_ = self.get_path(estructura_iter)
         estructura_rep = [v.count('|') for v in path_[0]]
-        
-        # if len(estructura_rep) != len(set(estructura_rep)):
-        #   posiciones_ = []
-        #   for i_pos, valor_pos in enumerate(estructura_rep):
-        #     posiciones = [k for k, v in enumerate(estructura_rep) if v == valor_pos]
-        #     posiciones_ += [x for x in posiciones if x != max(posiciones)]
-        #   path_aux = [val for j, val in enumerate(path_[0]) if j not in set(posiciones_)]
-        #   path_[0] = path_aux
 
         if len(estructura_rep) != len(set(estructura_rep)):
           seen = set()
           new_path = []
           # Traverse path_[0] in reverse order
           for elem in reversed(path_[0]):
-            # Count '|' in the current element
             bc = elem.count('|')
-
-            # If not seen yet, add it (last occurrence)
             if bc not in seen:
               new_path.append(elem)
               seen.add(bc)
@@ -155,11 +143,26 @@ class Trees:
 
         paths.append([x for x in path_ if x != ''])
 
-      valores = [
-        float(path[1].split(': ')[1].replace('[', '').replace(']', ''))
-        for path in paths
-      ]
-      percent_ = np.percentile(valores, 90)
+      valores = []
+      paths_filtrados = []
+      for path in paths:
+        texto = path[1] if len(path) > 1 else ''
+        m = val_pat.search(texto)
+        if m:
+          valores.append(float(m.group(1).replace('_', '')))
+          paths_filtrados.append(path)
+        else:
+          mc = cls_pat.search(texto)
+          if mc:
+            try:
+              valores.append(float(mc.group(1).replace('_', '')))
+              paths_filtrados.append(path)
+            except ValueError:
+              continue
+      paths = paths_filtrados
+      if not valores:
+        return pd.DataFrame(columns=['Regla', 'Importancia', 'N_regla', 'N_arbol', 'Va_Obj_minima'])
+      percent_ = np.percentile(valores, percentil)
       estructuras_maximizadoras = [[pa[0], val] for pa, val in zip(paths, valores) if val >= percent_]
 
       importanc = []
@@ -176,29 +179,36 @@ class Trees:
 
       asdf = pd.DataFrame(importanc, columns=['Regla', 'Importancia', 'N_regla', 'N_arbol'])
       asdf['Va_Obj_minima'] = percent_
-      df_info.append(asdf)
+      return asdf
 
-      n_estimador += 1
+    def _run_parallel(items, func, n_jobs, use_tqdm, desc):
+      it = tqdm(items, desc=desc) if use_tqdm else items
+      try:
+        if n_jobs == 1:
+          return [func(i, a) for i, a in enumerate(it)]
+        return Parallel(n_jobs=n_jobs)(delayed(func)(i, a) for i, a in enumerate(it))
+      except Exception:
+        return [func(i, a) for i, a in enumerate(items)]
 
-      if verbose == 1 and n_estimador % 10 == 0:
-        logger.info(f"Processed {n_estimador} trees")
+    resultados = _run_parallel(arboles_estimadores, process_tree, n_jobs, verbose > 0, "Processing trees")
+    resultados = [r for r in resultados if not r.empty]
+    return pd.concat(resultados, ignore_index=True) if resultados else pd.DataFrame(columns=['Regla', 'Importancia', 'N_regla', 'N_arbol', 'Va_Obj_minima'])
 
-    return pd.concat(df_info)
 
+  def get_fro(self, df_full_arboles):
+    if df_full_arboles.empty:
+      return df_full_arboles.assign(feature=[], operador=[], rangos=[])
 
-  def get_fro(self, df_full_arboles): 
-    # Regular expression that captures:
-    # Group 1: a non-space text (the feature)
-    # Group 2: an operator among <=, >=, < or >
-    # Group 3: a number (possibly decimal)
-    pattern = re.compile(r'^(\S+)\s*(<=|>=|<|>)\s*([0-9.]+)$')
+    # Regular expression that captures numbers with optional underscores and scientific notation
+    num = r'[-+]?(?:\d+(?:_\d+)*)?(?:\.\d+(?:_\d+)*)?(?:e[-+]?\d+)?'
+    pattern = re.compile(rf'^(\S+)\s*(<=|>=|<|>)\s*({num})$', re.I)
 
     def parse_regla(regla):
-        match = pattern.search(regla)
+        match = pattern.search(regla.replace(' ', ''))
         if match:
             feature = match.group(1)
             operador = match.group(2)
-            rangos = float(match.group(3))
+            rangos = float(match.group(3).replace('_', ''))
             return feature, operador, rangos
         else:
             return None, None, None
