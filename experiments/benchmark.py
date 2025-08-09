@@ -27,9 +27,15 @@ import pandas as pd
 from scipy.optimize import linear_sum_assignment
 from sklearn import metrics
 from sklearn.cluster import DBSCAN, KMeans
-from sklearn.datasets import load_digits, make_classification
+from sklearn.datasets import (
+    load_digits,
+    load_iris,
+    load_wine,
+    make_classification,
+)
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+import seaborn as sns
 
 from InsideForest import InsideForestClassifier
 
@@ -152,6 +158,25 @@ def _format_df(df: pd.DataFrame) -> str:
     return df.round(3).to_string(index=False)
 
 
+def _load_titanic() -> Tuple[np.ndarray, np.ndarray]:
+    """Load and preprocess the Titanic survival dataset."""
+
+    df = sns.load_dataset("titanic")
+    df = df[[
+        "survived",
+        "pclass",
+        "sex",
+        "age",
+        "sibsp",
+        "parch",
+        "fare",
+        "embarked",
+    ]].dropna()
+    y = df["survived"].to_numpy()
+    X = pd.get_dummies(df.drop(columns=["survived"])).to_numpy()
+    return X, y
+
+
 def benchmark_dataset(name: str, X: np.ndarray, y: np.ndarray) -> None:
     print(f"\n=== Dataset: {name} ===")
     results = []
@@ -177,6 +202,18 @@ def main() -> None:
     digits_X, digits_y = load_digits(return_X_y=True)
     digits_X = _scale(digits_X)
     benchmark_dataset("Digits", digits_X, digits_y)
+
+    iris_X, iris_y = load_iris(return_X_y=True)
+    iris_X = _scale(iris_X)
+    benchmark_dataset("Iris", iris_X, iris_y)
+
+    wine_X, wine_y = load_wine(return_X_y=True)
+    wine_X = _scale(wine_X)
+    benchmark_dataset("Wine", wine_X, wine_y)
+
+    titanic_X, titanic_y = _load_titanic()
+    titanic_X = _scale(titanic_X)
+    benchmark_dataset("Titanic", titanic_X, titanic_y)
 
     X_large, y_large = make_classification(
         n_samples=10000,

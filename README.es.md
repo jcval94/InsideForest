@@ -44,16 +44,45 @@ python -m experiments.benchmark
 ```
 
 Este comando imprime tablas por cada conjunto de datos con `purity`,
-`macro F1`, `target-divergence` y tiempo de ejecución. Salida de ejemplo
-para el conjunto de dígitos:
+`macro F1`, `target-divergence` y tiempo de ejecución. Se incluyen los
+datasets Digits, Iris, Wine, Titanic y un conjunto sintético grande. Los
+siguientes bloques muestran los resultados obtenidos en este entorno
+(Titanic se omite por restricciones de descarga de datos):
 
 ```
 === Dataset: Digits ===
             algorithm  purity   f1  divergence  runtime
-         InsideForest   0.216 0.00       0.279   48.097
-         KMeans(k=10)   0.673 0.62       0.711    0.037
+         InsideForest   0.216 0.00       0.279   46.973
+         KMeans(k=10)   0.673 0.62       0.711    0.034
 DBSCAN(eps=0.5,min=5)   0.102 0.00       0.000    0.009
 ```
+
+```
+=== Dataset: Iris ===
+            algorithm  purity    f1  divergence  runtime
+         InsideForest   0.439 0.000       0.128    1.644
+          KMeans(k=3)   0.667 0.531       0.427    0.006
+DBSCAN(eps=0.5,min=5)   0.680 0.000       0.402    0.002
+```
+
+```
+=== Dataset: Wine ===
+            algorithm  purity    f1  divergence  runtime
+         InsideForest   0.397 0.000       0.029    3.542
+          KMeans(k=3)   0.966 0.967       0.628    0.003
+DBSCAN(eps=0.5,min=5)   0.399 0.000       0.000    0.002
+```
+
+```
+=== Dataset: SyntheticLarge ===
+            algorithm  purity    f1  divergence  runtime
+         InsideForest   0.202 0.000       0.002  226.617
+          KMeans(k=5)   0.408 0.405       0.277    0.025
+DBSCAN(eps=0.5,min=5)   0.201 0.000       0.000    0.074
+```
+
+Los resultados de Titanic requieren descargar el dataset; ejecuta el
+benchmark localmente con acceso a la red para reproducirlos.
 
 ## Flujo básico
 El orden típico para aplicar InsideForest es:
