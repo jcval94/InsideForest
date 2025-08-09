@@ -49,7 +49,7 @@ $$
  = \frac{1}{|D|}\sum_{(x_i,y_i)\in D} \sum_{k=1}^K \mathbf{1}_{y_i=k}
  = \frac{1}{|D|}\sum_{(x_i,y_i)\in D} 1 = 1.
 $$
-\qed
+∎
 
 Un **RandomForest** entrena $B$ árboles independientes, cada uno con una muestra bootstrap del conjunto de entrenamiento y seleccionando aleatoriamente subconjuntos de características en cada división. La predicción final de probabilidad para la clase $k$ se obtiene promediando las salidas de cada árbol:
 
@@ -82,12 +82,12 @@ Se cumple $J(R_i,R_j) = J(R_j,R_i)$.
 
 *Prueba.* Tanto la intersección como la unión son operaciones simétricas, por lo que
 $\text{vol}(R_i \cap R_j) = \text{vol}(R_j \cap R_i)$ y
-$\text{vol}(R_i \cup R_j) = \text{vol}(R_j \cup R_i)$. Sustituyendo en la definición de $J$, se obtiene la igualdad buscada. \qed
+$\text{vol}(R_i \cup R_j) = \text{vol}(R_j \cup R_i)$. Sustituyendo en la definición de $J$, se obtiene la igualdad buscada. ∎
 
 **Proposición 3 (Normalización del índice de Jaccard).**
 Se verifica $0 \le J(R_i,R_j) \le 1$.
 
-*Prueba.* Como $\text{vol}(R_i \cap R_j) \le \text{vol}(R_i \cup R_j)$ y ambos volúmenes son no negativos, el cociente está acotado entre $0$ y $1$. \qed
+*Prueba.* Como $\text{vol}(R_i \cap R_j) \le \text{vol}(R_i \cup R_j)$ y ambos volúmenes son no negativos, el cociente está acotado entre $0$ y $1$. ∎
 
 donde la intersección y la unión se definen por intervalos coordenada a coordenada. También se consideran distancias centroideas si las reglas no se solapan: $d(R_i,R_j) = \lVert c_i - c_j \rVert_2$ con $c_i$ el centro del hiperrectángulo.
 
@@ -115,7 +115,7 @@ Supongamos $C \neq \varnothing$.
 **Proposición 4 (Rango de $\pi_C$).**
 Se cumple $0 \le \pi_C \le 1$.
 
-*Prueba.* El indicador $\mathbf{1}_{y_i=1}$ toma valores en $\{0,1\}$. Por tanto, la suma está entre $0$ y $|C|$, y al dividir entre $|C|$ obtenemos el intervalo $[0,1]$. \qed
+*Prueba.* El indicador $\mathbf{1}_{y_i=1}$ toma valores en $\{0,1\}$. Por tanto, la suma está entre $0$ y $|C|$, y al dividir entre $|C|$ obtenemos el intervalo $[0,1]$. ∎
 
 lo que permite priorizar segmentos con mayor pureza o soporte. Estas métricas se traducen en etiquetas textuales que describen los intervalos dominantes y su comportamiento estadístico.
 
@@ -123,7 +123,7 @@ lo que permite priorizar segmentos con mayor pureza o soporte. Estas métricas s
 Un paso adicional consiste en encontrar pares de regiones casi idénticas en su descripción pero con comportamientos opuestos respecto a la variable objetivo. Sea $\mathcal{R} = \{R_1,\ldots,R_m\}$ el conjunto de regiones obtenidas tras el clustering, cada una caracterizada por su hiperrectángulo y la tasa de la clase positiva $\pi(R_i)$. Definimos una medida de similitud basada en el coeficiente de Jaccard entre volúmenes:
 
 $$
-s(R_i,R_j) = \frac{\operatorname{vol}(R_i \cap R_j)}{\operatorname{vol}(R_i \cup R_j)}.
+s(R_i,R_j) = \frac{\mathrm{vol}(R_i \cap R_j)}{\mathrm{vol}(R_i \cup R_j)}.
 $$
 
 La diferencia de efectividad entre dos regiones se cuantifica como:
@@ -462,23 +462,23 @@ El módulo `Trees` transforma la compleja arquitectura de los bosques de decisi�
 ### 10.1 Motivación y definición formal
 `Regions` se encarga de agrupar las reglas producidas por `Trees` en conglomerados coherentes.
 El objetivo es consolidar hiperrectángulos similares y reducir la redundancia del modelo.
-Formalmente, sea \(\mathcal{R} = \{R_1, R_2, \ldots, R_m\}\) el conjunto de reglas.
-Cada regla \(R_i\) viene descrita por un vector de intervalos \((I_{i1}, I_{i2}, \ldots, I_{id})\) y una distribución de clases \(p_i\).
-`Regions` busca una partición \(\mathcal{C} = \{C_1, C_2, \ldots, C_k\}\) tal que:
-- Las reglas dentro de un mismo \(C_j\) maximicen la similitud geométrica y de distribución.
-- La unión de los \(C_j\) cubra la mayor parte de \(\mathcal{R}\) sin solapamientos excesivos.
+Formalmente, sea $\mathcal{R} = \{R_1, R_2, \ldots, R_m\}$ el conjunto de reglas.
+Cada regla $R_i$ viene descrita por un vector de intervalos $(I_{i1}, I_{i2}, \ldots, I_{id})$ y una distribución de clases $p_i$.
+`Regions` busca una partición $\mathcal{C} = \{C_1, C_2, \ldots, C_k\}$ tal que:
+- Las reglas dentro de un mismo $C_j$ maximicen la similitud geométrica y de distribución.
+- La unión de los $C_j$ cubra la mayor parte de $\mathcal{R}$ sin solapamientos excesivos.
 La función de pérdida global puede expresarse como:
-\[
+$$
 L = \sum_{j=1}^k \sum_{R_i \in C_j} \alpha \cdot d_V(R_i, \bar R_j) + \beta \cdot d_P(p_i, \bar p_j),
-\]
- donde \(d_V\) mide distancia volumétrica, \(d_P\) distancia entre distribuciones y \(\bar R_j\), \(\bar p_j\) son centroides.
-Los hiperparámetros \(\alpha\) y \(\beta\) equilibran geometría e información de clases.
+$$
+ donde $d_V$ mide distancia volumétrica, $d_P$ distancia entre distribuciones y $\bar R_j$, $\bar p_j$ son centroides.
+Los hiperparámetros $\alpha$ y $\beta$ equilibran geometría e información de clases.
 
 ### 10.2 Representación y estructura de datos
-Cada regla se codifica como un vector numérico de dimensión \(2d\).
-Para cada característica \(x_j\) se almacenan los límites \(a_{ij}\) y \(b_{ij}\).
-Las dimensiones ausentes reciben valores \(-\infty\) y \(+\infty\) respectivamente.
-`Regions` organiza estos vectores en una matriz \(M \in \mathbb{R}^{m \times 2d}\).
+Cada regla se codifica como un vector numérico de dimensión $2d$.
+Para cada característica $x_j$ se almacenan los límites $a_{ij}$ y $b_{ij}$.
+Las dimensiones ausentes reciben valores $-\infty$ y $+\infty$ respectivamente.
+`Regions` organiza estos vectores en una matriz $M \in \mathbb{R}^{m \times 2d}$.
 Esta matriz sirve como entrada a algoritmos de clustering estándar.
 Además, se mantiene un diccionario paralelo con metadatos por regla:
 soporte, pureza y referencias a índices originales.
@@ -493,82 +493,82 @@ M = np.array([R_1, R_2, ..., R_m])
 ### 10.3 Conversión de reglas en vectores
 Para convertir una regla en vector, se recorre cada característica del dominio original.
 Si la regla impone una condición, se registra el intervalo correspondiente.
-Si no existe condición, se asignan los límites globales \((a_j^{min}, b_j^{max})\).
-Sea \(J_i\) el conjunto de variables presentes en \(R_i\).
+Si no existe condición, se asignan los límites globales $(a_j^{min}, b_j^{max})$.
+Sea $J_i$ el conjunto de variables presentes en $R_i$.
 El proceso formal es:
-1. Inicializar \(v_i = [\ ]\).
-2. Para cada \(j = 1,\ldots,d\):
-   - Si \(j \in J_i\), añadir \((a_{ij}, b_{ij})\) a \(v_i\).
-   - En caso contrario, añadir \((a_j^{min}, b_j^{max})\).
-3. Devolver \(v_i\) como vector de \(2d\) componentes.
-Este algoritmo tiene complejidad \(O(d)\) por regla.
-En total, la conversión de \(m\) reglas es \(O(md)\).
+1. Inicializar $v_i = []$.
+2. Para cada $j = 1,\ldots,d$:
+   - Si $j \in J_i$, añadir $(a_{ij}, b_{ij})$ a $v_i$.
+   - En caso contrario, añadir $(a_j^{min}, b_j^{max})$.
+3. Devolver $v_i$ como vector de $2d$ componentes.
+Este algoritmo tiene complejidad $O(d)$ por regla.
+En total, la conversión de $m$ reglas es $O(md)$.
 La vectorización es requisito previo para aplicar métricas de distancia.
 
 ### 10.4 Métricas de distancia y similitud
 La similitud geométrica entre reglas se evalúa con la intersección de intervalos.
-Sea \(R_i\) y \(R_j\) dos reglas, el volumen de su intersección es:
-\[
+Sea $R_i$ y $R_j$ dos reglas, el volumen de su intersección es:
+$$
 V_{ij} = \prod_{l=1}^d \max(0, \min(b_{il}, b_{jl}) - \max(a_{il}, a_{jl}))
-\]
+$$
 El volumen de la unión es:
-\[
+$$
 U_{ij} = \prod_{l=1}^d (\max(b_{il}, b_{jl}) - \min(a_{il}, a_{jl}))
-\]
+$$
 La **similitud volumétrica de Jaccard** se define como:
-\[
+$$
 J_{ij} = \frac{V_{ij}}{U_{ij}}
-\]
+$$
 Otra métrica es la distancia euclidiana entre vectores normalizados:
-\[
+$$
 D_{ij} = \left( \sum_{l=1}^{2d} (v_{il} - v_{jl})^2 \right)^{1/2}
-\]
+$$
 Para distribuciones de clase se usa la **divergencia de Jensen-Shannon**:
-\[
+$$
 JS(p_i, p_j) = \tfrac{1}{2} KL(p_i \| m) + \tfrac{1}{2} KL(p_j \| m)
-\]
-con \(m = \tfrac{1}{2}(p_i + p_j)\).
+$$
+con $m = \tfrac{1}{2}(p_i + p_j)$.
 La distancia total combinada es una suma ponderada:
-\[
+$$
 D^{tot}_{ij} = \alpha D_{ij} + \beta JS(p_i, p_j)
-\]
+$$
 
 ### 10.5 Clustering con DBSCAN
 El primer algoritmo disponible en `Regions` es **DBSCAN**.
 Este método identifica conglomerados basándose en densidad.
 Parámetros principales:
-- \(\varepsilon\): radio de vecindad.
+- $\varepsilon$: radio de vecindad.
 - `min_samples`: puntos mínimos para formar un núcleo.
 El algoritmo sobre los vectores se ejecuta en pasos:
-1. Calcular la matriz de distancias \(D^{tot}\).
-2. Para cada regla, contar vecinos dentro de \(\varepsilon\).
+1. Calcular la matriz de distancias $D^{tot}$.
+2. Para cada regla, contar vecinos dentro de $\varepsilon$.
 3. Clasificar reglas como núcleo, borde o ruido.
 4. Expandir conglomerados a partir de núcleos.
-La complejidad es \(O(m^2)\) si se calcula la matriz completa.
-Optimizaciones con estructuras `KDTree` reducen el coste a \(O(m \log m)\).
-La elección de \(\varepsilon\) se guía por el gráfico *k-distance*.
+La complejidad es $O(m^2)$ si se calcula la matriz completa.
+Optimizaciones con estructuras `KDTree` reducen el coste a $O(m \log m)$.
+La elección de $\varepsilon$ se guía por el gráfico *k-distance*.
 `Regions` automatiza parte de esta selección mediante heurísticas.
 
 ### 10.6 Clustering con KMeans
 Como alternativa, `Regions` implementa **KMeans**.
 Este método minimiza la suma de distancias cuadráticas a centroides.
 La función objetivo es:
-\[
+$$
 \min_{C_1,\ldots,C_k} \sum_{j=1}^k \sum_{R_i \in C_j} \|v_i - \mu_j\|^2
-\]
+$$
 Las principales etapas son:
-1. Inicialización de \(\mu_j\) con `k-means++` para mejorar convergencia.
-2. Asignación de cada \(v_i\) al centro más cercano.
+1. Inicialización de $\mu_j$ con `k-means++` para mejorar convergencia.
+2. Asignación de cada $v_i$ al centro más cercano.
 3. Recomputación de centroides como promedio de puntos asignados.
 4. Repetición hasta convergencia o máximo de iteraciones.
-La complejidad por iteración es \(O(mkd)\).
-KMeans requiere especificar \(k\), por lo que `Regions` provee criterios de selección:
+La complejidad por iteración es $O(mkd)$.
+KMeans requiere especificar $k$, por lo que `Regions` provee criterios de selección:
 - Codo de varianza intra-cluster.
 - Puntuación de Silhouette ajustada a la distancia combinada.
 - Información previa sobre número deseado de segmentos.
 
 ### 10.7 Selección de parámetros y validación
-La calidad del clustering depende fuertemente de \(\varepsilon\) o \(k\).
+La calidad del clustering depende fuertemente de $\varepsilon$ o $k$.
 `Regions` expone funciones para búsqueda de grilla.
 El proceso incluye:
 1. Definir rangos de parámetros.
@@ -577,10 +577,10 @@ El proceso incluye:
 4. Escoger la configuración con mejor equilibrio de pureza y cobertura.
 Para validación externa se utiliza el índice de Rand ajustado frente a etiquetas reales.
 Matemáticamente, el índice de Rand se calcula como:
-\[
+$$
 ARI = \frac{\sum_{ij} \binom{n_{ij}}{2} - [\sum_i \binom{a_i}{2}\sum_j \binom{b_j}{2}] / \binom{n}{2}}{\tfrac{1}{2}[\sum_i \binom{a_i}{2}+\sum_j \binom{b_j}{2}] - [\sum_i \binom{a_i}{2}\sum_j \binom{b_j}{2}] / \binom{n}{2}}
-\]
-La implementación usa vectores de etiquetas para computar las combinaciones \(\binom{\cdot}{2}\).
+$$
+La implementación usa vectores de etiquetas para computar las combinaciones $\binom{\cdot}{2}$.
 
 ### 10.8 Pseudocódigo del pipeline de `Regions`
 El flujo completo se puede resumir así:
@@ -604,57 +604,57 @@ b_j = max_{R_i in c} b_{ij}
 El resultado es un hiperrectángulo representativo de la región.
 
 ### 10.9 Ejemplo numérico detallado
-Supongamos un problema con \(d=2\) y tres reglas:
-- \(R_1: x_1 \in [0,1], x_2 \in [0,2]\) con distribución \([0.9,0.1]\).
-- \(R_2: x_1 \in [0.1,1.1], x_2 \in [0,2.2]\) con distribución \([0.85,0.15]\).
-- \(R_3: x_1 \in [3,4], x_2 \in [3,4]\) con distribución \([0.2,0.8]\).
+Supongamos un problema con $d=2$ y tres reglas:
+- $R_1: x_1 \in [0,1], x_2 \in [0,2]$ con distribución $[0.9,0.1]$.
+- $R_2: x_1 \in [0.1,1.1], x_2 \in [0,2.2]$ con distribución $[0.85,0.15]$.
+- $R_3: x_1 \in [3,4], x_2 \in [3,4]$ con distribución $[0.2,0.8]$.
 Tras vectorización obtenemos:
 ```
 V = [[0,1,0,2], [0.1,1.1,0,2.2], [3,4,3,4]]
 ```
 La matriz de distancias combinadas produce dos grupos claramente separados.
-Aplicando DBSCAN con \(\varepsilon = 0.5\) y `min_samples=2`:
-- \(R_1\) y \(R_2\) forman el cluster \(C_1\).
-- \(R_3\) se marca como ruido o cluster independiente \(C_2\).
-El rango consolidado de \(C_1\) es:
-\(
+Aplicando DBSCAN con $\varepsilon = 0.5$ y `min_samples=2`:
+- $R_1$ y $R_2$ forman el cluster $C_1$.
+- $R_3$ se marca como ruido o cluster independiente $C_2$.
+El rango consolidado de $C_1$ es:
+$$
 [a_1, b_1] = [0,1.1], \quad [a_2, b_2] = [0,2.2]
-\)
-La distribución promedio es \([0.875, 0.125]\).
+$$
+La distribución promedio es $[0.875, 0.125]$.
 Este ejemplo ilustra la fusión de reglas solapadas y la preservación de pureza.
 
 ### 10.10 Complejidad y análisis asintótico
-Sea \(m\) el número de reglas y \(d\) el número de características.
-La vectorización es \(O(md)\).
-El cálculo de distancias completo es \(O(m^2 d)\).
-DBSCAN añade un término \(O(m \log m)\) si se usa `KDTree`.
-KMeans requiere \(O(mkdT)\) con \(T\) iteraciones.
-La fusión de intervalos por cluster es \(O(md)\) en el peor caso.
+Sea $m$ el número de reglas y $d$ el número de características.
+La vectorización es $O(md)$.
+El cálculo de distancias completo es $O(m^2 d)$.
+DBSCAN añade un término $O(m \log m)$ si se usa `KDTree`.
+KMeans requiere $O(mkdT)$ con $T$ iteraciones.
+La fusión de intervalos por cluster es $O(md)$ en el peor caso.
 En escenarios masivos, se recurre a muestreo o técnicas de particionado.
 `Regions` ofrece hooks para procesamiento incremental.
 
 ### 10.11 Medidas de calidad: pureza y densidad
-La **pureza** de una región \(C_j\) se define como:
-\[
+La **pureza** de una región $C_j$ se define como:
+$$
 \pi(C_j) = \max_{k} \frac{1}{|C_j|} \sum_{R_i \in C_j} p_{ik}
-\]
+$$
 La **densidad** se aproxima como:
-\[
+$$
 \delta(C_j) = \frac{\sum_{R_i \in C_j} soportes_i}{Volumen(C_j)}
-\]
+$$
 El volumen del cluster se calcula mediante los intervalos fusionados.
-Valores altos de \(\delta\) indican regiones compactas y bien definidas.
-`Regions` permite filtrar clusters con \(\pi\) o \(\delta\) por debajo de un umbral.
+Valores altos de $\delta$ indican regiones compactas y bien definidas.
+`Regions` permite filtrar clusters con $\pi$ o $\delta$ por debajo de un umbral.
 
 ### 10.12 Fusión y poda de regiones
 Tras el clustering, puede haber clusters muy cercanos que convenga fusionar.
-Para dos regiones \(C_a\) y \(C_b\) se evalúa la similitud de Jaccard entre sus rangos.
-Si \(J(C_a, C_b) > \tau\) se combinan en un solo cluster.
+Para dos regiones $C_a$ y $C_b$ se evalúa la similitud de Jaccard entre sus rangos.
+Si $J(C_a, C_b) > \tau$ se combinan en un solo cluster.
 El proceso iterativo es:
 1. Ordenar las regiones por soporte descendente.
 2. Comparar cada par consecutivo.
 3. Fusionar si cumplen el umbral y recalcular métricas.
-La poda descarta regiones con soporte inferior a \(s_{min}\).
+La poda descarta regiones con soporte inferior a $s_{min}$.
 Esta etapa previene la proliferación de segmentos irrelevantes.
 
 ### 10.13 Interacción con `Trees` y `Labels`
@@ -665,20 +665,20 @@ La sinergia se resume así:
 - `Trees`: produce reglas detalladas.
 - `Regions`: agrupa y depura reglas.
 - `Labels`: comunica los resultados a usuarios finales.
-Matemáticamente, si \(f\) es el mapa de `Trees` y \(g\) el de `Regions`, la cadena es \(g(f(D))\).
+Matemáticamente, si $f$ es el mapa de `Trees` y $g$ el de `Regions`, la cadena es $g(f(D))$.
 La preservación de información se asegura manteniendo identificadores únicos de reglas.
 
 ### 10.14 Visualización de espacios de regiones
 Las regiones pueden proyectarse en planos bidimensionales.
 Se utilizan mapas de calor donde el color indica pureza o densidad.
 Otra técnica es el **diagrama de paralelas**, que muestra intervalos por dimensión.
-Para un cluster con intervalos \([a_j, b_j]\) se dibuja un segmento vertical.
+Para un cluster con intervalos $[a_j, b_j]$ se dibuja un segmento vertical.
 Las herramientas recomendadas incluyen `matplotlib`, `seaborn` y `plotly`.
 En grandes dimensiones, se recurre a proyecciones PCA antes de dibujar.
 `Regions` provee funciones auxiliares para exportar datos compatibles con estas librerías.
 
 ### 10.15 Extensiones matemáticas: espacios métricos
-Consideremos el espacio de reglas \((\mathcal{R}, D^{tot})\).
+Consideremos el espacio de reglas $(\mathcal{R}, D^{tot})$.
 Este espacio es métricamente completo si los intervalos están acotados.
 Por el teorema de Hopf-Rinow, todo par de reglas tiene una geodésica.
 Las geodésicas se interpretan como interpolaciones lineales en el espacio vectorial.
@@ -688,10 +688,10 @@ Aunque estas nociones exceden la implementación actual, guían extensiones futu
 ### 10.16 Consideraciones de paralelización
 La etapa más costosa es el cálculo de distancias.
 `Regions` paraleliza este paso usando `joblib` o `pyspark`.
-El enfoque divide la matriz \(M\) en bloques y distribuye su procesamiento.
-Para bloques \(B_{pq}\) se calcula la distancia entre subconjuntos de reglas.
+El enfoque divide la matriz $M$ en bloques y distribuye su procesamiento.
+Para bloques $B_{pq}$ se calcula la distancia entre subconjuntos de reglas.
 La recombinación se hace concatenando resultados parciales.
-Este esquema reduce el tiempo de \(O(m^2)\) a \(O(m^2 / P)\) con \(P\) procesos.
+Este esquema reduce el tiempo de $O(m^2)$ a $O(m^2 / P)$ con $P$ procesos.
 La consistencia se mantiene fijando semillas aleatorias en algoritmos estocásticos.
 
 ### 10.17 Futuras líneas de trabajo
@@ -705,39 +705,39 @@ Cada propuesta requiere estudiar convergencia y complejidad asociadas.
 
 ### 10.18 Validación empírica con bootstrap
 Para evaluar la estabilidad de las regiones se emplea bootstrap.
-El procedimiento genera \(B\) re-muestreos del conjunto de reglas.
-Para cada re-muestreo se recalcula el clustering y se obtiene una partición \(\mathcal{C}^{(b)}\).
+El procedimiento genera $B$ re-muestreos del conjunto de reglas.
+Para cada re-muestreo se recalcula el clustering y se obtiene una partición $\mathcal{C}^{(b)}$.
 La varianza de soporte para cada región se estima como:
-\[
+$$
 Var(soporte_j) = \frac{1}{B-1} \sum_{b=1}^B (soporte_j^{(b)} - \bar s_j)^2
-\]
-con \(\bar s_j\) la media muestral.
+$$
+con $\bar s_j$ la media muestral.
 Altas varianzas indican regiones inestables susceptibles de revisión.
-El bootstrap también permite construir intervalos de confianza para la pureza \(\pi(C_j)\).
+El bootstrap también permite construir intervalos de confianza para la pureza $\pi(C_j)$.
 
 ### 10.19 Relación con clustering de conjuntos difusos
 `Regions` puede extenderse a un marco difuso donde cada regla pertenece parcialmente a varios clusters.
-Sea \(\mu_{ij} \in [0,1]\) el grado de pertenencia de \(R_i\) al cluster \(C_j\).
+Sea $\mu_{ij} \in [0,1]$ el grado de pertenencia de $R_i$ al cluster $C_j$.
 La actualización de centroides se modifica a:
-\[
+$$
 \mu_j = \frac{\sum_i \mu_{ij}^m v_i}{\sum_i \mu_{ij}^m}
-\]
-donde \(m>1\) controla la difusidad.
+$$
+donde $m>1$ controla la difusidad.
 Este esquema reduce saltos abruptos en regiones fronterizas.
 La versión difusa permite interpretar regiones como superposiciones suaves en lugar de particiones rígidas.
 
 ### 10.20 Gestión de memoria y almacenamiento
 El número de reglas puede alcanzar decenas de miles.
 Para evitar saturación, `Regions` implementa almacenamiento esparso.
-Los intervalos \((a_{ij}, b_{ij})\) se guardan en matrices dispersas tipo CSR.
-El consumo de memoria pasa de \(O(md)\) a \(O(z)\) con \(z\) el número de intervalos explícitos.
+Los intervalos $(a_{ij}, b_{ij})$ se guardan en matrices dispersas tipo CSR.
+El consumo de memoria pasa de $O(md)$ a $O(z)$ con $z$ el número de intervalos explícitos.
 Se proporcionan funciones de serialización a formato `parquet` para integrarse con `pandas` y `spark`.
 Durante el clustering, los bloques de la matriz se cargan bajo demanda para reducir el uso de RAM.
 
 ### 10.21 Interpretación estadística de los centroides
 Los centroides de regiones pueden verse como estimadores de medias truncadas.
-Si \(C_j\) contiene intervalos \([a_{ij}, b_{ij}]\), el centro \(\mu_j\) se ubica en el punto medio de cada intervalo.
-Cuando las distribuciones originales de características son uniformes, \(\mu_j\) es un estimador insesgado.
+Si $C_j$ contiene intervalos $[a_{ij}, b_{ij}]$, el centro $\mu_j$ se ubica en el punto medio de cada intervalo.
+Cuando las distribuciones originales de características son uniformes, $\mu_j$ es un estimador insesgado.
 En distribuciones sesgadas, se corrige aplicando pesos proporcionales a densidades observadas.
 Esta interpretación conecta `Regions` con técnicas de muestreo estratificado.
 
