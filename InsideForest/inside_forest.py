@@ -139,7 +139,7 @@ class _BaseInsideForest:
 
         return self
 
-    def fit(self, X, y=None, rf=None):
+    def fit(self, X, y=None, rf=None, get_detail=False):
         """Fit the internal random forest and compute cluster labels.
 
         Parameters
@@ -154,6 +154,10 @@ class _BaseInsideForest:
             the estimator created during initialization is used. If the
             provided estimator is already trained, it will be used as is
             without additional fitting.
+        get_detail : bool, default False
+            When ``True`` additional attributes describing the clusters are
+            computed and stored. If ``False`` the fitting process stops after
+            obtaining :attr:`labels_`.
 
         Raises
         ------
@@ -205,26 +209,41 @@ class _BaseInsideForest:
             df=df, var_obj=self.var_obj, regr=self.rf
         )
         df_reres = self.regions.prio_ranges(separacion_dim=separacion_dim, df=df)
-        df_datos_clusterizados, df_clusters_descripcion = self.regions.labels(
-            df=df,
-            df_reres=df_reres,
-            n_clusters=self.n_clusters,
-            include_summary_cluster=self.include_summary_cluster,
-            balanced=self.balanced,
-        )
 
-        df_datos_clusterizados["cluster"] = df_datos_clusterizados["cluster"].fillna(
-            value=-1
-        )
-        self.labels_ = df_datos_clusterizados["cluster"].to_numpy()
-        self.df_clusters_descript_ = df_clusters_descripcion
-        self.df_reres_ = df_reres
+        if get_detail:
+            df_datos_clusterizados, df_clusters_descripcion, labels = self.regions.labels(
+                df=df,
+                df_reres=df_reres,
+                n_clusters=self.n_clusters,
+                include_summary_cluster=self.include_summary_cluster,
+                balanced=self.balanced,
+                return_dfs=True,
+            )
+            labels = pd.Series(labels).fillna(value=-1).to_numpy()
+            self.labels_ = labels
+            self.df_clusters_descript_ = df_clusters_descripcion
+            self.df_reres_ = df_reres
 
-        df_datos_explain, frontiers = get_frontiers(
-            df_datos_descript=df_clusters_descripcion, df=df, divide=self.divide
-        )
-        self.df_datos_explain_ = df_datos_explain
-        self.frontiers_ = frontiers
+            df_datos_explain, frontiers = get_frontiers(
+                df_datos_descript=df_clusters_descripcion, df=df, divide=self.divide
+            )
+            self.df_datos_explain_ = df_datos_explain
+            self.frontiers_ = frontiers
+        else:
+            labels = self.regions.labels(
+                df=df,
+                df_reres=df_reres,
+                n_clusters=self.n_clusters,
+                include_summary_cluster=self.include_summary_cluster,
+                balanced=self.balanced,
+                return_dfs=False,
+            )
+            labels = pd.Series(labels).fillna(value=-1).to_numpy()
+            self.labels_ = labels
+            self.df_reres_ = df_reres
+            self.df_clusters_descript_ = None
+            self.df_datos_explain_ = None
+            self.frontiers_ = None
 
         return self
 
@@ -314,15 +333,16 @@ class _BaseInsideForest:
                     f"{', '.join(self.feature_names_)}."
                 ) from err
 
-        df_clusterizado, _ = self.regions.labels(
+        labels = self.regions.labels(
             df=X_df,
             df_reres=self.df_reres_,
             n_clusters=self.n_clusters,
             include_summary_cluster=False,
             balanced=self.balanced,
+            return_dfs=False,
         )
-        df_clusterizado["cluster"] = df_clusterizado["cluster"].fillna(value=-1)
-        return df_clusterizado["cluster"].to_numpy()
+        labels = pd.Series(labels).fillna(value=-1).to_numpy()
+        return labels
 
     def score(self, X, y):
         """Return the score of the underlying random forest on the given data.

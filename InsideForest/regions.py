@@ -1705,7 +1705,8 @@ class Regions:
 
   def labels(self, df, df_reres, n_clusters = None,
              include_summary_cluster=False,
-             balanced=False):
+             balanced=False,
+             return_dfs=True):
     """Assign cluster labels by selecting and applying rules.
 
     Parameters
@@ -1722,14 +1723,15 @@ class Regions:
     balanced : bool, default False
         Use balanced assignment of cluster labels instead of probability based
         assignment.
+    return_dfs : bool, default True
+        When ``True`` return both the clustered DataFrame and the cluster
+        description. If ``False`` only the computed labels are returned.
 
     Returns
     -------
-    tuple[pd.DataFrame, pd.DataFrame]
-        A tuple ``(df_datos_clusterizados, df_clusters_descripcion)`` where the
-        first element contains the original data with an added ``cluster``
-        column and the second describes each cluster's effectiveness and
-        support metrics.
+    If ``return_dfs`` is True a tuple ``(df_datos_clusterizados,
+    df_clusters_descripcion, labels)`` is returned. Otherwise only ``labels``
+    is produced.
     """
     
     lista_reglas = copy.deepcopy(df_reres)
@@ -1766,13 +1768,15 @@ class Regions:
       labels = self.max_prob_clusters(records=records, probs=probas, 
                                       n_clusters=n_clusters, seed=1)
     
-    if not include_summary_cluster:
-       rem_cols = ['n_clusters','ponderadores_list','ponderador_mean']
-       df_datos_clusterizados = df_datos_clusterizados.drop(columns=rem_cols)
-    
-    df_datos_clusterizados['cluster'] = labels
+    if return_dfs:
+       if not include_summary_cluster:
+          rem_cols = ['n_clusters','ponderadores_list','ponderador_mean']
+          df_datos_clusterizados = df_datos_clusterizados.drop(columns=rem_cols)
 
-    return df_datos_clusterizados, df_clusters_descripcion
+       df_datos_clusterizados['cluster'] = labels
+       return df_datos_clusterizados, df_clusters_descripcion, labels
+    else:
+       return labels
 
   
   def get_corr_clust(self, df_datos_clusterizados):
