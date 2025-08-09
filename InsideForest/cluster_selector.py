@@ -657,3 +657,80 @@ def max_prob_clusters(
             T *= alpha
 
     return best_global
+
+
+def match_class_distribution(
+    records: Sequence[Sequence[Any]],
+    y: Sequence[Any],
+    n_clusters: int | None = None,
+    *,
+    seed: int | None = None,
+) -> List[Any]:
+    """Asignar un valor por fila imitando la distribución de ``y``.
+
+    Para cada registro se selecciona una etiqueta de su lista de opciones de
+    forma que, de manera codiciosa, la distribución de clases dentro de cada
+    etiqueta sea lo más parecida posible a la distribución global observada en
+    ``y``.
+
+    Parameters
+    ----------
+    records : Sequence[Sequence[Any]]
+        Lista de opciones de etiqueta por fila.
+    y : Sequence[Any]
+        Clases objetivo asociadas a cada fila.
+    n_clusters : int | None, optional
+        Número deseado de etiquetas distintas. Se usa como cota blanda
+        priorizando las más frecuentes.
+    seed : int | None, optional
+        Semilla para la aleatoriedad del orden de procesamiento.
+
+    Returns
+    -------
+    List[Any]
+        Etiqueta seleccionada para cada fila.
+    """
+
+    rng = np.random.default_rng(seed)
+    n = len(records)
+    records = [row if row else [None] for row in records]
+
+    y = np.asarray(y)
+    clases, y_idx = np.unique(y, return_inverse=True)
+    T = len(clases)
+    Py = np.bincount(y_idx, minlength=T).astype(float)
+    Py /= Py.sum()
+
+    # Limitar a n_clusters valores si se solicita (cota blanda)
+    freq = Counter(v for row in records for v in row)
+    if n_clusters is not None and len(freq) > n_clusters:
+        allowed_vals = set(v for v, _ in freq.most_common(n_clusters))
+    else:
+        allowed_vals = set(freq)
+
+    # Conteos por etiqueta y clase
+    cluster_counts: Dict[Any, np.ndarray] = {}
+
+    orden = rng.permutation(n)
+    asignacion: List[Any] = [None] * n
+    for i in orden:
+        opts = [v for v in records[i] if v in allowed_vals] or records[i]
+        mejor_v = None
+        mejor_score = float("inf")
+        for v in opts:
+            counts = cluster_counts.get(v)
+            if counts is None:
+                counts_tmp = np.zeros(T, dtype=float)
+            else:
+                counts_tmp = counts.copy()
+            counts_tmp[y_idx[i]] += 1.0
+            P = counts_tmp / counts_tmp.sum()
+            score = np.abs(P - Py).sum()
+            if score < mejor_score:
+                mejor_score = score
+                mejor_v = v
+        asignacion[i] = mejor_v
+        counts = cluster_counts.setdefault(mejor_v, np.zeros(T, dtype=float))
+        counts[y_idx[i]] += 1.0
+
+    return asignacion
