@@ -38,6 +38,9 @@ class _BaseInsideForest:
     divide : int, default 5
         Value forwarded to :func:`get_frontiers` when computing cluster
         frontiers.
+    get_detail : bool, default False
+        When ``True`` :meth:`fit` computes and stores additional cluster
+        details and frontiers.
     """
 
     def __init__(
@@ -50,6 +53,7 @@ class _BaseInsideForest:
         include_summary_cluster=False,
         balanced=False,
         divide=5,
+        get_detail=False,
     ):
         self.rf_params = rf_params or {}
         self.tree_params = tree_params or {}
@@ -58,6 +62,7 @@ class _BaseInsideForest:
         self.include_summary_cluster = include_summary_cluster
         self.balanced = balanced
         self.divide = divide
+        self.get_detail = get_detail
 
         self.rf = rf_cls(**self.rf_params)
         self.trees = Trees(**self.tree_params)
@@ -94,6 +99,7 @@ class _BaseInsideForest:
             "include_summary_cluster": self.include_summary_cluster,
             "balanced": self.balanced,
             "divide": self.divide,
+            "get_detail": self.get_detail,
         }
 
     def set_params(self, **params):
@@ -132,6 +138,7 @@ class _BaseInsideForest:
                 "include_summary_cluster",
                 "balanced",
                 "divide",
+                "get_detail",
             }:
                 setattr(self, key, value)
             else:
@@ -139,8 +146,11 @@ class _BaseInsideForest:
 
         return self
 
-    def fit(self, X, y=None, rf=None, get_detail=False):
+    def fit(self, X, y=None, rf=None):
         """Fit the internal random forest and compute cluster labels.
+
+        Whether detailed cluster information is computed depends on the
+        ``get_detail`` attribute set during initialization.
 
         Parameters
         ----------
@@ -154,10 +164,6 @@ class _BaseInsideForest:
             the estimator created during initialization is used. If the
             provided estimator is already trained, it will be used as is
             without additional fitting.
-        get_detail : bool, default False
-            When ``True`` additional attributes describing the clusters are
-            computed and stored. If ``False`` the fitting process stops after
-            obtaining :attr:`labels_`.
 
         Raises
         ------
@@ -210,7 +216,7 @@ class _BaseInsideForest:
         )
         df_reres = self.regions.prio_ranges(separacion_dim=separacion_dim, df=df)
 
-        if get_detail:
+        if self.get_detail:
             df_datos_clusterizados, df_clusters_descripcion, labels = self.regions.labels(
                 df=df,
                 df_reres=df_reres,
@@ -396,6 +402,7 @@ class _BaseInsideForest:
             "include_summary_cluster": self.include_summary_cluster,
             "balanced": self.balanced,
             "divide": self.divide,
+            "get_detail": self.get_detail,
             "labels_": self.labels_,
             "feature_names_": self.feature_names_,
             "df_clusters_descript_": self.df_clusters_descript_,
@@ -429,6 +436,7 @@ class _BaseInsideForest:
             include_summary_cluster=payload["include_summary_cluster"],
             balanced=payload["balanced"],
             divide=payload["divide"],
+            get_detail=payload.get("get_detail", False),
         )
         model.rf = payload["rf"]
         model.labels_ = payload["labels_"]
@@ -453,6 +461,7 @@ class InsideForestClassifier(_BaseInsideForest):
         include_summary_cluster=False,
         balanced=False,
         divide=5,
+        get_detail=False,
     ):
         super().__init__(
             RandomForestClassifier,
@@ -463,6 +472,7 @@ class InsideForestClassifier(_BaseInsideForest):
             include_summary_cluster=include_summary_cluster,
             balanced=balanced,
             divide=divide,
+            get_detail=get_detail,
         )
 
 
@@ -479,6 +489,7 @@ class InsideForestRegressor(_BaseInsideForest):
         include_summary_cluster=False,
         balanced=False,
         divide=5,
+        get_detail=False,
     ):
         super().__init__(
             RandomForestRegressor,
@@ -489,6 +500,7 @@ class InsideForestRegressor(_BaseInsideForest):
             include_summary_cluster=include_summary_cluster,
             balanced=balanced,
             divide=divide,
+            get_detail=get_detail,
         )
 
 
