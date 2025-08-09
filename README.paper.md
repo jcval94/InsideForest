@@ -18,17 +18,33 @@ $$
 \Delta I = I(D) - \frac{n_L}{n}I(D_L) - \frac{n_R}{n}I(D_R),
 $$
 
+Referencia: ver Breiman et al. (1984, Sección 4.3).
+
 donde $I$ es una medida como la **impureza de Gini**
 
 $$
 G(D) = 1 - \sum_{k=1}^K p_{k}^2, \qquad p_k = \frac{1}{|D|}\sum_{(x_i,y_i)\in D} \mathbf{1}_{y_i=k}.
 $$
 
+**Proposición 1 (Normalización de la distribución de clases).**
+Supongamos que $D \neq \varnothing$. Entonces $\sum_{k=1}^K p_k = 1$.
+
+*Prueba.* Por definición de $p_k$,
+$$
+\sum_{k=1}^K p_k
+ = \frac{1}{|D|}\sum_{k=1}^K \sum_{(x_i,y_i)\in D} \mathbf{1}_{y_i=k}
+ = \frac{1}{|D|}\sum_{(x_i,y_i)\in D} \sum_{k=1}^K \mathbf{1}_{y_i=k}
+ = \frac{1}{|D|}\sum_{(x_i,y_i)\in D} 1 = 1.
+$$
+\qed
+
 Un **RandomForest** entrena $B$ árboles independientes, cada uno con una muestra bootstrap del conjunto de entrenamiento y seleccionando aleatoriamente subconjuntos de características en cada división. La predicción final de probabilidad para la clase $k$ se obtiene promediando las salidas de cada árbol:
 
 $$
 \hat{P}(y = k \mid x) = \frac{1}{B}\sum_{b=1}^B \hat{P}_b(y=k\mid x).
 $$
+
+Referencia: Breiman (2001).
 
 ### 2.2 Reglas como hiperrectángulos
 Cada camino desde la raíz hasta una hoja define una **regla** $R$ que puede representarse como un hiperrectángulo en $\mathbb{R}^d$:
@@ -46,6 +62,20 @@ $$
 J(R_i, R_j) = \frac{\text{vol}(R_i \cap R_j)}{\text{vol}(R_i \cup R_j)},
 $$
 
+Supongamos que $R_i, R_j \subset \mathbb{R}^d$ y $\text{vol}(R_i \cup R_j) > 0$.
+
+**Proposición 2 (Simetría del índice de Jaccard).**
+Se cumple $J(R_i,R_j) = J(R_j,R_i)$.
+
+*Prueba.* Tanto la intersección como la unión son operaciones simétricas, por lo que
+$\text{vol}(R_i \cap R_j) = \text{vol}(R_j \cap R_i)$ y
+$\text{vol}(R_i \cup R_j) = \text{vol}(R_j \cup R_i)$. Sustituyendo en la definición de $J$, se obtiene la igualdad buscada. \qed
+
+**Proposición 3 (Normalización del índice de Jaccard).**
+Se verifica $0 \le J(R_i,R_j) \le 1$.
+
+*Prueba.* Como $\text{vol}(R_i \cap R_j) \le \text{vol}(R_i \cup R_j)$ y ambos volúmenes son no negativos, el cociente está acotado entre $0$ y $1$. \qed
+
 donde la intersección y la unión se definen por intervalos coordenada a coordenada. También se consideran distancias centroideas si las reglas no se solapan: $d(R_i,R_j) = \lVert c_i - c_j \rVert_2$ con $c_i$ el centro del hiperrectángulo.
 
 ### 2.4 Clustering de regiones
@@ -58,12 +88,21 @@ $$
 \min_{C_1,\ldots,C_K} \sum_{k=1}^K \sum_{r_i \in C_k} \lVert r_i - \mu_k \rVert_2^2.
 $$
 
+Referencia: ver Lloyd (1982).
+
 ### 2.5 Etiquetado y estadísticas
 Una vez formados los clusters de reglas, cada región agregada $C$ se resume mediante la proporción de la clase objetivo:
 
 $$
 \pi_C = \frac{1}{|C|}\sum_{(x_i,y_i)\in C} \mathbf{1}_{y_i = 1},
 $$
+
+Supongamos $C \neq \varnothing$.
+
+**Proposición 4 (Rango de $\pi_C$).**
+Se cumple $0 \le \pi_C \le 1$.
+
+*Prueba.* El indicador $\mathbf{1}_{y_i=1}$ toma valores en $\{0,1\}$. Por tanto, la suma está entre $0$ y $|C|$, y al dividir entre $|C|$ obtenemos el intervalo $[0,1]$. \qed
 
 lo que permite priorizar segmentos con mayor pureza o soporte. Estas métricas se traducen en etiquetas textuales que describen los intervalos dominantes y su comportamiento estadístico.
 
