@@ -24,7 +24,7 @@ $$
 G(D) = 1 - \sum_{k=1}^K p_{k}^2, \qquad p_k = \frac{1}{|D|}\sum_{(x_i,y_i)\in D} \mathbf{1}_{y_i=k}.
 $$
 
-Un **RandomForest** entrena $B$ árboles independientes, cada uno con una muestra bootstrap del conjunto de entrenamiento y seleccionando aleatoriamente subconjuntos de características en cada división. La predicción final de probabilidad para la clase $k$ se obtiene promediando las salidas de cada árbol:
+Un **RandomForest** (Breiman, 2001) entrena $B$ árboles independientes, cada uno con una muestra bootstrap del conjunto de entrenamiento y seleccionando aleatoriamente subconjuntos de características en cada división. La predicción final de probabilidad para la clase $k$ se obtiene promediando las salidas de cada árbol:
 
 $$
 \hat{P}(y = k \mid x) = \frac{1}{B}\sum_{b=1}^B \hat{P}_b(y=k\mid x).
@@ -51,8 +51,8 @@ donde la intersección y la unión se definen por intervalos coordenada a coorde
 ### 2.4 Clustering de regiones
 Las reglas se embeben en un espacio de $2d$ dimensiones usando los extremos $(a_1,b_1,\ldots,a_d,b_d)$. Sobre estos vectores se aplican algoritmos como:
 
-- **DBSCAN**, que agrupa puntos densos. Dos reglas pertenecen al mismo cluster si existe una cadena de vecinos con distancia menor que $\varepsilon$ y cada punto tiene al menos `minPts` vecinos.
-- **KMeans**, que minimiza la suma de distancias cuadráticas al centroide:
+- **DBSCAN**, que agrupa puntos densos (Ester, Kriegel, Sander, & Xu, 1996). Dos reglas pertenecen al mismo cluster si existe una cadena de vecinos con distancia menor que $\varepsilon$ y cada punto tiene al menos `minPts` vecinos.
+- **KMeans**, que minimiza la suma de distancias cuadráticas al centroide (MacQueen, 1967):
 
 $$
 \min_{C_1,\ldots,C_K} \sum_{k=1}^K \sum_{r_i \in C_k} \lVert r_i - \mu_k \rVert_2^2.
@@ -122,7 +122,7 @@ pip install InsideForest
 ```
 
 Dependencias principales:
-- `scikit-learn`
+- `scikit-learn` (Pedregosa et al., 2011)
 - `numpy`
 - `pandas`
 - `matplotlib`
@@ -438,7 +438,7 @@ Otra métrica es la distancia euclidiana entre vectores normalizados:
 \[
 D_{ij} = \left( \sum_{l=1}^{2d} (v_{il} - v_{jl})^2 \right)^{1/2}
 \]
-Para distribuciones de clase se usa la **divergencia de Jensen-Shannon**:
+Para distribuciones de clase se usa la **divergencia de Jensen-Shannon** (Lin, 1991):
 \[
 JS(p_i, p_j) = \tfrac{1}{2} KL(p_i \| m) + \tfrac{1}{2} KL(p_j \| m)
 \]
@@ -449,7 +449,7 @@ D^{tot}_{ij} = \alpha D_{ij} + \beta JS(p_i, p_j)
 \]
 
 ### 10.5 Clustering con DBSCAN
-El primer algoritmo disponible en `Regions` es **DBSCAN**.
+El primer algoritmo disponible en `Regions` es **DBSCAN** (Ester et al., 1996).
 Este método identifica conglomerados basándose en densidad.
 Parámetros principales:
 - \(\varepsilon\): radio de vecindad.
@@ -465,7 +465,7 @@ La elección de \(\varepsilon\) se guía por el gráfico *k-distance*.
 `Regions` automatiza parte de esta selección mediante heurísticas.
 
 ### 10.6 Clustering con KMeans
-Como alternativa, `Regions` implementa **KMeans**.
+Como alternativa, `Regions` implementa **KMeans** (MacQueen, 1967).
 Este método minimiza la suma de distancias cuadráticas a centroides.
 La función objetivo es:
 \[
@@ -479,7 +479,7 @@ Las principales etapas son:
 La complejidad por iteración es \(O(mkd)\).
 KMeans requiere especificar \(k\), por lo que `Regions` provee criterios de selección:
 - Codo de varianza intra-cluster.
-- Puntuación de Silhouette ajustada a la distancia combinada.
+- Puntuación de Silhouette ajustada a la distancia combinada (Rousseeuw, 1987).
 - Información previa sobre número deseado de segmentos.
 
 ### 10.7 Selección de parámetros y validación
@@ -488,7 +488,7 @@ La calidad del clustering depende fuertemente de \(\varepsilon\) o \(k\).
 El proceso incluye:
 1. Definir rangos de parámetros.
 2. Ejecutar el clustering para cada combinación.
-3. Evaluar métricas internas como Silhouette o Dunn.
+3. Evaluar métricas internas como Silhouette (Rousseeuw, 1987) o Dunn (Dunn, 1974).
 4. Escoger la configuración con mejor equilibrio de pureza y cobertura.
 Para validación externa se utiliza el índice de Rand ajustado frente a etiquetas reales.
 Matemáticamente, el índice de Rand se calcula como:
@@ -747,9 +747,19 @@ La implementación real del módulo incluye detalles de ingeniería como:
 
 ### 11.7 Referencias bibliográficas
 
-- Breiman, L. (2001). *Random Forests*. Machine Learning, 45(1), 5-32.
-- Pedregosa, F., et al. (2011). *Scikit-learn: Machine Learning in Python*. Journal of Machine Learning Research, 12, 2825-2830.
-- Ester, M., et al. (1996). *A Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise*. Proceedings of KDD.
+Breiman, L. (2001). Random forests. *Machine Learning*, 45(1), 5–32. https://doi.org/10.1023/A:1010933404324
+
+Dunn, J. C. (1974). Well-separated clusters and optimal fuzzy partitions. *Journal of Cybernetics*, 4(1), 95–104. https://doi.org/10.1080/01969727408546059
+
+Ester, M., Kriegel, H. P., Sander, J., & Xu, X. (1996). A density-based algorithm for discovering clusters in large spatial databases with noise. In *Proceedings of the Second International Conference on Knowledge Discovery and Data Mining* (pp. 226–231).
+
+Lin, J. (1991). Divergence measures based on the Shannon entropy. *IEEE Transactions on Information Theory*, 37(1), 145–151. https://doi.org/10.1109/18.61115
+
+MacQueen, J. (1967). Some methods for classification and analysis of multivariate observations. In *Proceedings of the Fifth Berkeley Symposium on Mathematical Statistics and Probability* (Vol. 1, pp. 281–297). University of California Press.
+
+Pedregosa, F., Varoquaux, G., Gramfort, A., Michel, V., Thirion, B., Grisel, O., ... & Duchesnay, E. (2011). Scikit-learn: Machine learning in Python. *Journal of Machine Learning Research*, 12, 2825–2830.
+
+Rousseeuw, P. J. (1987). Silhouettes: A graphical aid to the interpretation and validation of cluster analysis. *Journal of Computational and Applied Mathematics*, 20, 53–65. https://doi.org/10.1016/0377-0427(87)90125-7
 
 ### 11.8 Agradecimientos
 
