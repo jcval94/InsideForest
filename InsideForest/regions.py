@@ -19,6 +19,8 @@ import math
 
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import linkage, fcluster
+from scipy.spatial import cKDTree
+from scipy import sparse
 import logging
 from .cluster_selector import balance_lists_n_clusters, max_prob_clusters, select_clusters
 
@@ -51,10 +53,78 @@ def choose_block(n: int, d: int, target_mb: int = 512) -> int:
     return max(64, min(n, int(np.sqrt(max(1, pairs)))))
 
 
-def pairwise_iou_blocked(lows: np.ndarray, highs: np.ndarray, block: int = 1024) -> np.ndarray:
-    """Compute pairwise IoU distances between hypercubes in blocks."""
+def pairwise_iou_sparse(lows: np.ndarray, highs: np.ndarray) -> sparse.coo_matrix:
+    """Compute pairwise IoU in a sparse manner using a KD-tree.
+
+    Parameters
+    ----------
+    lows, highs : np.ndarray
+        Arrays with lower and upper bounds of shape ``(n, d)``.
+
+    Returns
+    -------
+    scipy.sparse.coo_matrix
+        Sparse matrix containing IoU values for overlapping pairs.  Missing
+        entries imply zero IoU.
+    """
 
     n, d = lows.shape
+    vol = np.prod(highs - lows, axis=1)
+    centers = (lows + highs) / 2.0
+    semi = 0.5 * np.linalg.norm(highs - lows, axis=1)
+    max_semi = semi.max()
+    tree = cKDTree(centers)
+
+    rows: List[int] = []
+    cols: List[int] = []
+    data: List[float] = []
+
+    for i in range(n):
+        idxs = tree.query_ball_point(centers[i], r=semi[i] + max_semi)
+        for j in idxs:
+            if j <= i:
+                continue
+            inter_low = np.maximum(lows[i], lows[j])
+            inter_high = np.minimum(highs[i], highs[j])
+            inter_dims = np.clip(inter_high - inter_low, 0, None)
+            inter_vol = inter_dims.prod()
+            union = vol[i] + vol[j] - inter_vol
+            if union == 0:
+                if np.all(lows[i] == lows[j]) and np.all(highs[i] == highs[j]):
+                    iou = 1.0
+                else:
+                    iou = 0.0
+            else:
+                iou = inter_vol / union
+            if iou > 0.0:
+                rows.extend([i, j])
+                cols.extend([j, i])
+                data.extend([iou, iou])
+
+    return sparse.coo_matrix((data, (rows, cols)), shape=(n, n))
+
+
+def pairwise_iou_blocked(
+    lows: np.ndarray,
+    highs: np.ndarray,
+    block: int = 1024,
+    *,
+    sparse_threshold: int | None = None,
+) -> np.ndarray:
+    """Compute pairwise IoU distances between hypercubes in blocks.
+
+    If ``sparse_threshold`` is provided and the number of regions exceeds this
+    value, a sparse KD-tree based computation is used and the resulting sparse
+    matrix is densified to maintain backwards compatibility.
+    """
+
+    n, d = lows.shape
+    if sparse_threshold is not None and n > sparse_threshold:
+        iou_sparse = pairwise_iou_sparse(lows, highs)
+        iou_dense = iou_sparse.toarray()
+        np.fill_diagonal(iou_dense, 1.0)
+        return 1.0 - iou_dense
+
     vol = np.prod(highs - lows, axis=1)
     dist = np.zeros((n, n), dtype=np.float64)
     for i in range(0, n, block):
