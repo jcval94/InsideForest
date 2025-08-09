@@ -6,7 +6,7 @@ from .regions import Regions
 from .descrip import get_frontiers
 
 
-class InsideForest:
+class InsideForestClassifier:
     """Wrapper model that combines a RandomForest and the Trees/Regions
     utilities to provide cluster labels for the training data.
 
@@ -159,7 +159,7 @@ class InsideForest:
         """
 
         if self.df_reres_ is None:
-            raise RuntimeError("InsideForest instance is not fitted yet")
+            raise RuntimeError("InsideForestClassifier instance is not fitted yet")
 
         if isinstance(X, pd.DataFrame):
             X_df = X.copy()

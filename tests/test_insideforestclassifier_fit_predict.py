@@ -5,13 +5,13 @@ import pandas as pd
 import numpy as np
 import pytest
 
-from InsideForest.inside_forest import InsideForest
+from InsideForest.insideforestclassifier import InsideForestClassifier
 
 
-def test_inside_forest_fit_predict_runs():
+def test_insideforestclassifier_fit_predict_runs():
     X = pd.DataFrame(data={'feat1': [0, 1, 2, 3], 'feat2': [3, 2, 1, 0]})
     y = [0, 1, 0, 1]
-    model = InsideForest(rf_params={'n_estimators': 5, 'random_state': 0})
+    model = InsideForestClassifier(rf_params={'n_estimators': 5, 'random_state': 0})
     fitted = model.fit(X=X, y=y)
     assert fitted is model
     preds = model.predict(X=X)
@@ -20,7 +20,7 @@ def test_inside_forest_fit_predict_runs():
 
 
 def test_predict_before_fit_raises():
-    model = InsideForest()
+    model = InsideForestClassifier()
     X = pd.DataFrame(data={'feat1': [0], 'feat2': [0]})
     with pytest.raises(RuntimeError):
         model.predict(X=X)
@@ -32,7 +32,7 @@ def test_fit_accepts_df_with_target_column():
         'feat2': [3, 2, 1, 0],
         'target': [0, 1, 0, 1]
     })
-    model = InsideForest(rf_params={'n_estimators': 5, 'random_state': 0})
+    model = InsideForestClassifier(rf_params={'n_estimators': 5, 'random_state': 0})
     fitted = model.fit(X=df)
     assert fitted is model
     assert model.labels_.shape[0] == len(df)
@@ -40,7 +40,7 @@ def test_fit_accepts_df_with_target_column():
 
 def test_fit_df_missing_target_raises():
     df = pd.DataFrame(data={'feat1': [0, 1], 'feat2': [1, 0]})
-    model = InsideForest()
+    model = InsideForestClassifier()
     with pytest.raises(ValueError):
         model.fit(X=df)
 
@@ -53,7 +53,7 @@ def test_custom_label_and_frontier_params():
             'target': [0, 1, 0, 1],
         }
     )
-    model = InsideForest(
+    model = InsideForestClassifier(
         rf_params={'n_estimators': 5, 'random_state': 0},
         n_clusters=2,
         include_summary_cluster=True,

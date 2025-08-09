@@ -2,7 +2,7 @@ from .labels import Labels
 from .regions import Regions
 from .trees import Trees
 from .models import Models
-from .inside_forest import InsideForest
+from .insideforestclassifier import InsideForestClassifier
 from .metadata import (
     MetaExtractor,
     Profile,
