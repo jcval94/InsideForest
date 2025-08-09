@@ -48,21 +48,29 @@ The typical order for applying InsideForest is:
 For a simplified workflow you can use the `InsideForest` class, which combines
 the random forest training and region labeling steps:
 
+Note: InsideForest is typically run on a subset of the data, for example using 35% of the observations and reserving the remaining 65% for other purposes.
+
 ```python
 from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
 from InsideForest import InsideForest
 
 iris = load_iris()
 X, y = iris.data, iris.target
+
+# Train on 35% of the data and keep the rest for later analysis
+X_train, X_rest, y_train, y_rest = train_test_split(
+    X, y, train_size=0.35, stratify=y, random_state=15
+)
 
 in_f = InsideForest(
     rf_params={"random_state": 15},
     tree_params={"mode": "py", "n_sample_multiplier": 0.05, "ef_sample_multiplier": 10},
 )
 
-in_f.fit(X, y)
-pred_labels = in_f.predict(X)  # cluster labels for X
-training_labels = in_f.labels_  # labels for the training data
+in_f.fit(X_train, y_train)
+pred_labels = in_f.predict(X_rest)  # cluster labels for the remaining data
+training_labels = in_f.labels_  # labels for the training subset
 ```
 
 ## Use case (Iris)

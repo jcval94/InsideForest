@@ -4,6 +4,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import pandas as pd
 import numpy as np
 import pytest
+from sklearn.ensemble import RandomForestClassifier
 
 from InsideForest.inside_forest import InsideForest
 
@@ -66,3 +67,43 @@ def test_custom_label_and_frontier_params():
     assert model.balanced is True
     assert model.divide == 3
     assert model.labels_.shape[0] == len(df)
+
+
+def test_fit_accepts_custom_rf_instance():
+    X = pd.DataFrame(data={'feat1': [0, 1, 2, 3], 'feat2': [3, 2, 1, 0]})
+    y = [0, 1, 0, 1]
+    rf = RandomForestClassifier(n_estimators=5, random_state=0)
+    model = InsideForest()
+    fitted = model.fit(X=X, y=y, rf=rf)
+    assert fitted is model
+    assert model.rf is rf
+    preds = model.predict(X=X)
+    assert preds.shape == (4,)
+    assert np.array_equal(preds, model.labels_)
+
+
+def test_fit_accepts_trained_rf_without_refitting():
+    class TrackingRF(RandomForestClassifier):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.fit_calls = 0
+
+        def fit(self, X, y, **kwargs):
+            self.fit_calls += 1
+            return super().fit(X, y, **kwargs)
+
+    X = pd.DataFrame(data={'feat1': [0, 1, 2, 3], 'feat2': [3, 2, 1, 0]})
+    y = [0, 1, 0, 1]
+    rf = TrackingRF(n_estimators=5, random_state=0)
+    rf.fit(X, y)
+    assert rf.fit_calls == 1
+
+    model = InsideForest()
+    fitted = model.fit(X=X, y=y, rf=rf)
+    assert fitted is model
+    assert model.rf is rf
+    assert rf.fit_calls == 1
+
+    preds = model.predict(X=X)
+    assert preds.shape == (4,)
+    assert np.array_equal(preds, model.labels_)
