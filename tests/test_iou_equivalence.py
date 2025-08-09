@@ -1,5 +1,5 @@
 import numpy as np
-from InsideForest.regions import pairwise_iou_blocked, choose_block
+from InsideForest.regions import pairwise_iou_blocked, choose_block, pairwise_iou_sparse
 
 def pairwise_iou_naive(lows, highs):
     n = len(lows)
@@ -33,4 +33,31 @@ def test_pairwise_iou_blocked_equivalence():
     block = choose_block(n, d)
     dist_new = pairwise_iou_blocked(lows, highs, block=block)
     mxdiff = np.nanmax(np.abs(dist_old - dist_new))
+    assert mxdiff < 1e-8
+
+
+def test_pairwise_iou_sparse_equivalence():
+    rng = np.random.default_rng(1)
+    n, d = 15, 3
+    lows = rng.random((n, d))
+    highs = lows + rng.random((n, d))
+    dense = pairwise_iou_blocked(lows, highs)
+    sparse = pairwise_iou_sparse(lows, highs).toarray()
+    np.fill_diagonal(sparse, 1.0)
+    dense_from_sparse = 1.0 - sparse
+    mxdiff = np.nanmax(np.abs(dense - dense_from_sparse))
+    assert mxdiff < 1e-8
+
+
+def test_blocked_delegates_to_sparse():
+    rng = np.random.default_rng(2)
+    n, d = 10, 3
+    lows = rng.random((n, d))
+    highs = lows + rng.random((n, d))
+    block = choose_block(n, d)
+    dist_sparse = pairwise_iou_blocked(
+        lows, highs, block=block, sparse_threshold=0
+    )
+    dist_dense = pairwise_iou_blocked(lows, highs, block=block)
+    mxdiff = np.nanmax(np.abs(dist_sparse - dist_dense))
     assert mxdiff < 1e-8
