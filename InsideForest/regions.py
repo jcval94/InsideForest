@@ -1111,11 +1111,23 @@ class Regions:
       df_datos_clusterizados['cluster'] = clusters_datos  # Cluster final (mayor ponderador)
 
       if keep_all_clusters:
-          df_datos_clusterizados['n_clusters'] = [len(lst) for lst in clusters_datos_all]
-          df_datos_clusterizados['clusters_list'] = clusters_datos_all
-          df_datos_clusterizados['ponderadores_list'] = ponderadores_datos_all
+          # Remove duplicate cluster assignments while keeping the highest
+          # weight for each cluster
+          uniq_clusters = []
+          uniq_weights = []
+          for cls_list, w_list in zip(clusters_datos_all, ponderadores_datos_all):
+              seen = {}
+              for c, w in zip(cls_list, w_list):
+                  if c not in seen or w > seen[c]:
+                      seen[c] = w
+              uniq_clusters.append(list(seen.keys()))
+              uniq_weights.append(list(seen.values()))
+
+          df_datos_clusterizados['clusters_list'] = uniq_clusters
+          df_datos_clusterizados['ponderadores_list'] = uniq_weights
+          df_datos_clusterizados['n_clusters'] = [len(lst) for lst in uniq_clusters]
           df_datos_clusterizados['ponderador_mean'] = [
-              np.mean(lst) if lst else np.nan for lst in ponderadores_datos_all
+              np.mean(lst) if lst else np.nan for lst in uniq_weights
           ]
 
       # --- 4) Generar la descripción de clusters (usando el método propio)

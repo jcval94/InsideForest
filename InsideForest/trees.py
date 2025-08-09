@@ -276,8 +276,15 @@ class Trees:
     return agrupacion
 
   def get_summary_optimizado(self, data1, df_full_arboles, var_obj,
-                              no_branch_lim=500, verbose=0, n_jobs=1):
-      """Resume las reglas evaluando las condiciones de manera vectorizada."""
+                              no_branch_lim=None, verbose=0, n_jobs=1):
+      """Resume las reglas evaluando las condiciones de manera vectorizada.
+
+      Parameters
+      ----------
+      no_branch_lim : int | None, optional
+          Número máximo de árboles a procesar. Si es ``None`` se utilizan
+          todos los árboles disponibles.
+      """
 
       # 1) Calcular el pivot que resume por N_regla, N_arbol, feature, operador
       agrupacion = pd.pivot_table(
@@ -297,7 +304,9 @@ class Trees:
       agrupacion = pd.concat([agrupacion_min, agrupacion_max]).sort_values(['N_arbol', 'N_regla'])
 
       # 4) Seleccionar los árboles a procesar
-      top_100_arboles = agrupacion['N_arbol'].unique()[:no_branch_lim]
+      top_100_arboles = agrupacion['N_arbol'].unique()
+      if no_branch_lim is not None:
+          top_100_arboles = top_100_arboles[:no_branch_lim]
 
       # Convertir datos a matriz NumPy y preparar mapeo de columnas
       X = data1.to_numpy()
@@ -447,7 +456,7 @@ class Trees:
     separacion_dim = self.get_dfs_dim(rectangles_)
     return separacion_dim
 
-  def get_branches(self, df, var_obj, regr, no_trees_search=500, verbose=0):
+  def get_branches(self, df, var_obj, regr, no_trees_search=None, verbose=0):
     """Extract rectangular rules from a tree ensemble.
 
     Parameters
@@ -459,8 +468,9 @@ class Trees:
     regr : object
         Trained estimator supporting ``estimators_`` (scikit-learn) or
         ``toDebugString`` (PySpark) interfaces.
-    no_trees_search : int, default 500
+    no_trees_search : int | None, optional
         Maximum number of trees to analyse when summarising the forest.
+        If ``None`` all trees are used.
     verbose : int, default 0
         Verbosity level; ``1`` enables progress bars and logging.
 
