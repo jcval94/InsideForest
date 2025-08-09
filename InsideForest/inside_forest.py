@@ -71,6 +71,74 @@ class _BaseInsideForest:
         self.df_datos_explain_ = None
         self.frontiers_ = None
 
+    def get_params(self, deep=True):
+        """Return estimator parameters.
+
+        Parameters
+        ----------
+        deep : bool, default=True
+            Included for API compatibility. Has no effect in this
+            implementation but mirrors scikit-learn's ``BaseEstimator``.
+
+        Returns
+        -------
+        dict
+            Mapping of parameter names to their values.
+        """
+
+        return {
+            "rf_params": self.rf_params,
+            "tree_params": self.tree_params,
+            "var_obj": self.var_obj,
+            "n_clusters": self.n_clusters,
+            "include_summary_cluster": self.include_summary_cluster,
+            "balanced": self.balanced,
+            "divide": self.divide,
+        }
+
+    def set_params(self, **params):
+        """Set estimator parameters.
+
+        Parameters
+        ----------
+        **params : dict
+            Estimator parameters to update. Keys corresponding to ``rf``
+            can be provided either as ``rf_params`` (a complete dict) or
+            using the ``rf__<param>`` notation familiar from scikit-learn.
+
+        Returns
+        -------
+        self
+        """
+
+        for key, value in params.items():
+            if key == "rf_params":
+                self.rf_params = value
+                self.rf.set_params(**self.rf_params)
+            elif key.startswith("rf__"):
+                sub_key = key.split("__", 1)[1]
+                self.rf_params[sub_key] = value
+                self.rf.set_params(**{sub_key: value})
+            elif key == "tree_params":
+                self.tree_params = value
+                self.trees = Trees(**self.tree_params)
+            elif key.startswith("tree_params__"):
+                sub_key = key.split("__", 1)[1]
+                self.tree_params[sub_key] = value
+                self.trees = Trees(**self.tree_params)
+            elif key in {
+                "var_obj",
+                "n_clusters",
+                "include_summary_cluster",
+                "balanced",
+                "divide",
+            }:
+                setattr(self, key, value)
+            else:
+                raise ValueError(f"Invalid parameter '{key}'")
+
+        return self
+
     def fit(self, X, y=None, rf=None):
         """Fit the internal random forest and compute cluster labels.
 
