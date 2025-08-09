@@ -93,10 +93,27 @@ python -m experiments.summary_benchmark
 
 We evaluated 20 `RandomForest` configurations varying `n_estimators`
 from 5 to 100 in steps of 5 and `max_depth` in {2, 4, 6, 8, 10, None} on
-the **Iris** dataset (30 samples). The best setting (`n_estimators=35`,
-`max_depth=2`) reached a purity of **0.90** and macro-F1 of **0.85**.
-Complete results are available in `rf_results.csv`.
+the **Iris** dataset (30 samples). Each configuration was combined with
+four cluster-selection strategies (`select_clusters`,
+`balance_lists_n_clusters`, `max_prob_clusters`, `menu`) and compared
+against KMeans and DBSCAN baselines. The five highest-purity runs and
+the baselines are summarized below; complete results are available in
+`rf_results.csv`.
 
+| Algorithm | Purity | Macro F1 | Accuracy | NMI | AMI | ARI | Bcubed F1 | Divergence | Runtime |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| select_clusters_cfg19 | 0.95 | 0.68 | 0.55 | 0.67 | 0.50 | 0.46 | 0.66 | 0.63 | 0.93 |
+| select_clusters_cfg13 | 0.95 | 0.66 | 0.55 | 0.67 | 0.50 | 0.46 | 0.66 | 0.63 | 0.71 |
+| select_clusters_cfg3 | 0.90 | 0.67 | 0.65 | 0.69 | 0.61 | 0.50 | 0.71 | 0.56 | 0.31 |
+| balance_lists_n_clusters_cfg3 | 0.90 | 0.90 | 0.90 | 0.74 | 0.71 | 0.70 | 0.83 | 0.56 | 0.80 |
+| select_clusters_cfg17 | 0.90 | 0.66 | 0.55 | 0.60 | 0.43 | 0.39 | 0.63 | 0.58 | 0.89 |
+
+**Baselines**
+
+| Algorithm | Purity | Macro F1 | Accuracy | NMI | AMI | ARI | Bcubed F1 | Divergence | Runtime |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| KMeans(k=3) | 0.87 | 0.87 | 0.87 | 0.71 | 0.69 | 0.66 | 0.80 | 0.53 | 0.03 |
+| DBSCAN(eps=0.5,min=5) | 0.33 | 0.17 | 0.33 | 0.00 | 0.00 | 0.00 | 0.50 | 0.00 | 0.00 |
 
 ## Basic workflow
 The typical order for applying InsideForest is:
