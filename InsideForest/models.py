@@ -8,7 +8,37 @@ logger = logging.getLogger(__name__)
 
 
 class Models:
+  """Helper utilities for basic model analysis and tuning."""
+
   def get_knn_rows(self, df, target_col, criterio_fp=True, min_obs = 5):
+    """Split a DataFrame based on KNN misclassifications.
+
+    Trains a series of ``KNeighborsClassifier`` models increasing the number of
+    neighbors until the amount of false positives or false negatives exceeds
+    ``min_obs``. The rows that were misclassified by the final model are
+    returned along with the remaining data.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Input data containing the features and the target column.
+    target_col : str
+        Name of the column with the target variable.
+    criterio_fp : bool, default True
+        When ``True`` the search stops when the number of false positives is
+        greater than ``min_obs``. If ``False`` the criterion switches to false
+        negatives instead.
+    min_obs : int, default 5
+        Minimum number of misclassified observations required to stop the
+        search.
+
+    Returns
+    -------
+    tuple of (pandas.DataFrame, pandas.DataFrame)
+        Two DataFrames: the first with the misclassified rows (either false
+        positives or false negatives) and the second with the remaining
+        correctly classified observations.
+    """
     if target_col not in df.columns:
         raise KeyError(f"Target column '{target_col}' does not exist in the DataFrame")
 
@@ -38,6 +68,23 @@ class Models:
       return df[false_positives], df[~false_positives]
   
   def get_cvRF(self, X_train, y_train, param_grid):
+    """Grid-search a RandomForest classifier.
+
+    Parameters
+    ----------
+    X_train : array-like
+        Training feature matrix.
+    y_train : array-like
+        Training target vector.
+    param_grid : dict
+        Hyper-parameter grid passed to ``GridSearchCV``.
+
+    Returns
+    -------
+    GridSearchCV or None
+        Fitted ``GridSearchCV`` object using a ``RandomForestClassifier`` if the
+        search succeeds, otherwise ``None`` is returned and the error is logged.
+    """
     try:
       rf = RandomForestClassifier(random_state=31416)
       cv = GridSearchCV(rf, param_grid=param_grid, cv=5, n_jobs=-1)

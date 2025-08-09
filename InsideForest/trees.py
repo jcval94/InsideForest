@@ -17,6 +17,20 @@ class Trees:
 
 
   def transform_tree_structure(self, tree_str):
+    """Convert Spark-style tree string to scikit-learn format.
+
+    Parameters
+    ----------
+    tree_str : str
+        Representation of the ensemble produced by ``toDebugString`` in
+        PySpark.
+
+    Returns
+    -------
+    dict
+        Mapping from tree name to a string resembling the output of
+        ``sklearn.tree.export_text``.
+    """
     # Split the string into individual trees
     trees = tree_str.strip().split('\n  Tree')
     tree_dict = {}
@@ -405,13 +419,27 @@ class Trees:
     return separacion_dim
 
   def get_branches(self, df, var_obj, regr, no_trees_search=500, verbose=0):
-    """
-    Main function to extract rectangles (rules) from trees.
-    :param df: Original DataFrame
-    :param var_obj: Name of target column
-    :param regr: Trained model (RandomForest or others)
-    :param verbose: 0 = no prints/progress bar, 1 = prints and tqdm
-    :return: List of DataFrames with rectangles separated by dimension
+    """Extract rectangular rules from a tree ensemble.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Original training data including the target column ``var_obj``.
+    var_obj : str
+        Name of the target column.
+    regr : object
+        Trained estimator supporting ``estimators_`` (scikit-learn) or
+        ``toDebugString`` (PySpark) interfaces.
+    no_trees_search : int, default 500
+        Maximum number of trees to analyse when summarising the forest.
+    verbose : int, default 0
+        Verbosity level; ``1`` enables progress bars and logging.
+
+    Returns
+    -------
+    list[pd.DataFrame]
+        List of DataFrames, one per dimension, describing the rectangles
+        (rules) extracted from the forest.
     """
     if var_obj not in df.columns:
        raise KeyError(f"Target column '{var_obj}' does not exist in the DataFrame")

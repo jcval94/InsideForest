@@ -284,6 +284,27 @@ def get_descripciones_valiosas(
 def generate_descriptions(
     condition_list, language="en", OPENAI_API_KEY=None, default_params=None
 ):
+    """Generate plain language descriptions for rule conditions.
+
+    Parameters
+    ----------
+    condition_list : list[str]
+        List of textual rule conditions to describe.
+    language : str, default "en"
+        Language in which the descriptions should be returned.
+    OPENAI_API_KEY : str or None, optional
+        API key used to initialize the OpenAI client. If ``None`` the
+        environment variable ``OPENAI_API_KEY`` must be set.
+    default_params : dict or None, optional
+        Parameters forwarded to ``client.chat.completions.create`` when
+        generating the text. If ``None`` sensible defaults are used.
+
+    Returns
+    -------
+    dict
+        Dictionary with a single key ``responses`` containing a list of the
+        generated descriptions, one per condition in ``condition_list``.
+    """
 
     client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -438,13 +459,49 @@ def _categorize_conditions(condition_list, df, n_groups=2, handle_bools=False):
 
 
 def categorize_conditions(condition_list, df, n_groups=2):
+    """Categorize conditions, including booleans, into percentile labels.
+
+    This is a thin wrapper around :func:`_categorize_conditions` with
+    ``handle_bools`` enabled for backwards compatibility.
+
+    Parameters
+    ----------
+    condition_list : list[str]
+        Conditions expressed as strings (e.g. ``"0 <= age <= 10"``).
+    df : pd.DataFrame
+        DataFrame used to compute percentile thresholds.
+    n_groups : int, default 2
+        Number of percentile groups to split numeric variables into.
+
+    Returns
+    -------
+    dict
+        Mapping with a ``responses`` key containing the categorized
+        descriptions.
+    """
     return _categorize_conditions(
         condition_list, df, n_groups=n_groups, handle_bools=True
     )
 
 
 def categorize_conditions_generalized(condition_list, df, n_groups=2):
-    """Backward-compatible wrapper that supports boolean conditions."""
+    """Categorize conditions handling numeric and boolean features.
+
+    Parameters
+    ----------
+    condition_list : list[str]
+        Conditions expressed as strings.
+    df : pd.DataFrame
+        DataFrame used to compute percentile thresholds.
+    n_groups : int, default 2
+        Number of percentile groups to split numeric variables into.
+
+    Returns
+    -------
+    dict
+        Mapping with a ``responses`` key containing the categorized
+        descriptions.
+    """
     return _categorize_conditions(
         condition_list, df, n_groups=n_groups, handle_bools=True
     )
@@ -792,6 +849,23 @@ def _tpl_rules(lang: str) -> dict[str, str]:
 
 
 def get_FALLBACK_LABELS(df_meta_sub):
+    """Build a mapping of ``(rule_token, lang)`` to label strings.
+
+    The function scans all ``description`` columns in ``df_meta_sub`` to create
+    a dictionary usable as a fallback when a specific translation is missing.
+
+    Parameters
+    ----------
+    df_meta_sub : pd.DataFrame
+        Metadata slice containing ``rule_token`` and language-specific
+        description columns, e.g. ``identity.description_i18n.es``.
+
+    Returns
+    -------
+    dict
+        Dictionary keyed by ``(rule_token, language)`` returning the label
+        string for that variable and language.
+    """
 
     idiomas_d = [
         y.split(".")[-1] for y in [x for x in df_meta_sub.columns if "description" in x]

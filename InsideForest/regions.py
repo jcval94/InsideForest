@@ -156,7 +156,25 @@ class Regions:
   
     
   def fill_na_pond(self, df_sep_dm, df, features_val):
-    """Replace ``inf`` values in a DataFrame of limits."""
+    """Replace ``±inf`` values in region limits with boundary values.
+
+    Parameters
+    ----------
+    df_sep_dm : pd.DataFrame
+        DataFrame with multi-index columns ``('linf', dim)`` and ``('lsup', dim)``
+        describing lower and upper bounds for each dimension.
+    df : pd.DataFrame
+        Original data used to infer realistic replacement limits.
+    features_val : list[str]
+        Names of the dimensions present in ``df``.
+
+    Returns
+    -------
+    pd.DataFrame
+        Copy of ``df_sep_dm`` where infinite values are replaced by
+        ``min(df[features_val]) - 1`` for ``linf`` and ``max(df[features_val]) + 1``
+        for ``lsup``. The original ``ponderador`` column is preserved.
+    """
 
     df_ppfd = df_sep_dm.copy()
     lsup_limit = list(df[features_val].max()+1)
@@ -174,17 +192,25 @@ class Regions:
 
 
   def fill_na_pond_fastest(self, df_sep_dm, df, features_val, verbose):
-      """
-      Ultra-optimized version of fill_na_pond to replace -inf and inf using advanced vectorized operations.
+      """Vectorized replacement of ``±inf`` values in region limits.
 
-      Parameters:
-      - df_sep_dm: DataFrame with multi-level columns ('linf', 'lsup', 'ponderador', etc.).
-      - df: Original DataFrame to obtain limits for each dimension.
-      - features_val: List of features/dimensions present in df.
+      Parameters
+      ----------
+      df_sep_dm : pd.DataFrame
+          DataFrame with multi-level columns (``linf``, ``lsup``, ``ponderador``…).
+      df : pd.DataFrame
+          Original dataset used to compute replacement limits for each
+          dimension.
+      features_val : list[str]
+          Names of the dimensions present in ``df``.
+      verbose : Any
+          Unused; kept for backward compatibility.
 
-      Returns:
-      - DataFrame with the same values as the original, but replacing -inf and inf
-        with the corresponding limits in 'linf' and 'lsup'. Includes the 'ponderador' column.
+      Returns
+      -------
+      pd.DataFrame
+          DataFrame with infinite values replaced by the corresponding bounds
+          and including the ``ponderador`` column.
       """
       # Extraer las columnas 'linf' y 'lsup'
       df_lilu = df_sep_dm[['linf', 'lsup']].copy()
@@ -227,14 +253,22 @@ class Regions:
       return df_replaced
 
   def group_by_cluster(self, df: pd.DataFrame, cluster_col: str = "cluster") -> pd.DataFrame:
-      """
-      Group a DataFrame by the ``cluster`` column, keeping the first value of the other columns.
-      For columns containing ``ef_sample`` or ``n_sample``, only the first found column is used.
-      Handles repeated cluster columns to avoid duplicates in the final selection.
+      """Group by cluster keeping the first value of other columns.
 
-      :param df: Input DataFrame.
-      :param cluster_col: Column name to group by (default ``cluster``).
-      :return: Grouped DataFrame.
+      Parameters
+      ----------
+      df : pd.DataFrame
+          Input DataFrame containing a cluster column and additional metrics.
+      cluster_col : str, default "cluster"
+          Name of the column used for grouping.
+
+      Returns
+      -------
+      pd.DataFrame
+          DataFrame with one row per cluster including the first occurrence of
+          every other column. If multiple ``ef_sample``/``n_sample`` columns are
+          present only the first is preserved. ``count`` indicates how many
+          original rows contributed to each cluster.
       """
       
       # Verificar si la columna 'cluster' contiene valores no escalares (listas, sets, dicts, etc.)
@@ -281,8 +315,22 @@ class Regions:
 
 
   def get_agg_regions_j(self, df_eval, df):
+    """Aggregate similar rectangles using IoU and clustering.
 
-    """Group similar rectangles using IoU and hierarchical clustering."""
+    Parameters
+    ----------
+    df_eval : pd.DataFrame
+        DataFrame with columns ``['rectangulo', 'dimension', 'linf', 'lsup',
+        'n_sample', 'ef_sample']`` describing candidate regions.
+    df : pd.DataFrame
+        Original dataset used to compute replacement limits when filling
+        ``±inf`` values.
+
+    Returns
+    -------
+    pd.DataFrame
+        Aggregated regions with multi-index columns and cluster assignments.
+    """
 
     features_val = sorted(df_eval['dimension'].unique())
     df_sep_dm = pd.pivot_table(df_eval, index='rectangulo', columns='dimension')
@@ -358,30 +406,26 @@ class Regions:
 
 
   def set_multiindex(self, df: pd.DataFrame, cluster_col: str = "cluster") -> pd.DataFrame:
-      """
-      Transform the DataFrame to:
-        - Use the `cluster` column as index.
-        - Convert other columns into a MultiIndex using "&&" as separator.
+      """Set ``cluster`` as index and convert columns to a MultiIndex.
 
-      Rules:
-        1. If a column contains "&&", split into:
-            left  = measure name
-            right = identifier
-        2. If right is a special word (ef_sample, n_sample, ponderador, count):
-              level1 = "metrics"
-              level2 = right
-        3. If right is not special:
-              level1 = right
-              level2 = left
-        4. If the column lacks "&&":
-            - If it contains a special word, assign ("metrics", <full name>).
-            - Otherwise assign (None, <full name>).
+      The column names are expected to use ``"&&"`` as a separator between a
+      dimension name and a statistic (e.g. ``"age&&linf"``). Special statistic
+      names (``ef_sample``, ``n_sample``, ``ponderador``, ``count``) are grouped
+      under the ``"metrics"`` level.
 
-      The resulting MultiIndex has level names: [None, 'dimension'].
+      Parameters
+      ----------
+      df : pd.DataFrame
+          Input DataFrame with a cluster column and region metrics.
+      cluster_col : str, default "cluster"
+          Name of the column to use as index.
 
-      :param df: Input DataFrame.
-      :param cluster_col: Column to use as index (default "cluster").
-      :return: DataFrame with `cluster` index and MultiIndex columns.
+      Returns
+      -------
+      pd.DataFrame
+          DataFrame indexed by ``cluster`` with a two-level column MultiIndex
+          ``(level_0, dimension)`` where ``level_0`` is ``metrics`` or the
+          original identifier.
       """
       # Define special words
       special_words = {"ef_sample", "n_sample", "ponderador", "count"}
@@ -419,8 +463,21 @@ class Regions:
       return df_new
 
   def prio_ranges(self, separacion_dim, df):
+    """Prioritize regions ordering by sample size and effectiveness.
 
-    """Prioritize regions ordering by sample size and effectiveness."""
+    Parameters
+    ----------
+    separacion_dim : Sequence[pd.DataFrame]
+        List of DataFrames describing candidate regions for each tree.
+    df : pd.DataFrame
+        Original dataset used to compute metrics.
+
+    Returns
+    -------
+    list[pd.DataFrame]
+        List of DataFrames with MultiIndex columns sorted by ``n_sample``,
+        ``count`` and ``ef_sample``.
+    """
 
     df_res = [self.set_multiindex(self.get_agg_regions_j(df_, df))
               for df_ in separacion_dim]
@@ -1649,8 +1706,31 @@ class Regions:
   def labels(self, df, df_reres, n_clusters = None,
              include_summary_cluster=False,
              balanced=False):
+    """Assign cluster labels by selecting and applying rules.
 
-    """Asigna etiquetas de cluster optimizando la selección de reglas."""
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataset to which the cluster labels will be assigned.
+    df_reres : list[pd.DataFrame]
+        List of DataFrames representing candidate rules (regions).
+    n_clusters : int or None, optional
+        Desired number of clusters. If ``None`` the number is inferred.
+    include_summary_cluster : bool, default False
+        When ``True`` additional summary metrics per cluster are kept in the
+        output.
+    balanced : bool, default False
+        Use balanced assignment of cluster labels instead of probability based
+        assignment.
+
+    Returns
+    -------
+    tuple[pd.DataFrame, pd.DataFrame]
+        A tuple ``(df_datos_clusterizados, df_clusters_descripcion)`` where the
+        first element contains the original data with an added ``cluster``
+        column and the second describes each cluster's effectiveness and
+        support metrics.
+    """
     
     lista_reglas = copy.deepcopy(df_reres)
 
@@ -1696,33 +1776,50 @@ class Regions:
 
   
   def get_corr_clust(self, df_datos_clusterizados):
-      """Calcula la matriz de correlación entre columnas de clusters."""
+      """Compute the correlation matrix between cluster indicator columns.
+
+      Parameters
+      ----------
+      df_datos_clusterizados : pd.DataFrame
+          DataFrame containing a ``clusters_list`` column with cluster
+          assignments for each observation.
+
+      Returns
+      -------
+      pd.DataFrame
+          Correlation matrix of the binary cluster indicator columns.
+      """
 
       df_clusterizado_diff = df_datos_clusterizados[['clusters_list']].drop_duplicates()
       df_clusterizado_diff['n_ls'] = df_clusterizado_diff.apply(lambda x: len(x['clusters_list']), axis=1)
       df_expanded = self.expandir_clusters_binario(df_clusterizado_diff,'clusters_list','cluster_')
       cluster_cols = [x for x in df_expanded.columns if 'cluster_' in x]
 
-      df_corr=df_expanded[cluster_cols].corr()
+      df_corr = df_expanded[cluster_cols].corr()
 
       return df_corr
 
   def obtener_clusters(self, df_clust, cluster_objetivo, n=5, direccion='ambos'):
-      """
-      Retorna los clusters más cercanos o menos correlacionados con el cluster objetivo según la dirección especificada.
+      """Return clusters with highest or lowest correlation to a target.
 
-      Parámetros:
-      - corr_matrix (pd.DataFrame): Matriz de correlación de los clusters.
-      - cluster_objetivo (str): Nombre del cluster para el cual se buscan correlaciones.
-      - n (int): Número de clusters a retornar.
-      - direccion (str): Dirección de interés para la correlación. Puede ser:
-          - 'arriba': Para las correlaciones más positivas.
-          - 'abajo': Para las correlaciones más negativas.
-          - 'ambos': Para considerar ambas direcciones (positiva y negativa).
-          - 'bottom': Para las correlaciones más cercanas a cero (menos correlacionadas).
+      Parameters
+      ----------
+      df_clust : pd.DataFrame
+          Correlation matrix between clusters.
+      cluster_objetivo : str
+          Name of the reference cluster.
+      n : int, default 5
+          Number of clusters to return.
+      direccion : {'arriba', 'abajo', 'ambos', 'bottom'}, default 'ambos'
+          Direction of correlation to consider: ``'arriba'`` most positive,
+          ``'abajo'`` most negative, ``'ambos'`` both extremes, ``'bottom'``
+          closest to zero.
 
-      Retorna:
-      - pd.Series: Series con los nombres de los clusters y sus valores de correlación.
+      Returns
+      -------
+      pd.DataFrame
+          DataFrame with selected clusters and their correlation to the target
+          cluster.
       """
       corr_matrix = self.get_corr_clust(df_clust)
 
