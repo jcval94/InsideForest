@@ -300,13 +300,19 @@ class _BaseInsideForest:
             if missing_cols:
                 missing_str = ", ".join(missing_cols)
                 raise ValueError(
-                    "Missing required feature columns: "
-                    f"{missing_str}. Add these columns or refit the model with the current data."
+                    "Input data is missing required feature columns: "
+                    f"{missing_str}. Ensure these columns are present in 'X' or refit the model with this feature set."
                 )
             # Reorder/Subset columns to match training features
             X_df = X_df[self.feature_names_]
         else:
-            X_df = pd.DataFrame(data=X, columns=self.feature_names_)
+            try:
+                X_df = pd.DataFrame(data=X, columns=self.feature_names_)
+            except ValueError as err:
+                raise ValueError(
+                    "Input data must contain all feature columns used during fitting: "
+                    f"{', '.join(self.feature_names_)}."
+                ) from err
 
         df_clusterizado, _ = self.regions.labels(
             df=X_df,
