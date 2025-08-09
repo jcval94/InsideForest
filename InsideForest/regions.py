@@ -20,7 +20,7 @@ import math
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import linkage, fcluster
 import logging
-from .cluster_selector import balance_lists_n_clusters, max_prob_clusters
+from .cluster_selector import balance_lists_n_clusters, max_prob_clusters, SAConfig
 
 logger = logging.getLogger(__name__)
 
@@ -1649,12 +1649,13 @@ class Regions:
     df_clusters_descripcion['cluster_ef_sample'] = abs(df_clusters_descripcion['cluster_ef_sample'])
 
     # Tratamiento de los clusters para agregar n_cluster
+    cfg = SAConfig(seed=1)
     if balanced:
       labels = balance_lists_n_clusters(records=records,
-                                        n_clusters=n_clusters, seed=1)
+                                        n_clusters=n_clusters, config=cfg)
     else:
       labels = max_prob_clusters(records=records, probs=probas,
-                                 n_clusters=n_clusters, seed=1)
+                                 n_clusters=n_clusters, config=cfg)
     
     if return_dfs:
        if not include_summary_cluster:

@@ -4,6 +4,7 @@ import numpy as np
 from collections import defaultdict, Counter
 import random
 import math
+from dataclasses import dataclass
 
 
 class MenuClusterSelector:
@@ -335,63 +336,61 @@ class MenuClusterSelector:
         return [self.idx_to_value_[j] for j in assign]
 
 
-def balance_lists_n_clusters(
+@dataclass
+class SAConfig:
+    max_iter: int = 20_000
+    restarts: int = 4
+    T0: float = 1.0
+    alpha: float = 0.999
+    seed: int | None = None
+
+
+def _imbalance(cnt: Counter, n: int) -> float:
+    k = len(cnt)
+    if k == 0:
+        return 1.0
+    ideal = n / k
+    return sum(abs(c - ideal) for c in cnt.values()) / n
+
+
+def _score(assign: List[Any], n: int, n_clusters: int | None) -> float:
+    cnt = Counter(assign)
+    k = len(cnt)
+    if n_clusters is None:
+        cluster_term = k / n
+    else:
+        cluster_term = abs(k - n_clusters) / n
+    return cluster_term + _imbalance(cnt, n)
+
+
+def _neighbour(
+    assign: List[Any],
     records: Sequence[Sequence[Any]],
-    n_clusters: int | None = None,
-    *,
-    max_iter: int = 20_000,
-    restarts: int = 4,
-    T0: float = 1.0,
-    alpha: float = 0.999,
-    seed: int | None = None,
+    n: int,
+    rng: random.Random,
 ) -> List[Any]:
-    """
-    Asigna **un único valor por fila** optimizando dos objetivos con *peso idéntico*:
+    """Mueve una fila a otra opción válida (aleatorio)."""
+    i = rng.randrange(n)
+    row = records[i]
+    cur = assign[i]
+    alt = [v for v in row if v != cur]
+    if not alt:
+        return assign
+    new = assign[:]
+    new[i] = rng.choice(alt)
+    return new
 
-    • |distinct - n_clusters| →   acercarse al nº deseado de clusters
-      (si `n_clusters` es `None`, se toma el mínimo posible de forma natural).
 
-    • Desbalance absoluto    →   Σ |c_v – ideal| / n, donde `ideal = n / k`.
-    """
-    rng = random.Random(seed)
-    records = [row if row else [-1] for row in records]
-    n = len(records)
-
-    # Utilidades internas -------------------------------------------------
-    def imbalance(cnt: Counter):
-        k = len(cnt)
-        if k == 0:
-            return 1.0
-        ideal = n / k
-        return sum(abs(c - ideal) for c in cnt.values()) / n
-
-    def score(assign: List[Any]) -> float:
-        cnt = Counter(assign)
-        k = len(cnt)
-        if n_clusters is None:
-            cluster_term = k / n  # minimizar k
-        else:
-            cluster_term = abs(k - n_clusters) / n
-        return cluster_term + imbalance(cnt)
-
-    def neighbour(assign: List[Any]) -> List[Any]:
-        """Mueve una fila a otra opción válida (aleatorio)."""
-        i = rng.randrange(n)
-        row = records[i]
-        cur = assign[i]
-        alt = [v for v in row if v != cur]
-        if not alt:  # fila sin alternativas
-            return assign
-        new = assign[:]
-        new[i] = rng.choice(alt)
-        return new
-
-    # Inicialización razonable ------------------------------------------
+def _greedy_initial_assignment(
+    records: Sequence[Sequence[Any]],
+    n_clusters: int | None,
+) -> List[Any]:
     val_rows = defaultdict(list)
     for idx, row in enumerate(records):
         for v in row:
             val_rows[v].append(idx)
 
+    n = len(records)
     remaining = set(range(n))
     chosen: List[Any] = []
     while remaining:
@@ -406,34 +405,54 @@ def balance_lists_n_clusters(
         )
         chosen.extend(extras[: n_clusters - len(chosen)])
 
-    def initial_assignment() -> List[Any]:
-        cnt: Counter = Counter()
-        assign: List[Any] = [None] * n
-        for i, row in enumerate(records):
-            opts = [v for v in row if v in chosen] or row
-            v = min(opts, key=lambda x: (cnt[x], x))
-            assign[i] = v
-            cnt[v] += 1
-        return assign
+    cnt: Counter = Counter()
+    assign: List[Any] = [None] * n
+    for i, row in enumerate(records):
+        opts = [v for v in row if v in chosen] or row
+        v = min(opts, key=lambda x: (cnt[x], x))
+        assign[i] = v
+        cnt[v] += 1
+    return assign
+
+
+def balance_lists_n_clusters(
+    records: Sequence[Sequence[Any]],
+    n_clusters: int | None = None,
+    *,
+    config: SAConfig | None = None,
+) -> List[Any]:
+    """
+    Asigna **un único valor por fila** optimizando dos objetivos con *peso idéntico*:
+
+    • |distinct - n_clusters| →   acercarse al nº deseado de clusters
+      (si `n_clusters` es `None`, se toma el mínimo posible de forma natural).
+
+    • Desbalance absoluto    →   Σ |c_v – ideal| / n, donde `ideal = n / k`.
+    """
+    config = config or SAConfig()
+    rng = random.Random(config.seed)
+    records = [row if row else [-1] for row in records]
+    n = len(records)
+    base_assign = _greedy_initial_assignment(records, n_clusters)
 
     # Simulated Annealing -------------------------------------------------
     best_global, best_score = None, float("inf")
-    for _ in range(restarts):
-        cur = initial_assignment()
-        cur_score = score(cur)
+    for _ in range(config.restarts):
+        cur = base_assign[:]
+        cur_score = _score(cur, n, n_clusters)
         best_local, best_local_score = cur[:], cur_score
-        T = T0
-        for _ in range(max_iter):
-            nxt = neighbour(cur)
+        T = config.T0
+        for _ in range(config.max_iter):
+            nxt = _neighbour(cur, records, n, rng)
             if nxt is cur:
                 continue
-            nxt_score = score(nxt)
+            nxt_score = _score(nxt, n, n_clusters)
             accept = nxt_score < cur_score or rng.random() < math.exp((cur_score - nxt_score) / T)
             if accept:
                 cur, cur_score = nxt, nxt_score
                 if cur_score < best_local_score:
                     best_local, best_local_score = cur[:], cur_score
-            T *= alpha
+            T *= config.alpha
         if best_local_score < best_score:
             best_global, best_score = best_local, best_local_score
 
@@ -445,11 +464,7 @@ def max_prob_clusters(
     probs: Mapping[Any, float],
     n_clusters: int | None = None,
     *,
-    max_iter: int = 20_000,
-    restarts: int = 4,
-    T0: float = 1.0,
-    alpha: float = 0.999,
-    seed: int | None = None,
+    config: SAConfig | None = None,
 ) -> List[Any]:
     """
     Selecciona **un valor por fila** cumpliendo:
@@ -458,7 +473,8 @@ def max_prob_clusters(
           – intenta devolver EXACTAMENTE ese nº de clusters, maximizando la suma de probabilidades.
           – si es imposible, usa el valor factible más próximo (`k_min` o `k_max`).
     """
-    rng = random.Random(seed)
+    config = config or SAConfig()
+    rng = random.Random(config.seed)
     n = len(records)
     records = [row if row else [None] for row in records]
 
@@ -529,19 +545,19 @@ def max_prob_clusters(
         return new
 
     best_global, best_c = assign[:], cost(assign)
-    for _ in range(restarts):
+    for _ in range(config.restarts):
         cur, cur_c = assign[:], best_c
-        T = T0
-        for _ in range(max_iter):
+        T = config.T0
+        for _ in range(config.max_iter):
             nxt = neighbour(cur)
             if nxt is cur:
-                T *= alpha
+                T *= config.alpha
                 continue
             nxt_c = cost(nxt)
             if nxt_c < cur_c or rng.random() < math.exp((cur_c - nxt_c) / T):
                 cur, cur_c = nxt, nxt_c
                 if cur_c < best_c:
                     best_global, best_c = cur[:], cur_c
-            T *= alpha
+            T *= config.alpha
 
     return best_global
