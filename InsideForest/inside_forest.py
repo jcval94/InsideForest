@@ -311,6 +311,40 @@ class _BaseInsideForest:
         df_clusterizado["cluster"] = df_clusterizado["cluster"].fillna(value=-1)
         return df_clusterizado["cluster"].to_numpy()
 
+    def score(self, X, y):
+        """Return the score of the underlying random forest on the given data.
+
+        The metric reported depends on the type of wrapped random forest
+        estimator. For classifiers this is the mean accuracy, while for
+        regressors it corresponds to :math:`R^2`.
+
+        Parameters
+        ----------
+        X : array-like or pandas.DataFrame
+            Feature matrix. If a DataFrame is provided, columns are normalized
+            and reordered to match the training data.
+        y : array-like
+            Ground truth target values.
+
+        Returns
+        -------
+        float
+            Score as computed by :meth:`sklearn.ensemble.RandomForestRegressor.score`
+            or :meth:`sklearn.ensemble.RandomForestClassifier.score` depending on
+            the estimator type.
+        """
+
+        check_is_fitted(self.rf)
+
+        if isinstance(X, pd.DataFrame):
+            X_df = X.copy()
+            X_df.columns = [str(c).replace(" ", "_") for c in X_df.columns]
+            X_df = X_df[self.feature_names_]
+        else:
+            X_df = pd.DataFrame(data=X, columns=self.feature_names_)
+
+        return self.rf.score(X_df, y)
+
     def save(self, filepath: str):
         """Save the fitted model and derived attributes to ``filepath``.
 
