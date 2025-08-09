@@ -275,79 +275,95 @@ class Trees:
     agrupacion = agrupacion.sort_values(by=['ef_sample', 'n_sample'], ascending=False)
     return agrupacion
 
+  def get_summary_optimizado(self, data1, df_full_arboles, var_obj,
+                              no_branch_lim=500, verbose=0, n_jobs=1):
+      """Resume las reglas evaluando las condiciones de manera vectorizada."""
 
-
-  def get_summary_optimizado(self, data1, df_full_arboles, var_obj, no_branch_lim=500, verbose=0):
-      # 1) Calculamos el pivot que resume por N_regla, N_arbol, feature, operador, etc.
+      # 1) Calcular el pivot que resume por N_regla, N_arbol, feature, operador
       agrupacion = pd.pivot_table(
           df_full_arboles,
           index=['N_regla', 'N_arbol', 'feature', 'operador'],
           values=['rangos', 'Importancia'],
-          aggfunc=['min', 'max', 'mean']
+          aggfunc=['min', 'max', 'mean'],
       )
-      
-      # 2) Extraemos los valores de min, max y mean
+
+      # 2) Extraer valores de min y max según el operador
       agrupacion_min = agrupacion['min'].reset_index()
       agrupacion_min = agrupacion_min[agrupacion_min['operador'] == '<=']
-
       agrupacion_max = agrupacion['max'].reset_index()
       agrupacion_max = agrupacion_max[agrupacion_max['operador'] == '>']
 
-      # (We could use agrupacion_mean later; not reused in this example)
-      agrupacion_mean = agrupacion['mean'].reset_index()
-
-      # 3) Concatenate rows with operator <= and >, and sort
+      # 3) Concatenar y ordenar
       agrupacion = pd.concat([agrupacion_min, agrupacion_max]).sort_values(['N_arbol', 'N_regla'])
 
-      # 4) Select the top 100 trees
+      # 4) Seleccionar los árboles a procesar
       top_100_arboles = agrupacion['N_arbol'].unique()[:no_branch_lim]
 
-      # 5) Iterate over each tree and rule to build a single boolean mask per rule
-      reglas = []
+      # Convertir datos a matriz NumPy y preparar mapeo de columnas
+      X = data1.to_numpy()
+      col_to_idx = {col: i for i, col in enumerate(data1.columns)}
+      y = data1[var_obj].to_numpy()
 
-      for arbol_num in tqdm(top_100_arboles, disable=(verbose == 0), desc="Procesando ramas"):
-          # Log (optional) depending on verbose
-          if arbol_num % 50 == 0 and verbose == 1:
-              logger.info(f"Processing tree branch: {arbol_num}")
-
-          # Subset of the pivot for this tree
+      def _process_tree(arbol_num):
           ag_arbol = agrupacion[agrupacion['N_arbol'] == arbol_num]
+          reglas_info = []
 
-          # Traverse each rule of that tree
           for regla_num in ag_arbol['N_regla'].unique():
               ag_regla = ag_arbol[ag_arbol['N_regla'] == regla_num]
-
-              # Obtain (feature, value) pairs by operator
               men_ = ag_regla[ag_regla['operador'] == '<='][['feature', 'rangos']].values
               may_ = ag_regla[ag_regla['operador'] == '>'][['feature', 'rangos']].values
 
-              # Build a boolean mask to filter data1 in a single step
-              mask = np.ones(len(data1), dtype=bool)
+              le_idx = np.array([col_to_idx[c] for c in men_[:, 0]]) if len(men_) else np.array([], dtype=int)
+              le_val = men_[:, 1].astype(float) if len(men_) else np.array([], dtype=float)
+              gt_idx = np.array([col_to_idx[c] for c in may_[:, 0]]) if len(may_) else np.array([], dtype=int)
+              gt_val = may_[:, 1].astype(float) if len(may_) else np.array([], dtype=float)
 
-              # Add <= conditions
-              for col, val in men_:
-                  mask &= (data1[col] <= val)
+              reglas_info.append((ag_regla.copy(), le_idx, le_val, gt_idx, gt_val))
 
-              # Add > conditions
-              for col, val in may_:
-                  mask &= (data1[col] > val)
+          if not reglas_info:
+              return pd.DataFrame()
 
-              # Calculate n_sample and ef_sample
-              n_sample = mask.sum()  # number of rows meeting all conditions
-              # Avoid error when n_sample = 0
-              ef_sample = data1.loc[mask, var_obj].mean() if n_sample > 0 else 0
+          masks = []
+          for _, le_idx, le_val, gt_idx, gt_val in reglas_info:
+              conds = []
+              if le_idx.size:
+                  conds.append(X[:, le_idx] <= le_val)
+              if gt_idx.size:
+                  conds.append(X[:, gt_idx] > gt_val)
+              if conds:
+                  mask = np.logical_and.reduce(np.concatenate(conds, axis=1), axis=1)
+              else:
+                  mask = np.ones(X.shape[0], dtype=bool)
+              masks.append(mask)
 
-              # Creamos una copia para esa regla, asignando los valores calculados
-              ag_regla_copy = ag_regla.copy()
-              ag_regla_copy['n_sample'] = n_sample
-              ag_regla_copy['ef_sample'] = ef_sample
+          mask_matrix = np.vstack(masks)
+          n_sample = mask_matrix.sum(axis=1)
+          sums = mask_matrix @ y
+          ef_sample = np.divide(sums, n_sample, out=np.zeros_like(sums, dtype=float), where=n_sample > 0)
 
-              reglas.append(ag_regla_copy)
+          res = []
+          for (df_regla, _, _, _, _), ns, ef in zip(reglas_info, n_sample, ef_sample):
+              df_regla['n_sample'] = ns
+              df_regla['ef_sample'] = ef
+              res.append(df_regla)
 
-      # 6) Concatenate all results and sort by requested metrics
-      resultado = pd.concat(reglas, ignore_index=True)
+          return pd.concat(res, ignore_index=True)
+
+      it = tqdm(top_100_arboles, disable=(verbose == 0), desc="Procesando ramas") if verbose else top_100_arboles
+      try:
+          if n_jobs == 1:
+              resultados = [_process_tree(a) for a in it]
+          else:
+              resultados = Parallel(n_jobs=n_jobs)(delayed(_process_tree)(a) for a in it)
+      except Exception:
+          resultados = [_process_tree(a) for a in top_100_arboles]
+
+      resultados = [r for r in resultados if r is not None and not r.empty]
+      if not resultados:
+          return pd.DataFrame(columns=['N_regla','N_arbol','feature','operador','rangos','Importancia','n_sample','ef_sample'])
+
+      resultado = pd.concat(resultados, ignore_index=True)
       resultado = resultado.sort_values(by=['ef_sample', 'n_sample'], ascending=False)
-      
       return resultado
 
 

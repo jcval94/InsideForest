@@ -49,3 +49,20 @@ def test_n_jobs_consistency():
     res_seq = t.get_rangos(reg, df, percentil=0, n_jobs=1)
     res_par = t.get_rangos(reg, df, percentil=0, n_jobs=-1)
     pd.testing.assert_frame_equal(res_seq.sort_index(axis=1), res_par.sort_index(axis=1))
+
+
+def test_get_summary_optimizado_matches_get_summary():
+    df, y = _build_regression_data()
+    reg = RandomForestRegressor(n_estimators=1, random_state=0).fit(df, y)
+    t = Trees()
+    df_full_arboles = t.get_rangos(reg, df, percentil=0, n_jobs=1)
+    df_full_arboles = t.get_fro(df_full_arboles)
+    df_with_target = df.copy()
+    df_with_target['y'] = y
+    res_opt = t.get_summary_optimizado(df_with_target, df_full_arboles, 'y', n_jobs=1)
+    res_orig = t.get_summary(df_with_target, df_full_arboles, 'y')
+    pd.testing.assert_frame_equal(
+        res_opt.sort_index(axis=1).fillna(0).reset_index(drop=True),
+        res_orig.sort_index(axis=1).fillna(0).reset_index(drop=True),
+        check_dtype=False,
+    )

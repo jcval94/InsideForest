@@ -75,6 +75,19 @@ computations by using a precomputed matrix and a binary search over
 averaged **0.061 s** per call, while the optimized version completed in
 **0.044 s**, yielding roughly a **1.4× speedup**.
 
+### Rule summary performance
+
+The new vectorized `get_summary_optimizado` accelerates rule evaluation.
+Using a synthetic regression dataset with 500 samples, 10 features and a
+10-tree forest, the original `get_summary` took **18.08 s** whereas the
+optimized version completed in **4.93 s**, providing a **3.7× speedup**.
+
+Reproduce this measurement with:
+
+```bash
+python -m experiments.summary_benchmark
+```
+
 ## Basic workflow
 The typical order for applying InsideForest is:
 1. Train a decision forest or `RandomForest` model.
