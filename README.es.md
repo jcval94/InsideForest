@@ -76,6 +76,15 @@ exploración previa en rejilla promedió **0.061 s** por llamada, mientras
 que la versión optimizada terminó en **0.044 s**, obteniendo una mejora
 aproximada de **1.4×** en tiempo.
 
+### Barrido de hiperparámetros de RandomForest
+
+Se probaron 20 configuraciones de `RandomForest` variando
+`n_estimators` de 5 a 100 en saltos de 5 y `max_depth` en
+{2, 4, 6, 8, 10, None} sobre el conjunto **Iris** (30 muestras). La
+mejor configuración (`n_estimators=35`, `max_depth=2`) alcanzó una
+pureza de **0.90** y un macro-F1 de **0.85**. Los resultados completos
+están disponibles en `rf_results.csv`.
+
 ## Flujo básico
 El orden típico para aplicar InsideForest es:
 1. Entrenar un modelo de bosque de decisión o `RandomForest`.
