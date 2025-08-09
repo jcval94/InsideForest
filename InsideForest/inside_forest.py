@@ -296,6 +296,13 @@ class _BaseInsideForest:
         if isinstance(X, pd.DataFrame):
             X_df = X.copy()
             X_df.columns = [str(c).replace(" ", "_") for c in X_df.columns]
+            missing_cols = [col for col in self.feature_names_ if col not in X_df.columns]
+            if missing_cols:
+                missing_str = ", ".join(missing_cols)
+                raise ValueError(
+                    "Missing required feature columns: "
+                    f"{missing_str}. Add these columns or refit the model with the current data."
+                )
             # Reorder/Subset columns to match training features
             X_df = X_df[self.feature_names_]
         else:
