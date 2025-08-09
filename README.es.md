@@ -48,6 +48,8 @@ El orden típico para aplicar InsideForest es:
 Para un flujo simplificado puedes utilizar la clase `InsideForest`, que combina
 el entrenamiento del bosque aleatorio y la asignación de regiones:
 
+Nota: InsideForest está pensado para ejecutarse sobre un subconjunto de los datos, por ejemplo usar el 35% de las observaciones y reservar el 65% restante para otros fines.
+
 ```python
 from sklearn.datasets import load_iris
 from InsideForest import InsideForest

@@ -48,6 +48,8 @@ The typical order for applying InsideForest is:
 For a simplified workflow you can use the `InsideForest` class, which combines
 the random forest training and region labeling steps:
 
+Note: InsideForest is typically run on a subset of the data, for example using 35% of the observations and reserving the remaining 65% for other purposes.
+
 ```python
 from sklearn.datasets import load_iris
 from InsideForest import InsideForest
