@@ -235,17 +235,38 @@ class MetaExtractor:
 # 1. UTILITARIOS DE PARSEO
 # ------------------------------------------------------------------ #
 def parse_rule_string(rule_str: str) -> list[str]:
-    """Return list of cleaned conditions removing AND and extra spaces."""
+    """Split a rule string into individual conditions.
+
+    Parameters
+    ----------
+    rule_str : str
+        Text with conditions joined by ``AND``. Parentheses and extra
+        whitespace are ignored.
+
+    Returns
+    -------
+    list[str]
+        Clean list of condition strings. ``[]`` is returned for NaN inputs.
+    """
     if pd.isna(rule_str):
         return []
     # Normalize spaces and remove parentheses if present
-    parts = [re.sub(r'\s+', ' ', p.strip('() ')) for p in rule_str.split('AND')]
-    return [p for p in parts if p]                 # no empty strings
+    parts = [re.sub(r"\s+", " ", p.strip("() ")) for p in rule_str.split("AND")]
+    return [p for p in parts if p]  # no empty strings
 
 def token_from_condition(cond: str) -> str | None:
-    """
-    Extract the variable token within a condition.
-    Example: '-3.2 <= num__age <= 1.5' → 'num__age'
+    """Extract the variable token within a condition string.
+
+    Parameters
+    ----------
+    cond : str
+        Condition such as ``"-3.2 <= num__age <= 1.5"``.
+
+    Returns
+    -------
+    str or None
+        Token found in the condition (e.g. ``"num__age"``) or ``None`` if no
+        token can be identified.
     """
     # search for word containing '__' first
     for word in cond.split():
@@ -258,22 +279,41 @@ def token_from_condition(cond: str) -> str | None:
     return None
 
 def conditions_to_tokens(conds: list[str]) -> set[str]:
+    """Extract tokens from a list of conditions.
+
+    Parameters
+    ----------
+    conds : list[str]
+        List of condition strings.
+
+    Returns
+    -------
+    set[str]
+        Set of unique tokens present in ``conds``.
+    """
     return {token_from_condition(c) for c in conds if token_from_condition(c)}
 
 # ------------------------------------------------------------------ #
 # 2. GENERADOR DE EXPERIMENTOS PARA UN SOLO Df2
 # ------------------------------------------------------------------ #
 
-def experiments_from_df2(df2: pd.DataFrame,
-                         meta: pd.DataFrame) -> pd.DataFrame:
-    """
-    Return one row per pair of clusters with:
-      · variables_a: tokens exclusive to the less effective cluster
-      · variables_b: tokens exclusive to the more effective cluster
-      · difficulty_a: max(actionability.increase_difficulty) for variables_a
-      · difficulty_b: max(actionability.decrease_difficulty) for variables_b
-      · n_intersection, n_only_a, n_only_b (counts)
-      · score (penalizes difficulty_a, exclusives and rewards intersection)
+def experiments_from_df2(df2: pd.DataFrame, meta: pd.DataFrame) -> pd.DataFrame:
+    """Generate pairwise cluster comparisons for a single Df2.
+
+    Parameters
+    ----------
+    df2 : pd.DataFrame
+        Table with one row per cluster including ``cluster_descripcion``,
+        ``cluster_ef_sample`` and ``cluster_n_sample`` columns.
+    meta : pd.DataFrame
+        Metadata indexed by ``rule_token`` providing actionability metrics.
+
+    Returns
+    -------
+    pd.DataFrame
+        Each row contains the comparison between two clusters along with the
+        exclusive variables and a score penalizing difficult actions and
+        rewarding overlap.
     """
     # --- action table -----------------------------
     meta_idx = meta.set_index('rule_token')
@@ -351,8 +391,20 @@ def experiments_from_df2(df2: pd.DataFrame,
 # 3. PIPELINE GENERAL PARA «n» Df2
 # ------------------------------------------------------------------ #
 def run_experiments(mx, df2_dict: dict[str, pd.DataFrame]) -> pd.DataFrame:
-    """
-    Generate and consolidate hypotheses for a dictionary of Df2.
+    """Generate and consolidate hypotheses for multiple datasets.
+
+    Parameters
+    ----------
+    mx : MetaExtractor
+        Instance used to extract metadata from ``cluster_descripcion`` fields.
+    df2_dict : dict[str, pd.DataFrame]
+        Mapping of dataset name to its corresponding Df2 table.
+
+    Returns
+    -------
+    pd.DataFrame
+        Concatenated hypotheses ordered by score. If no hypotheses are
+        generated an empty DataFrame with the expected columns is returned.
     """
     all_hypotheses = []
 
