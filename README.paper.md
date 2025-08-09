@@ -152,6 +152,18 @@ Los métodos de clustering basados en reglas buscan segmentos explicables median
 
 InsideForest comparte la idea de obtener reglas interpretables, pero se diferencia al utilizar el bosque aleatorio como generador de regiones y luego agruparlas mediante un proceso de clustering supervisado. Mientras los métodos anteriores se enfocan en generar reglas o interpretaciones individuales, InsideForest prioriza segmentos con alta pureza respecto a la clase objetivo, incorpora un generador de hipótesis para contrastar regiones similares con resultados dispares y provee un flujo unificado para etiquetar y describir dichas regiones.
 
+## Comparativa con modelos no supervisados
+
+Para evaluar el desempeño de InsideForest se realizaron experimentos frente a algoritmos de clustering no supervisado clásicos como **KMeans** y **DBSCAN**. Además de la pureza y el F1 macro, se introdujo el **Índice de Divergencia Objetivo (IDO)**, que cuantifica cuánto se aleja la distribución de clases de cada cluster respecto a la distribución global del conjunto de datos:
+
+$$
+\text{IDO} = \sum_{m} \frac{|C_m|}{n} \cdot \frac{1}{2} \sum_{k} \left| P(y=k\mid C_m) - P(y=k) \right|.
+$$
+
+Un valor cercano a cero indica que los clusters reproducen la proporción global de clases y, por tanto, no aportan información relevante sobre la variable objetivo. Valores altos señalan segmentos especializados en ciertas clases.
+
+El script `experiments/benchmark.py` reproduce esta comparativa sobre los datasets *Digits* y uno sintético grande. En ambos casos, InsideForest alcanza mayores niveles de pureza y F1, además de un IDO significativamente superior al de KMeans y DBSCAN, lo que evidencia su capacidad para generar grupos alineados con la variable objetivo.
+
 ## 3. Arquitectura del repositorio
 La organización del código refleja el proceso anterior en módulos especializados:
 
