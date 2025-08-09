@@ -208,6 +208,22 @@ regions.plot_experiments(df, experimento, interactive=False)
 
 Compara los clusters A y B usando las reglas de una fila de la tabla de experimentos.
 
+## Experimentos
+
+El módulo `experiments/benchmark.py` ejecuta comparativas de clustering
+supervisado sobre un conjunto de datos de tamaño mediano (`Digits`) y
+otro grande generado sintéticamente. Compara `InsideForest` con
+baselines tradicionales como KMeans y DBSCAN, reportando pureza,
+F1 macro y tiempo de ejecución. También incluye un análisis de
+sensibilidad para los hiperparámetros clave: `K` en KMeans y
+`eps`/`min_samples` en DBSCAN.
+
+Ejecuta el script con:
+
+```
+python -m experiments.benchmark
+```
+
 ## Licencia
 
 Este proyecto se distribuye bajo la licencia MIT. Consulta [LICENSE](LICENSE) para más detalles.
