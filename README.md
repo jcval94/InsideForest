@@ -44,16 +44,17 @@ The typical order for applying InsideForest is:
 5. Optionally interpret results with `generate_descriptions` and `categorize_conditions`.
 6. Finally, use helpers such as `Models` and `Labels` for further analysis.
 
-## InsideForest wrapper
-For a simplified workflow you can use the `InsideForest` class, which combines
-the random forest training and region labeling steps:
+## InsideForestClassifier and InsideForestRegressor wrappers
+For a simplified workflow you can use the `InsideForestClassifier` or
+`InsideForestRegressor` classes, which combine the random forest training and
+region labeling steps:
 
 Note: InsideForest is typically run on a subset of the data, for example using 35% of the observations and reserving the remaining 65% for other purposes.
 
 ```python
 from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
-from InsideForest import InsideForest
+from InsideForest import InsideForestClassifier, InsideForestRegressor
 
 iris = load_iris()
 X, y = iris.data, iris.target
@@ -63,7 +64,7 @@ X_train, X_rest, y_train, y_rest = train_test_split(
     X, y, train_size=0.35, stratify=y, random_state=15
 )
 
-in_f = InsideForest(
+in_f = InsideForestClassifier(
     rf_params={"random_state": 15},
     tree_params={"mode": "py", "n_sample_multiplier": 0.05, "ef_sample_multiplier": 10},
 )

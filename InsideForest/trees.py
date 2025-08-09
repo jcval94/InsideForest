@@ -155,7 +155,10 @@ class Trees:
 
         paths.append([x for x in path_ if x != ''])
 
-      valores = [float(path[1].split(': ')[1].replace(']', '')) for path in paths]
+      valores = [
+        float(path[1].split(': ')[1].replace('[', '').replace(']', ''))
+        for path in paths
+      ]
       percent_ = np.percentile(valores, 90)
       estructuras_maximizadoras = [[pa[0], val] for pa, val in zip(paths, valores) if val >= percent_]
 
