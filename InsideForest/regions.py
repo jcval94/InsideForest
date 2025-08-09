@@ -20,7 +20,7 @@ import math
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import linkage, fcluster
 import logging
-from .cluster_selector import balance_lists_n_clusters, max_prob_clusters
+from .cluster_selector import balance_lists_n_clusters, max_prob_clusters, select_clusters
 
 logger = logging.getLogger(__name__)
 
@@ -1027,81 +1027,9 @@ class Regions:
       df_clusters_descripcion : pd.DataFrame
           DataFrame with description or metrics for each cluster.
       """
-      # import numpy as np
-
-      n_datos = df_datos.shape[0]
-      # Array para almacenar el cluster "principal" (el que tiene mayor ponderador)
-      clusters_datos = np.full(n_datos, -1, dtype=float)
-      # Array to store the weight of the main cluster
-      ponderador_datos = np.full(n_datos, -np.inf, dtype=float)
-
-      # If we want to keep the full list of clusters per record, initialize structures
-      if keep_all_clusters:
-          clusters_datos_all = [[] for _ in range(n_datos)]
-          ponderadores_datos_all = [[] for _ in range(n_datos)]
-
-      # --- 1) Extract and normalize rule information ---
-      reglas_info = []
-      # Iterate each row of df_reglas; normally the number of rules is small
-      for idx, row in df_reglas.iterrows():
-          if row[('metrics', 'ponderador')]==0:
-              continue
-          # Extract lower and upper bounds; assumes row['linf'] and row['lsup'] are Series
-          linf = row['linf'].dropna()
-          lsup = row['lsup'].dropna()
-          variables = linf.index.tolist()
-
-          # Extract the weight from the 'metrics' group
-          p_val = row[('metrics', 'ponderador')]
-          # If for some reason it is iterable (e.g., a list), take its mean;
-          # under normal conditions it's a scalar value.
-          ponderador = p_val.mean() if hasattr(p_val, '__iter__') else p_val
-
-          # Extract the assigned cluster; if encapsulated, get the scalar value.
-          cluster_raw = row['cluster']
-          if hasattr(cluster_raw, 'values') and len(cluster_raw.values) == 1:
-              cluster_raw = float(cluster_raw.values[0])
-          else:
-              cluster_raw = float(cluster_raw)
-
-          reglas_info.append({
-              'variables': variables,
-              'linf': linf.to_dict(),
-              'lsup': lsup.to_dict(),
-              'ponderador': ponderador,
-              'cluster': cluster_raw,
-          })
-
-      # --- 2) Evaluate which rules each record satisfies ---
-      for regla in reglas_info:
-          variables = regla['variables']
-          linf = regla['linf']
-          lsup = regla['lsup']
-          ponderador = regla['ponderador']
-          cluster = regla['cluster']
-
-          # Extract relevant columns and convert to arrays for vectorized operations
-          X_datos = df_datos[variables]
-          condiciones = [
-              (X_datos[var].to_numpy() >= linf[var]) & (X_datos[var].to_numpy() <= lsup[var])
-              for var in variables
-          ]
-          # If there are no variables, the rule can't be evaluated; assume no record satisfies it.
-          if condiciones:
-              cumple_regla = np.logical_and.reduce(condiciones)
-          else:
-              cumple_regla = np.zeros(n_datos, dtype=bool)
-
-          if keep_all_clusters:
-              indices_cumple = np.where(cumple_regla)[0]
-              for i in indices_cumple:
-                  clusters_datos_all[i].append(cluster)
-                  ponderadores_datos_all[i].append(ponderador)
-
-          # Update the "main" cluster if this rule's weight is higher
-          actualizar = cumple_regla & (ponderador > ponderador_datos)
-          clusters_datos[actualizar] = cluster
-          ponderador_datos[actualizar] = ponderador
+      clusters_datos, clusters_datos_all, ponderadores_datos_all = select_clusters(
+          df_datos, df_reglas, keep_all_clusters
+      )
 
       # --- 3) Construir el DataFrame de salida ---
       df_datos_clusterizados = df_datos.copy()
