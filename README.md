@@ -84,6 +84,20 @@ DBSCAN(eps=0.5,min=5)   0.201 0.000       0.000    0.074
 Titanic results require downloading the dataset; run the benchmark
 locally with network access to reproduce them.
 
+## Tests
+
+Run the test suite with:
+
+```bash
+pytest -q
+```
+
+On the current codebase this yields:
+
+```
+38 passed, no warnings
+```
+
 ## Basic workflow
 The typical order for applying InsideForest is:
 1. Train a decision forest or `RandomForest` model.

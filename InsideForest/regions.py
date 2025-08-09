@@ -23,6 +23,73 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def choose_block(n: int, d: int, target_mb: int = 512) -> int:
+    """Heuristically choose a tile size for blocked IoU computation.
+
+    Parameters
+    ----------
+    n : int
+        Number of regions.
+    d : int
+        Number of dimensions.
+    target_mb : int, optional
+        Rough memory budget in megabytes for temporary arrays.
+
+    Returns
+    -------
+    int
+        Block size to use when computing pairwise IoU.
+    """
+
+    bytes_per_pair = 8 * (3 * d + 4)
+    pairs = int((target_mb * 1024 * 1024) / bytes_per_pair)
+    return max(64, min(n, int(np.sqrt(max(1, pairs)))))
+
+
+def _pairwise_iou_blocked(lows: np.ndarray, highs: np.ndarray, block: int = 1024) -> np.ndarray:
+    """Compute pairwise IoU distances between hypercubes in blocks.
+
+    Processing in ``block``-sized tiles reduces the temporary memory
+    footprint compared to a fully broadcast computation while still
+    leveraging NumPy vectorization within each tile.
+    """
+
+    n, _ = lows.shape
+    volumes = np.prod(highs - lows, axis=1)
+    dist = np.zeros((n, n), dtype=np.float64)
+
+    for i in range(0, n, block):
+        i2 = min(i + block, n)
+        Li, Hi, Vi = lows[i:i2], highs[i:i2], volumes[i:i2]
+        for j in range(i, n, block):
+            j2 = min(j + block, n)
+            Lj, Hj, Vj = lows[j:j2], highs[j:j2], volumes[j:j2]
+            inter_low = np.maximum(Li[:, None, :], Lj[None, :, :])
+            inter_high = np.minimum(Hi[:, None, :], Hj[None, :, :])
+            inter_dims = np.clip(inter_high - inter_low, 0, None)
+            inter_vol = inter_dims.prod(axis=2)
+            union = Vi[:, None] + Vj[None, :] - inter_vol
+
+            deg = union == 0
+            same = deg & (
+                np.all(Li[:, None, :] == Lj[None, :, :], axis=2)
+                & np.all(Hi[:, None, :] == Hj[None, :, :], axis=2)
+            )
+            iou = np.where(
+                same,
+                1.0,
+                np.divide(inter_vol, union, out=np.zeros_like(inter_vol), where=union > 0),
+            )
+
+            block_dist = 1.0 - iou
+            dist[i:i2, j:j2] = block_dist
+            if i != j:
+                dist[j:j2, i:i2] = block_dist.T
+
+    np.fill_diagonal(dist, 0.0)
+    return dist
+
+
 class Regions:
     
   def search_original_tree(self, df_clusterizado, separacion_dim):
@@ -314,7 +381,7 @@ class Regions:
       return df_grouped.merge(df_grouped_c, how='left', on='cluster')
 
 
-  def get_agg_regions_j(self, df_eval, df):
+  def get_agg_regions_j(self, df_eval, df, nan_policy: str = "raise"):
     """Aggregate similar rectangles using IoU and clustering.
 
     Parameters
@@ -347,37 +414,23 @@ class Regions:
     # List of dimensions extracted from column names
     dims = sorted(set(col.split('&&')[0] for col in df_raw.columns))
 
-    # Function to compute IoU between two hypercubes
-    def iou_hypercube(row1, row2, dims):
-        inter_vol = 1
-        vol1 = 1
-        vol2 = 1
+    # Extract lower and upper bounds arrays with shape (n_regions, n_dims)
+    lows = df_raw[[f"{dim}&&linf" for dim in dims]].to_numpy(dtype=np.float64, copy=False)
+    highs = df_raw[[f"{dim}&&lsup" for dim in dims]].to_numpy(dtype=np.float64, copy=False)
 
-        for dim in dims:
-            low1, high1 = row1[f"{dim}&&linf"], row1[f"{dim}&&lsup"]
-            low2, high2 = row2[f"{dim}&&linf"], row2[f"{dim}&&lsup"]
+    def _clean_bounds(lows: np.ndarray, highs: np.ndarray, nan_policy: str = "raise"):
+        if nan_policy == "raise" and (np.isnan(lows).any() or np.isnan(highs).any()):
+            raise ValueError("NaNs in bounds")
+        if nan_policy == "zero":
+            lows, highs = np.nan_to_num(lows), np.nan_to_num(highs)
+        return np.minimum(lows, highs), np.maximum(lows, highs)
 
-            inter_low = max(low1, low2)
-            inter_high = min(high1, high2)
+    lows, highs = _clean_bounds(lows, highs, nan_policy)
 
-            if inter_low >= inter_high:
-                return 0.0  # No intersection
+    block = choose_block(len(df_raw), len(dims))
 
-            inter_vol *= (inter_high - inter_low)
-            vol1 *= (high1 - low1)
-            vol2 *= (high2 - low2)
-
-        union_vol = vol1 + vol2 - inter_vol
-        return inter_vol / union_vol if union_vol != 0 else 0.0
-
-    # Create distance matrix based on IoU (1 - IoU to obtain a distance)
-    n = len(df_raw)
-    distance_matrix = np.zeros((n, n))
-
-    for i in range(n):
-        for j in range(i + 1, n):
-            distance_matrix[i, j] = 1 - iou_hypercube(df_raw.iloc[i], df_raw.iloc[j], dims)
-            distance_matrix[j, i] = distance_matrix[i, j]  # Symmetric
+    # Compute pairwise IoU distance matrix using blocked vectorization
+    distance_matrix = _pairwise_iou_blocked(lows, highs, block=block)
 
     # Convert matrix to condensed distance vector for clustering
     dist_vector = squareform(distance_matrix)

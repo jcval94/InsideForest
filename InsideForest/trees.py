@@ -183,7 +183,10 @@ class Trees:
       if verbose == 1 and n_estimador % 10 == 0:
         logger.info(f"Processed {n_estimador} trees")
 
-    return pd.concat(df_info)
+    frames = [df for df in df_info if not df.dropna(how="all").empty]
+    if not frames:
+      return pd.DataFrame(columns=['Regla', 'Importancia', 'N_regla', 'N_arbol', 'Va_Obj_minima'])
+    return pd.concat(frames, ignore_index=True)
 
 
   def get_fro(self, df_full_arboles): 
