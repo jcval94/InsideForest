@@ -63,7 +63,7 @@ class InsideForest:
         self.df_datos_explain_ = None
         self.frontiers_ = None
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None, rf=None):
         """Fit the internal RandomForest and compute cluster labels.
 
         Parameters
@@ -73,6 +73,9 @@ class InsideForest:
         y : array-like, optional
             Target vector. If not provided and ``X`` is a DataFrame containing
             ``var_obj``, that column will be used as the target.
+        rf : RandomForestClassifier, optional
+            Custom ``RandomForestClassifier`` instance to use during fitting.
+            If ``None``, the classifier created during initialization is used.
 
         Raises
         ------
@@ -104,6 +107,10 @@ class InsideForest:
         # Replace spaces with underscores to keep compatibility with Trees
         X_df.columns = [str(c).replace(" ", "_") for c in X_df.columns]
         self.feature_names_ = list(X_df.columns)
+
+        # Allow passing a custom RandomForestClassifier
+        if rf is not None:
+            self.rf = rf
 
         # Train RandomForest
         self.rf.fit(X=X_df, y=y)
