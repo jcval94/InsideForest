@@ -48,21 +48,29 @@ El orden típico para aplicar InsideForest es:
 Para un flujo simplificado puedes utilizar la clase `InsideForest`, que combina
 el entrenamiento del bosque aleatorio y la asignación de regiones:
 
+Nota: InsideForest está pensado para ejecutarse sobre un subconjunto de los datos, por ejemplo usar el 35% de las observaciones y reservar el 65% restante para otros fines.
+
 ```python
 from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
 from InsideForest import InsideForest
 
 iris = load_iris()
 X, y = iris.data, iris.target
+
+# Entrena con el 35% de los datos y reserva el resto para análisis posterior
+X_train, X_rest, y_train, y_rest = train_test_split(
+    X, y, train_size=0.35, stratify=y, random_state=15
+)
 
 in_f = InsideForest(
     rf_params={"random_state": 15},
     tree_params={"mode": "py", "n_sample_multiplier": 0.05, "ef_sample_multiplier": 10},
 )
 
-in_f.fit(X, y)
-pred_labels = in_f.predict(X)  # etiquetas de cluster para X
-etiquetas_entrenamiento = in_f.labels_  # etiquetas para los datos de entrenamiento
+in_f.fit(X_train, y_train)
+pred_labels = in_f.predict(X_rest)  # etiquetas de cluster para los datos restantes
+etiquetas_entrenamiento = in_f.labels_  # etiquetas para el subconjunto de entrenamiento
 ```
 
 ## Caso de uso (Iris)

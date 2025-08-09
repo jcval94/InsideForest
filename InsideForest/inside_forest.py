@@ -1,5 +1,7 @@
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.exceptions import NotFittedError
+from sklearn.utils.validation import check_is_fitted
 
 from .trees import Trees
 from .regions import Regions
@@ -63,7 +65,7 @@ class InsideForest:
         self.df_datos_explain_ = None
         self.frontiers_ = None
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None, rf=None):
         """Fit the internal RandomForest and compute cluster labels.
 
         Parameters
@@ -73,6 +75,11 @@ class InsideForest:
         y : array-like, optional
             Target vector. If not provided and ``X`` is a DataFrame containing
             ``var_obj``, that column will be used as the target.
+        rf : RandomForestClassifier, optional
+            Custom ``RandomForestClassifier`` instance to use during fitting.
+            If ``None``, the classifier created during initialization is used.
+            If the provided estimator is already trained, it will be used as
+            is without additional fitting.
 
         Raises
         ------
@@ -105,8 +112,15 @@ class InsideForest:
         X_df.columns = [str(c).replace(" ", "_") for c in X_df.columns]
         self.feature_names_ = list(X_df.columns)
 
-        # Train RandomForest
-        self.rf.fit(X=X_df, y=y)
+        # Allow passing a custom RandomForestClassifier
+        if rf is not None:
+            self.rf = rf
+
+        # Train RandomForest only if it has not been fitted already
+        try:
+            check_is_fitted(self.rf)
+        except NotFittedError:
+            self.rf.fit(X=X_df, y=y)
 
         # Build DataFrame including target for region extraction
         df = X_df.copy()
