@@ -152,3 +152,27 @@ def test_score_matches_rf_and_normalizes_input():
     X_norm.columns = [c.replace(" ", "_") for c in X_norm.columns]
     expected = model.rf.score(X_norm, y)
     assert model.score(X_messy, y) == expected
+
+
+def test_predict_missing_column_raises_value_error():
+    X = pd.DataFrame(data={"feat1": [0, 1, 2, 3], "feat2": [3, 2, 1, 0]})
+    y = [0, 1, 0, 1]
+    model = InsideForestClassifier(rf_params={"n_estimators": 5, "random_state": 0})
+    model.fit(X=X, y=y)
+
+    X_missing = X.drop(columns=["feat1"])
+    with pytest.raises(ValueError):
+        model.predict(X_missing)
+
+
+def test_predict_ignores_extra_columns():
+    X = pd.DataFrame(data={"feat1": [0, 1, 2, 3], "feat2": [3, 2, 1, 0]})
+    y = [0, 1, 0, 1]
+    model = InsideForestClassifier(rf_params={"n_estimators": 5, "random_state": 0})
+    model.fit(X=X, y=y)
+
+    X_extra = X.copy()
+    X_extra["extra_feat"] = [5, 6, 7, 8]
+    preds_with_extra = model.predict(X_extra)
+    preds = model.predict(X)
+    assert np.array_equal(preds, preds_with_extra)

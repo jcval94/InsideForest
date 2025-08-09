@@ -296,6 +296,12 @@ class _BaseInsideForest:
         if isinstance(X, pd.DataFrame):
             X_df = X.copy()
             X_df.columns = [str(c).replace(" ", "_") for c in X_df.columns]
+            # Validate required columns
+            missing = [c for c in self.feature_names_ if c not in X_df.columns]
+            if missing:
+                raise ValueError(
+                    "Missing required columns: " + ", ".join(missing)
+                )
             # Reorder/Subset columns to match training features
             X_df = X_df[self.feature_names_]
         else:
@@ -339,6 +345,11 @@ class _BaseInsideForest:
         if isinstance(X, pd.DataFrame):
             X_df = X.copy()
             X_df.columns = [str(c).replace(" ", "_") for c in X_df.columns]
+            missing = [c for c in self.feature_names_ if c not in X_df.columns]
+            if missing:
+                raise ValueError(
+                    "Missing required columns: " + ", ".join(missing)
+                )
             X_df = X_df[self.feature_names_]
         else:
             X_df = pd.DataFrame(data=X, columns=self.feature_names_)
