@@ -43,43 +43,26 @@ Run the comparative benchmark against KMeans and DBSCAN:
 python -m experiments.benchmark
 ```
 
-This command prints tables for each dataset with purity, macro F1,
-target-divergence and runtime. Datasets include Digits, Iris, Wine,
-Titanic and a synthetic large classification set. The following blocks
-show the results obtained in this environment (Titanic is omitted due to
-dataset download restrictions):
+This command prints tables for each dataset with purity, multiple F1
+scores, accuracy, information-theoretic metrics and runtime. Datasets
+include Digits, Iris, Wine and a synthetic large classification set. The
+following table shows the results obtained in this environment (Titanic
+is omitted due to dataset download restrictions):
 
-```
-=== Dataset: Digits ===
-            algorithm  purity   f1  divergence  runtime
-         InsideForest   0.216 0.00       0.279   46.973
-         KMeans(k=10)   0.673 0.62       0.711    0.034
-DBSCAN(eps=0.5,min=5)   0.102 0.00       0.000    0.009
-```
-
-```
-=== Dataset: Iris ===
-            algorithm  purity    f1  divergence  runtime
-         InsideForest   0.439 0.000       0.128    1.644
-          KMeans(k=3)   0.667 0.531       0.427    0.006
-DBSCAN(eps=0.5,min=5)   0.680 0.000       0.402    0.002
-```
-
-```
-=== Dataset: Wine ===
-            algorithm  purity    f1  divergence  runtime
-         InsideForest   0.397 0.000       0.029    3.542
-          KMeans(k=3)   0.966 0.967       0.628    0.003
-DBSCAN(eps=0.5,min=5)   0.399 0.000       0.000    0.002
-```
-
-```
-=== Dataset: SyntheticLarge ===
-            algorithm  purity    f1  divergence  runtime
-         InsideForest   0.202 0.000       0.002  226.617
-          KMeans(k=5)   0.408 0.405       0.277    0.025
-DBSCAN(eps=0.5,min=5)   0.201 0.000       0.000    0.074
-```
+| Dataset | Algorithm | Purity | Macro F1 | Accuracy | Nmi | Ami | Ari | Bcubed F1 | Divergence | Runtime |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Digits | InsideForest | 0.216 | 0.113 | 0.216 | 0.195 | 0.191 | 0.064 | 0.266 | 0.279 | 71.623 |
+| Digits | KMeans(k=10) | 0.673 | 0.620 | 0.666 | 0.672 | 0.669 | 0.531 | 0.633 | 0.711 | 0.049 |
+| Digits | DBSCAN(eps=0.5,min=5) | 0.102 | 0.018 | 0.102 | 0.000 | 0.000 | 0.000 | 0.182 | 0.000 | 0.013 |
+| Iris | InsideForest | 0.439 | 0.365 | 0.439 | 0.152 | 0.125 | 0.027 | 0.534 | 0.128 | 2.269 |
+| Iris | KMeans(k=3) | 0.667 | 0.531 | 0.580 | 0.590 | 0.584 | 0.433 | 0.710 | 0.427 | 0.003 |
+| Iris | DBSCAN(eps=0.5,min=5) | 0.680 | 0.674 | 0.680 | 0.511 | 0.505 | 0.442 | 0.651 | 0.402 | 0.003 |
+| Wine | InsideForest | 0.397 | 0.245 | 0.388 | 0.009 | -0.004 | 0.001 | 0.488 | 0.029 | 5.311 |
+| Wine | KMeans(k=3) | 0.966 | 0.967 | 0.966 | 0.876 | 0.875 | 0.897 | 0.937 | 0.628 | 0.003 |
+| Wine | DBSCAN(eps=0.5,min=5) | 0.399 | 0.190 | 0.399 | 0.000 | 0.000 | 0.000 | 0.509 | 0.000 | 0.003 |
+| SyntheticLarge | InsideForest | 0.202 | 0.071 | 0.202 | 0.000 | -0.000 | -0.000 | 0.333 | 0.002 | 340.066 |
+| SyntheticLarge | KMeans(k=5) | 0.408 | 0.405 | 0.408 | 0.151 | 0.150 | 0.114 | 0.292 | 0.277 | 0.082 |
+| SyntheticLarge | DBSCAN(eps=0.5,min=5) | 0.201 | 0.067 | 0.201 | 0.000 | 0.000 | 0.000 | 0.333 | 0.000 | 0.082 |
 
 Titanic results require downloading the dataset; run the benchmark
 locally with network access to reproduce them.

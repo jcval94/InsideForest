@@ -4,8 +4,9 @@ This script evaluates InsideForest against traditional baselines on two datasets
 - Digits (medium sized, 1,797 samples)
 - Synthetic large classification dataset (10,000 samples)
 
-For each dataset we report purity, macro F1-score, an additional
-*target-divergence* metric and runtime. Baselines include KMeans and DBSCAN.
+For each dataset we report a wide range of clustering metrics including
+purity, multiple F1 scores, accuracy, information-theoretic metrics,
+the *target-divergence* metric and runtime. Baselines include KMeans and DBSCAN.
 A basic sensitivity analysis is also provided for key hyperparameters: the
 number of clusters ``K`` for KMeans and ``eps`` / ``min_samples`` for DBSCAN.
 
@@ -40,13 +41,68 @@ import seaborn as sns
 from InsideForest import InsideForestClassifier
 
 
+def _contingency(y_true: np.ndarray, y_pred: np.ndarray):
+    """Return contingency matrix and label mappings."""
+
+    true_labels, true_inv = np.unique(y_true, return_inverse=True)
+    pred_labels, pred_inv = np.unique(y_pred, return_inverse=True)
+    C = metrics.cluster.contingency_matrix(true_inv, pred_inv)
+    return C, true_labels, pred_labels, true_inv, pred_inv
+
+
+def _purity_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    C, *_ = _contingency(y_true, y_pred)
+    return C.max(axis=0).sum() / C.sum()
+
+
+def _align_by_hungarian(y_true: np.ndarray, y_pred: np.ndarray):
+    C, true_labels, pred_labels, *_ = _contingency(y_true, y_pred)
+    row_ind, col_ind = linear_sum_assignment(-C)
+    mapping = {pred_labels[c]: true_labels[r] for r, c in zip(row_ind, col_ind)}
+    aligned = np.array([mapping.get(p, p) for p in y_pred])
+    return aligned, mapping
+
+
+def _f1_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    aligned, _ = _align_by_hungarian(y_true, y_pred)
+    labels_true = np.unique(y_true)
+    return metrics.f1_score(
+        y_true, aligned, average="macro", labels=labels_true, zero_division=0
+    )
+
+
+def _bcubed(y_true: np.ndarray, y_pred: np.ndarray):
+    C, _, _, true_inv, pred_inv = _contingency(y_true, y_pred)
+    C = np.asarray(C)
+    class_counts = C.sum(axis=1)
+    cluster_counts = C.sum(axis=0)
+    inter = C[true_inv, pred_inv]
+    prec_i = inter / cluster_counts[pred_inv]
+    rec_i = inter / class_counts[true_inv]
+    P, R = prec_i.mean(), rec_i.mean()
+    F = 0.0 if (P + R) == 0 else 2 * P * R / (P + R)
+    return float(P), float(R), float(F)
+
+
 @dataclass
 class Result:
     """Holds evaluation metrics for a single run."""
 
     algorithm: str
     purity: float
-    f1: float
+    macro_f1: float
+    weighted_f1: float
+    accuracy: float
+    homogeneity: float
+    completeness: float
+    v_measure: float
+    nmi: float
+    ami: float
+    ari: float
+    fowlkes_mallows: float
+    bcubed_precision: float
+    bcubed_recall: float
+    bcubed_f1: float
     divergence: float
     runtime: float
 
@@ -54,27 +110,22 @@ class Result:
         return {
             "algorithm": self.algorithm,
             "purity": self.purity,
-            "f1": self.f1,
+            "macro_f1": self.macro_f1,
+            "weighted_f1": self.weighted_f1,
+            "accuracy": self.accuracy,
+            "homogeneity": self.homogeneity,
+            "completeness": self.completeness,
+            "v_measure": self.v_measure,
+            "nmi": self.nmi,
+            "ami": self.ami,
+            "ari": self.ari,
+            "fowlkes_mallows": self.fowlkes_mallows,
+            "bcubed_precision": self.bcubed_precision,
+            "bcubed_recall": self.bcubed_recall,
+            "bcubed_f1": self.bcubed_f1,
             "divergence": self.divergence,
             "runtime": self.runtime,
         }
-
-
-def _purity_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    """Compute clustering purity."""
-
-    contingency = metrics.cluster.contingency_matrix(y_true, y_pred)
-    return np.sum(np.max(contingency, axis=0)) / np.sum(contingency)
-
-
-def _f1_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    """Align cluster labels with true labels and compute macro F1."""
-
-    contingency = metrics.cluster.contingency_matrix(y_true, y_pred)
-    row_ind, col_ind = linear_sum_assignment(-contingency)
-    mapping = {col: row for row, col in zip(row_ind, col_ind)}
-    aligned = np.array([mapping.get(c, c) for c in y_pred])
-    return metrics.f1_score(y_true, aligned, average="macro")
 
 
 def _target_divergence_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
@@ -96,11 +147,45 @@ def _target_divergence_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
 
 
 def _evaluate(y_true: np.ndarray, y_pred: np.ndarray, runtime: float, name: str) -> Result:
+    aligned, _ = _align_by_hungarian(y_true, y_pred)
+    labels_true = np.unique(y_true)
+
+    purity = _purity_score(y_true, y_pred)
+    macro_f1 = metrics.f1_score(
+        y_true, aligned, average="macro", labels=labels_true, zero_division=0
+    )
+    weighted_f1 = metrics.f1_score(
+        y_true, aligned, average="weighted", labels=labels_true, zero_division=0
+    )
+    acc = metrics.accuracy_score(y_true, aligned)
+
+    hom = metrics.homogeneity_score(y_true, y_pred)
+    comp = metrics.completeness_score(y_true, y_pred)
+    v = metrics.v_measure_score(y_true, y_pred)
+    nmi = metrics.normalized_mutual_info_score(y_true, y_pred)
+    ami = metrics.adjusted_mutual_info_score(y_true, y_pred)
+    ari = metrics.adjusted_rand_score(y_true, y_pred)
+    fm = metrics.fowlkes_mallows_score(y_true, y_pred)
+    bP, bR, bF = _bcubed(y_true, y_pred)
+    div = _target_divergence_score(y_true, y_pred)
+
     return Result(
         name,
-        _purity_score(y_true, y_pred),
-        _f1_score(y_true, y_pred),
-        _target_divergence_score(y_true, y_pred),
+        purity,
+        macro_f1,
+        weighted_f1,
+        acc,
+        hom,
+        comp,
+        v,
+        nmi,
+        ami,
+        ari,
+        fm,
+        bP,
+        bR,
+        bF,
+        div,
         runtime,
     )
 
@@ -211,9 +296,12 @@ def main() -> None:
     wine_X = _scale(wine_X)
     benchmark_dataset("Wine", wine_X, wine_y)
 
-    titanic_X, titanic_y = _load_titanic()
-    titanic_X = _scale(titanic_X)
-    benchmark_dataset("Titanic", titanic_X, titanic_y)
+    try:
+        titanic_X, titanic_y = _load_titanic()
+        titanic_X = _scale(titanic_X)
+        benchmark_dataset("Titanic", titanic_X, titanic_y)
+    except Exception as e:
+        print(f"\nSkipping Titanic dataset: {e}")
 
     X_large, y_large = make_classification(
         n_samples=10000,
