@@ -12,6 +12,11 @@ from .metadata import (
     experiments_from_df2,
     run_experiments,
 )
+from .cluster_selector import (
+    MenuClusterSelector,
+    balance_lists_n_clusters,
+    max_prob_clusters,
+)
 
 # Backward compatibility
 InsideForest = InsideForestClassifier
