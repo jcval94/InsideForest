@@ -32,9 +32,13 @@ class _BaseInsideForest:
     include_summary_cluster : bool, default False
         Whether to keep summary columns in the output of
         :meth:`Regions.labels`.
-    balanced : bool, default False
-        Use balanced assignment of cluster labels instead of probability based
-        assignment in :meth:`Regions.labels`.
+    method : str or None, optional
+        Strategy used to consolidate final cluster labels in
+        :meth:`Regions.labels`. Available options are ``"select_clusters"``
+        (default), ``"balance_lists_n_clusters"``, ``"max_prob_clusters"`` and
+        ``"menu"`` which leverages :class:`MenuClusterSelector`. When ``None``
+        or ``"select_clusters"`` the raw output of :func:`select_clusters` is
+        used.
     divide : int, default 5
         Value forwarded to :func:`get_frontiers` when computing cluster
         frontiers.
@@ -51,7 +55,7 @@ class _BaseInsideForest:
         var_obj="target",
         n_clusters=None,
         include_summary_cluster=False,
-        balanced=False,
+        method="select_clusters",
         divide=5,
         get_detail=False,
     ):
@@ -60,7 +64,7 @@ class _BaseInsideForest:
         self.var_obj = var_obj
         self.n_clusters = n_clusters
         self.include_summary_cluster = include_summary_cluster
-        self.balanced = balanced
+        self.method = method
         self.divide = divide
         self.get_detail = get_detail
 
@@ -97,7 +101,7 @@ class _BaseInsideForest:
             "var_obj": self.var_obj,
             "n_clusters": self.n_clusters,
             "include_summary_cluster": self.include_summary_cluster,
-            "balanced": self.balanced,
+            "method": self.method,
             "divide": self.divide,
             "get_detail": self.get_detail,
         }
@@ -136,7 +140,7 @@ class _BaseInsideForest:
                 "var_obj",
                 "n_clusters",
                 "include_summary_cluster",
-                "balanced",
+                "method",
                 "divide",
                 "get_detail",
             }:
@@ -222,8 +226,9 @@ class _BaseInsideForest:
                 df_reres=df_reres,
                 n_clusters=self.n_clusters,
                 include_summary_cluster=self.include_summary_cluster,
-                balanced=self.balanced,
+                method=self.method,
                 return_dfs=True,
+                var_obj=self.var_obj,
             )
             labels = pd.Series(labels).fillna(value=-1).to_numpy()
             self.labels_ = labels
@@ -241,8 +246,9 @@ class _BaseInsideForest:
                 df_reres=df_reres,
                 n_clusters=self.n_clusters,
                 include_summary_cluster=self.include_summary_cluster,
-                balanced=self.balanced,
+                method=self.method,
                 return_dfs=False,
+                var_obj=self.var_obj,
             )
             labels = pd.Series(labels).fillna(value=-1).to_numpy()
             self.labels_ = labels
@@ -344,8 +350,9 @@ class _BaseInsideForest:
             df_reres=self.df_reres_,
             n_clusters=self.n_clusters,
             include_summary_cluster=False,
-            balanced=self.balanced,
+            method=self.method,
             return_dfs=False,
+            var_obj=self.var_obj,
         )
         labels = pd.Series(labels).fillna(value=-1).to_numpy()
         return labels
@@ -400,7 +407,7 @@ class _BaseInsideForest:
             "var_obj": self.var_obj,
             "n_clusters": self.n_clusters,
             "include_summary_cluster": self.include_summary_cluster,
-            "balanced": self.balanced,
+            "method": self.method,
             "divide": self.divide,
             "get_detail": self.get_detail,
             "labels_": self.labels_,
@@ -409,6 +416,7 @@ class _BaseInsideForest:
             "df_reres_": self.df_reres_,
             "df_datos_explain_": self.df_datos_explain_,
             "frontiers_": self.frontiers_,
+            "menu_selector_": getattr(self.regions, "_menu_selector", None),
         }
         joblib.dump(payload, filepath)
 
@@ -434,7 +442,7 @@ class _BaseInsideForest:
             var_obj=payload["var_obj"],
             n_clusters=payload["n_clusters"],
             include_summary_cluster=payload["include_summary_cluster"],
-            balanced=payload["balanced"],
+            method=payload.get("method", "select_clusters"),
             divide=payload["divide"],
             get_detail=payload.get("get_detail", False),
         )
@@ -445,6 +453,8 @@ class _BaseInsideForest:
         model.df_reres_ = payload["df_reres_"]
         model.df_datos_explain_ = payload["df_datos_explain_"]
         model.frontiers_ = payload["frontiers_"]
+        if "menu_selector_" in payload:
+            model.regions._menu_selector = payload["menu_selector_"]
         return model
 
 
@@ -459,7 +469,7 @@ class InsideForestClassifier(_BaseInsideForest):
         var_obj="target",
         n_clusters=None,
         include_summary_cluster=False,
-        balanced=False,
+        method="select_clusters",
         divide=5,
         get_detail=False,
     ):
@@ -470,7 +480,7 @@ class InsideForestClassifier(_BaseInsideForest):
             var_obj=var_obj,
             n_clusters=n_clusters,
             include_summary_cluster=include_summary_cluster,
-            balanced=balanced,
+            method=method,
             divide=divide,
             get_detail=get_detail,
         )
@@ -487,7 +497,7 @@ class InsideForestRegressor(_BaseInsideForest):
         var_obj="target",
         n_clusters=None,
         include_summary_cluster=False,
-        balanced=False,
+        method="select_clusters",
         divide=5,
         get_detail=False,
     ):
@@ -498,7 +508,7 @@ class InsideForestRegressor(_BaseInsideForest):
             var_obj=var_obj,
             n_clusters=n_clusters,
             include_summary_cluster=include_summary_cluster,
-            balanced=balanced,
+            method=method,
             divide=divide,
             get_detail=get_detail,
         )

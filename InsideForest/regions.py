@@ -22,7 +22,12 @@ from scipy.cluster.hierarchy import linkage, fcluster
 from scipy.spatial import cKDTree
 from scipy import sparse
 import logging
-from .cluster_selector import balance_lists_n_clusters, max_prob_clusters, select_clusters
+from .cluster_selector import (
+    MenuClusterSelector,
+    balance_lists_n_clusters,
+    max_prob_clusters,
+    select_clusters,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1589,10 +1594,11 @@ class Regions:
     return df_clusterizado_add.drop(columns='clusters_key')
 
 
-  def labels(self, df, df_reres, n_clusters = None,
+  def labels(self, df, df_reres, n_clusters=None,
              include_summary_cluster=False,
-             balanced=False,
-             return_dfs=True):
+             method=None,
+             return_dfs=True,
+             var_obj="target"):
     """Assign cluster labels by selecting and applying rules.
 
     Parameters
@@ -1606,9 +1612,15 @@ class Regions:
     include_summary_cluster : bool, default False
         When ``True`` additional summary metrics per cluster are kept in the
         output.
-    balanced : bool, default False
-        Use balanced assignment of cluster labels instead of probability based
-        assignment.
+    method : str or None, optional
+        Cluster selection strategy. Available options are
+        ``"select_clusters"`` (default), ``"balance_lists_n_clusters"``,
+        ``"max_prob_clusters"`` and ``"menu"`` which applies
+        :class:`MenuClusterSelector`. If ``None`` or ``"select_clusters"`` the
+        direct output of :func:`select_clusters` is used.
+    var_obj : str, default "target"
+        Name of the target column in ``df`` used by supervised methods such as
+        ``"menu"``.
     return_dfs : bool, default True
         When ``True`` return both the clustered DataFrame and the cluster
         description. If ``False`` only the computed labels are returned.
@@ -1639,20 +1651,45 @@ class Regions:
     #   df_datos_clusterizados = self.get_clusters_importantes(df_datos_clusterizados)
     
     records = df_datos_clusterizados['clusters_list'].tolist()
-    probas = {int(a):float(b) for a, b in 
-              df_clusters_descripcion[['cluster','cluster_ef_sample']].drop_duplicates().values}
-    
+    probas = {
+        int(a): float(b)
+        for a, b in df_clusters_descripcion[['cluster', 'cluster_ef_sample']]
+        .drop_duplicates()
+        .values
+    }
+
     # Estandarizar la efectividad
     df_clusters_descripcion['cluster_ef_sample'] /= df_clusters_descripcion['cluster_ef_sample'].max()
     df_clusters_descripcion['cluster_ef_sample'] = abs(df_clusters_descripcion['cluster_ef_sample'])
 
+    y = (
+        df_datos_clusterizados[var_obj].tolist()
+        if var_obj in df_datos_clusterizados.columns
+        else None
+    )
+
     # Tratamiento de los clusters para agregar n_cluster
-    if balanced:
+    if method == "balance_lists_n_clusters":
       labels = balance_lists_n_clusters(records=records,
                                         n_clusters=n_clusters, seed=1)
-    else:
+    elif method == "max_prob_clusters":
       labels = max_prob_clusters(records=records, probs=probas,
                                  n_clusters=n_clusters, seed=1)
+    elif method in ("menu", "MenuClusterSelector", "menu_cluster_selector"):
+      selector = getattr(self, "_menu_selector", None)
+      if y is not None:
+        selector = MenuClusterSelector()
+        selector.fit(records, y)
+        self._menu_selector = selector
+      elif selector is None:
+        raise RuntimeError(
+            "MenuClusterSelector not fitted; provide data with target first"
+        )
+      labels = selector.predict(records, n_clusters=n_clusters)
+    elif method is None or method == "select_clusters":
+      labels = df_datos_clusterizados['cluster'].tolist()
+    else:
+      raise ValueError(f"Unknown method '{method}'")
     
     if return_dfs:
        if not include_summary_cluster:

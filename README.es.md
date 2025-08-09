@@ -115,6 +115,14 @@ pred_labels = in_f.predict(X_rest)  # etiquetas de cluster para los datos restan
 etiquetas_entrenamiento = in_f.labels_  # etiquetas para el subconjunto de entrenamiento
 ```
 
+Puedes controlar cómo se eligen las etiquetas finales mediante el parámetro
+`method`. Las estrategias disponibles son:
+
+- `"select_clusters"`: selección directa basada en reglas (por defecto)
+- `"balance_lists_n_clusters"`: balancea el número de asignaciones por clúster
+- `"max_prob_clusters"`: prioriza los clústers con mayor probabilidad
+- `"menu"`: aplica `MenuClusterSelector` para maximizar un objetivo informativo global
+
 Después del ajuste, puedes consultar las importancias de las variables del
 bosque aleatorio y visualizarlas opcionalmente:
 

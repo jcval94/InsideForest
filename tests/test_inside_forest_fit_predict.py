@@ -68,15 +68,33 @@ def test_custom_label_and_frontier_params():
         rf_params={'n_estimators': 5, 'random_state': 0},
         n_clusters=2,
         include_summary_cluster=True,
-        balanced=True,
+        method="balance_lists_n_clusters",
         divide=3,
     )
     model.fit(X=df)
     assert model.n_clusters == 2
     assert model.include_summary_cluster is True
-    assert model.balanced is True
+    assert model.method == "balance_lists_n_clusters"
     assert model.divide == 3
     assert model.labels_.shape[0] == len(df)
+
+
+def test_menu_cluster_selector_runs():
+    df = pd.DataFrame(
+        data={
+            'feat1': [0, 1, 2, 3],
+            'feat2': [3, 2, 1, 0],
+            'target': [0, 1, 0, 1],
+        }
+    )
+    model = InsideForestClassifier(
+        rf_params={'n_estimators': 5, 'random_state': 0},
+        n_clusters=2,
+        method="menu",
+    )
+    model.fit(X=df)
+    preds = model.predict(X=df[['feat1', 'feat2']])
+    assert preds.shape == (4,)
 
 
 def test_fit_accepts_custom_rf_instance():

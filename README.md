@@ -114,6 +114,14 @@ pred_labels = in_f.predict(X_rest)  # cluster labels for the remaining data
 training_labels = in_f.labels_  # labels for the training subset
 ```
 
+You can control how final cluster labels are consolidated through the
+`method` parameter. Available strategies are:
+
+- `"select_clusters"`: direct rule-based selection (default)
+- `"balance_lists_n_clusters"`: balance cluster assignments
+- `"max_prob_clusters"`: favor clusters with higher probabilities
+- `"menu"`: apply `MenuClusterSelector` to maximize an information-theoretic objective
+
 After fitting, you can inspect the random forest's feature importances and
 optionally visualize them:
 
