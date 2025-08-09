@@ -12,7 +12,7 @@ def test_get_params_returns_init_values():
         tree_params={"lang": "python"},
         n_clusters=2,
         include_summary_cluster=True,
-        balanced=True,
+        method="balance_lists_n_clusters",
         divide=3,
         get_detail=True,
     )
@@ -21,7 +21,7 @@ def test_get_params_returns_init_values():
     assert params["tree_params"]["lang"] == "python"
     assert params["n_clusters"] == 2
     assert params["include_summary_cluster"] is True
-    assert params["balanced"] is True
+    assert params["method"] == "balance_lists_n_clusters"
     assert params["divide"] == 3
     assert params["get_detail"] is True
 
@@ -41,6 +41,12 @@ def test_set_params_updates_attributes():
 
     model.set_params(get_detail=True)
     assert model.get_detail is True
+
+    model.set_params(method="max_prob_clusters")
+    assert model.method == "max_prob_clusters"
+
+    model.set_params(method="menu")
+    assert model.method == "menu"
 
     with pytest.raises(ValueError):
         model.set_params(unknown=1)
