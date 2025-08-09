@@ -139,3 +139,14 @@ def test_feature_importances_and_plot():
 
     ax = model.plot_importances()
     assert isinstance(ax, matplotlib.axes.Axes)
+
+
+def test_predict_missing_columns_raises():
+    X_train = pd.DataFrame(data={"feat1": [0, 1], "feat2": [1, 0]})
+    y = [0, 1]
+    model = InsideForestClassifier(rf_params={"n_estimators": 5, "random_state": 0})
+    model.fit(X=X_train, y=y)
+
+    X_missing = pd.DataFrame(data={"feat1": [0, 1]})
+    with pytest.raises(ValueError, match="feat2"):
+        model.predict(X=X_missing)
