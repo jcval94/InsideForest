@@ -1,9 +1,106 @@
 from __future__ import annotations
 from typing import Any, Dict, List, Sequence, Tuple, Mapping
 import numpy as np
+import pandas as pd
 from collections import defaultdict, Counter
 import random
 import math
+
+
+def select_clusters(
+    df_datos: pd.DataFrame,
+    df_reglas: pd.DataFrame,
+    keep_all_clusters: bool = True,
+):
+    """Determine cluster assignments for each record based on rules.
+
+    Parameters
+    ----------
+    df_datos : pd.DataFrame
+        DataFrame containing the data to assign to clusters.
+    df_reglas : pd.DataFrame
+        DataFrame defining the rules with MultiIndex columns where:
+          - Lower limits are under first level 'linf'
+          - Upper limits are under first level 'lsup'
+          - Weight is stored at ('metrics', 'ponderador')
+          - The 'cluster' column appears normally.
+    keep_all_clusters : bool, optional
+        If True, also store all clusters and their weights satisfied by each
+        record. Otherwise, only the main cluster (highest weight) is kept.
+
+    Returns
+    -------
+    clusters_datos : np.ndarray
+        Array with the selected cluster for each record (-1 if none).
+    clusters_datos_all : list[list[float]] | None
+        For each record, list of clusters it belongs to (only if
+        ``keep_all_clusters``).
+    ponderadores_datos_all : list[list[float]] | None
+        For each record, list of weights corresponding to
+        ``clusters_datos_all`` (only if ``keep_all_clusters``).
+    """
+
+    n_datos = df_datos.shape[0]
+    clusters_datos = np.full(n_datos, -1, dtype=float)
+    ponderador_datos = np.full(n_datos, -np.inf, dtype=float)
+    clusters_datos_all = [[] for _ in range(n_datos)] if keep_all_clusters else None
+    ponderadores_datos_all = [[] for _ in range(n_datos)] if keep_all_clusters else None
+
+    reglas_info = []
+    for _, row in df_reglas.iterrows():
+        if row[('metrics', 'ponderador')] == 0:
+            continue
+        linf = row['linf'].dropna()
+        lsup = row['lsup'].dropna()
+        variables = linf.index.tolist()
+
+        p_val = row[('metrics', 'ponderador')]
+        ponderador = p_val.mean() if hasattr(p_val, '__iter__') else p_val
+
+        cluster_raw = row['cluster']
+        if hasattr(cluster_raw, 'values') and len(cluster_raw.values) == 1:
+            cluster_raw = float(cluster_raw.values[0])
+        else:
+            cluster_raw = float(cluster_raw)
+
+        reglas_info.append(
+            {
+                'variables': variables,
+                'linf': linf.to_dict(),
+                'lsup': lsup.to_dict(),
+                'ponderador': ponderador,
+                'cluster': cluster_raw,
+            }
+        )
+
+    for regla in reglas_info:
+        variables = regla['variables']
+        linf = regla['linf']
+        lsup = regla['lsup']
+        ponderador = regla['ponderador']
+        cluster = regla['cluster']
+
+        X_datos = df_datos[variables]
+        condiciones = [
+            (X_datos[var].to_numpy() >= linf[var]) & (X_datos[var].to_numpy() <= lsup[var])
+            for var in variables
+        ]
+        if condiciones:
+            cumple_regla = np.logical_and.reduce(condiciones)
+        else:
+            cumple_regla = np.zeros(n_datos, dtype=bool)
+
+        if keep_all_clusters:
+            indices_cumple = np.where(cumple_regla)[0]
+            for i in indices_cumple:
+                clusters_datos_all[i].append(cluster)
+                ponderadores_datos_all[i].append(ponderador)
+
+        actualizar = cumple_regla & (ponderador > ponderador_datos)
+        clusters_datos[actualizar] = cluster
+        ponderador_datos[actualizar] = ponderador
+
+    return clusters_datos, clusters_datos_all, ponderadores_datos_all
 
 
 class MenuClusterSelector:
