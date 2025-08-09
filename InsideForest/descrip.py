@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-import copy
 import json
 import logging
 import os
@@ -160,6 +159,104 @@ def replace_with_dict(df, columns, var_rename):
     return df_replaced, replace_info
 
 
+def _prepare_cluster_data(
+    df_datos_descript: pd.DataFrame,
+    df_datos_clusterizados: pd.DataFrame,
+    targets: List[str],
+):
+    """Compute cluster statistics and auxiliary tables."""
+
+    sorted_descriptions = df_datos_descript.sort_values(
+        "cluster_ponderador", ascending=False
+    )
+    clusters_with_desc = df_datos_clusterizados.merge(
+        sorted_descriptions, on="cluster", how="left"
+    )
+    class_cluster_counts = (
+        clusters_with_desc.groupby([targets[0], "cluster"]).size().unstack(fill_value=0)
+    )
+    global_positive_rate = (
+        clusters_with_desc[targets[0]].value_counts(normalize=True).loc[1]
+    )
+    cluster_totals = class_cluster_counts.sum(axis=0)
+    class1_rate_by_cluster = (
+        class_cluster_counts / class_cluster_counts.sum(axis=0)
+    ).loc[1]
+    class1_ratio = class1_rate_by_cluster / global_positive_rate
+    class1_ratio.name = 0
+    cluster_totals.name = 1
+    cluster_stats = pd.concat([class1_ratio, cluster_totals], axis=1).sort_values(
+        by=0, ascending=False
+    )
+    valuable_clusters = cluster_stats[cluster_stats[1] > 1].copy()
+    return (
+        sorted_descriptions,
+        class_cluster_counts,
+        class1_rate_by_cluster,
+        cluster_stats,
+        valuable_clusters,
+    )
+
+
+def _scale_clusters(cluster_df: pd.DataFrame) -> pd.DataFrame:
+    """Scale numeric columns and add an importance metric."""
+
+    scaled_clusters = cluster_df.copy()
+    numeric_cols = scaled_clusters.select_dtypes(include=np.number).columns
+    scaler = StandardScaler()
+    scaled_clusters[numeric_cols] = scaler.fit_transform(scaled_clusters[numeric_cols])
+    scaled_clusters["importancia"] = scaled_clusters.sum(axis=1)
+    return scaled_clusters
+
+
+def _compute_inflection_points(
+    cluster_stats: pd.DataFrame,
+    scaled_clusters: pd.DataFrame,
+    inflex_pond_sup: float,
+    inflex_pond_inf: float,
+):
+    """Mark clusters considered good based on inflection points."""
+
+    first_inflection = primer_punto_inflexion_decreciente(
+        scaled_clusters[0], bins=20, window_length=5, polyorder=2
+    )
+    second_inflection = primer_punto_inflexion_decreciente(
+        scaled_clusters[1], bins=20, window_length=5, polyorder=2
+    )
+    good_mask = (cluster_stats[1] > 1) & (
+        (cluster_stats[0] > (first_inflection * inflex_pond_sup))
+        | (cluster_stats[1] > second_inflection)
+        | (cluster_stats[0] < inflex_pond_inf)
+    )
+    cluster_stats = cluster_stats.copy()
+    cluster_stats["buenos"] = np.where(good_mask, 1, 0)
+    return cluster_stats, first_inflection, second_inflection
+
+
+def _merge_outputs(
+    df_datos_descript: pd.DataFrame,
+    class1_rate_by_cluster: pd.Series,
+    cluster_stats: pd.DataFrame,
+    var_rename: Dict[str, str],
+):
+    """Merge descriptive data with computed cluster statistics."""
+
+    final_descriptions = df_datos_descript.copy()
+    final_descriptions, _ = replace_with_dict(
+        final_descriptions, ["cluster_descripcion"], var_rename
+    )
+    final_descriptions = final_descriptions.merge(
+        class1_rate_by_cluster.reset_index(), on="cluster", how="left"
+    )
+    final_descriptions = final_descriptions.merge(
+        cluster_stats.reset_index(), on="cluster", how="left"
+    )
+    final_descriptions = final_descriptions.rename(
+        columns={"1_x": "Probabilidad", "1_y": "N_probabilidad", 0: "Soporte"}
+    )
+    return final_descriptions.drop(columns=["cluster_ponderador"])
+
+
 def get_descripciones_valiosas(
     df_datos_descript,
     df_datos_clusterizados,
@@ -168,117 +265,23 @@ def get_descripciones_valiosas(
     inflex_pond_sup=0.4,
     inflex_pond_inf=0.5,
 ):
-    """
-    Modified version where the final result is not filtered,
-    but a column 'buenos' is added with value 1 or 0
-    according to the same inflection criteria used previously.
-    """
+    """Return cluster descriptions with a flag for relevant clusters."""
 
-    # --- 1) Ordenamos df_datos_descript ---
-    df_datos_descript = df_datos_descript.sort_values(
-        "cluster_ponderador", ascending=False
+    (
+        sorted_descriptions,
+        stacked_data,
+        class1_rate_by_cluster,
+        cluster_stats,
+        valuable_clusters,
+    ) = _prepare_cluster_data(df_datos_descript, df_datos_clusterizados, TARGETS)
+    scaled_clusters = _scale_clusters(valuable_clusters)
+    cluster_stats, _, _ = _compute_inflection_points(
+        cluster_stats, scaled_clusters, inflex_pond_sup, inflex_pond_inf
     )
-
-    # --- 2) Merge para tener descripciones en df clusterizados ---
-    df_datos_clusterizados_desc = df_datos_clusterizados.merge(
-        df_datos_descript, on="cluster", how="left"
+    final_df = _merge_outputs(
+        sorted_descriptions, class1_rate_by_cluster, cluster_stats, var_rename
     )
-
-    # --- 3) Generamos la matriz (unstack) para conteo de TARGETS[0] vs cluster ---
-    stacked_data = (
-        df_datos_clusterizados_desc.groupby([TARGETS[0], "cluster"])
-        .size()
-        .unstack(fill_value=0)
-    )
-
-    # Real proportion of class 1 in the entire dataset
-    proporcion_real = (
-        df_datos_clusterizados_desc[TARGETS[0]].value_counts(normalize=True).loc[1]
-    )
-
-    # Conteo total por cada cluster
-    stacked_data_total = stacked_data.sum(axis=0)
-
-    # Proportion of class 1 in each cluster relative to its total
-    # (i.e., #1 in cluster / total cluster)
-    proprcin_ = (stacked_data / stacked_data.sum(axis=0)).loc[1]
-
-    # --- 4) Create a dataframe with ratio and support ---
-    #     Indexes are clusters. Column[0] = (cluster proportion / global proportion)
-    #     En la col[1] = total de ese cluster
-    los_custers = pd.concat([proprcin_ / proporcion_real, stacked_data_total], axis=1)
-    # Sort by first column (index 0) descending
-    los_custers = los_custers.sort_values(by=0, ascending=False)
-
-    # --- 5) Hacemos una copia de los_custers para usarla completa,
-    #     then generate "valuable" version (with [1] > 1).
-    los_custers_original = los_custers.copy()
-    los_custers_valiosos = los_custers_original[los_custers_original[1] > 1].copy()
-
-    # --- 6) Scale numeric columns in "los_custers_valiosos" ---
-    numeric_cols = los_custers_valiosos.select_dtypes(include=np.number).columns
-    scaler = StandardScaler()
-    los_custers_valiosos[numeric_cols] = scaler.fit_transform(
-        los_custers_valiosos[numeric_cols]
-    )
-
-    # --- 7) Copy scaled DF to calculate 'importance' and inflection points ---
-    los_custers_valiosos_original = copy.deepcopy(los_custers_valiosos)
-
-    # Sumamos todas las columnas como "importancia" (en este caso col 0 y col 1, ya escaladas)
-    los_custers_valiosos_original["importancia"] = los_custers_valiosos.sum(axis=1)
-    # (No se usa el sort_values("importancia") para filtrar nada, pero lo dejamos si deseas inspeccionarlo)
-    # los_custers_valiosos_original = los_custers_valiosos_original.sort_values('importancia', ascending=False)
-
-    # --- 8) Calculate inflection points on columns 0 and 1 (already scaled) ---
-    #     assumes "primer_punto_inflexion_decreciente" is defined elsewhere.
-    punto = primer_punto_inflexion_decreciente(
-        los_custers_valiosos_original[0], bins=20, window_length=5, polyorder=2
-    )
-    punto_1 = primer_punto_inflexion_decreciente(
-        los_custers_valiosos_original[1], bins=20, window_length=5, polyorder=2
-    )
-
-    cond_buenos = (los_custers_original[1] > 1) & (  # (1) total > 1
-        (los_custers_original[0] > (punto * inflex_pond_sup))  # (2a)
-        | (los_custers_original[1] > punto_1)  # (2b)
-        | (los_custers_original[0] < inflex_pond_inf)  # (2c)
-    )
-
-    # Add a "buenos" column to los_custers_original
-    los_custers_original["buenos"] = np.where(cond_buenos, 1, 0)
-
-    # --- 10) Build the final DataFrame with all rows and the new column ---
-    # 1) Copy df_datos_descript so the original remains untouched
-    df_datos_descript_valiosas = df_datos_descript.copy()
-
-    # 2) Replace, if applicable, text in "cluster_descripcion" according to var_rename
-    df_datos_descript_valiosas, _ = replace_with_dict(
-        df_datos_descript_valiosas, ["cluster_descripcion"], var_rename
-    )
-
-    # 3) Merge probability (proprcin_) => col 0 = (cluster proportion / global proportion)
-    #    NOTE: in the final output this will be renamed to "Soporte" or any name you prefer
-    df_datos_descript_valiosas = df_datos_descript_valiosas.merge(
-        proprcin_.reset_index(), on="cluster", how="left"
-    )
-
-    # 4) Merge los_custers_original to obtain col[0], col[1], and the new 'buenos' column
-    df_datos_descript_valiosas = df_datos_descript_valiosas.merge(
-        los_custers_original.reset_index(), on="cluster", how="left"
-    )
-
-    # 5) Rename duplicated columns from the merge
-    df_datos_descript_valiosas = df_datos_descript_valiosas.rename(
-        columns={
-            "1_x": "Probabilidad",  # Proportion of class 1 in that cluster
-            "1_y": "N_probabilidad",  # Total count of the cluster
-            0: "Soporte",  # Ratio (prop.cluster / prop.global)
-        }
-    )
-
-    # 6) Return the final DataFrame (with 'buenos') and the stacked_data table
-    return df_datos_descript_valiosas.drop(columns=["cluster_ponderador"]), stacked_data
+    return final_df, stacked_data
 
 
 def generate_descriptions(
