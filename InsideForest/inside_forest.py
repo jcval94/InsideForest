@@ -1,5 +1,7 @@
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.exceptions import NotFittedError
+from sklearn.utils.validation import check_is_fitted
 
 from .trees import Trees
 from .regions import Regions
@@ -76,6 +78,8 @@ class InsideForest:
         rf : RandomForestClassifier, optional
             Custom ``RandomForestClassifier`` instance to use during fitting.
             If ``None``, the classifier created during initialization is used.
+            If the provided estimator is already trained, it will be used as
+            is without additional fitting.
 
         Raises
         ------
@@ -112,8 +116,11 @@ class InsideForest:
         if rf is not None:
             self.rf = rf
 
-        # Train RandomForest
-        self.rf.fit(X=X_df, y=y)
+        # Train RandomForest only if it has not been fitted already
+        try:
+            check_is_fitted(self.rf)
+        except NotFittedError:
+            self.rf.fit(X=X_df, y=y)
 
         # Build DataFrame including target for region extraction
         df = X_df.copy()
