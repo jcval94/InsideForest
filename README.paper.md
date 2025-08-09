@@ -10,6 +10,19 @@ El clustering tradicional intenta descubrir grupos homogéneos sin considerar la
 - Generar reglas explícitas y comprensibles para cada conglomerado.
 - Facilitar acciones de negocio o ciencia de datos basadas en segmentos bien definidos.
 
+### Objetivos y formulación del problema
+Sea un conjunto de datos $D = \{(x_i, y_i)\}_{i=1}^n$, donde cada vector de características $x_i \in \mathbb{R}^d$ y su etiqueta correspondiente $y_i$ pertenece al conjunto finito de clases $\{1,\ldots,K\}$. El objetivo del **clustering supervisado** es encontrar una partición $\mathcal{C} = \{C_1,\ldots,C_M\}$ de $D$ tal que cada cluster $C_m$ agrupe observaciones con patrones homogéneos respecto a $y_i$ y pueda describirse mediante reglas interpretables.
+
+Las hipótesis a evaluar son:
+
+1. Las regiones identificadas por InsideForest alcanzan una pureza media significativamente superior a la proporción base de las clases.
+2. La cobertura de los clusters válidos sobre el conjunto de datos es suficientemente alta para apoyar análisis posteriores.
+
+El éxito del método se medirá con los siguientes criterios cuantitativos:
+
+- $\text{pureza media} \geq 0.80$.
+- $\text{cobertura} \geq 70\%$ de las observaciones de $D$ asignadas a clusters.
+
 ## 2. Fundamentos teóricos
 ### 2.1 Bosques de decisión
 Sea un conjunto de datos $D = \{(x_i, y_i)\}_{i=1}^n$ con $x_i \in \mathbb{R}^d$ y $y_i$ una etiqueta discreta en $\{1,\ldots,K\}$. Un árbol de decisión particiona recursivamente el espacio de variables buscando maximizar la ganancia de información. En cada nodo se evalúan posibles divisiones $(j, t)$, donde $j$ es el índice de la característica y $t$ un umbral, y se selecciona la que reduce más la impureza:
