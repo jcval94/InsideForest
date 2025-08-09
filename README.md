@@ -75,6 +75,14 @@ computations by using a precomputed matrix and a binary search over
 averaged **0.061 s** per call, while the optimized version completed in
 **0.044 s**, yielding roughly a **1.4× speedup**.
 
+### RandomForest hyperparameter sweep
+
+We evaluated 20 `RandomForest` configurations varying `n_estimators`
+from 5 to 100 in steps of 5 and `max_depth` in {2, 4, 6, 8, 10, None} on
+the **Iris** dataset (30 samples). The best setting (`n_estimators=35`,
+`max_depth=2`) reached a purity of **0.90** and macro-F1 of **0.85**.
+Complete results are available in `rf_results.csv`.
+
 ## Basic workflow
 The typical order for applying InsideForest is:
 1. Train a decision forest or `RandomForest` model.
