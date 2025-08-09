@@ -74,6 +74,14 @@ pred_labels = in_f.predict(X_rest)  # cluster labels for the remaining data
 training_labels = in_f.labels_  # labels for the training subset
 ```
 
+After fitting, you can inspect the random forest's feature importances and
+optionally visualize them:
+
+```python
+importances = in_f.feature_importances_
+ax = in_f.plot_importances()
+```
+
 ### Saving and loading models
 
 Both `InsideForestClassifier` and `InsideForestRegressor` include

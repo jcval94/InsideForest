@@ -126,3 +126,19 @@ def test_save_and_load_roundtrip(tmp_path):
     assert np.array_equal(model.labels_, loaded.labels_)
     assert np.array_equal(preds, loaded_preds)
 
+
+def test_feature_importances_and_plot():
+    X = pd.DataFrame(data={"feat1": [0, 1, 2, 3], "feat2": [3, 2, 1, 0]})
+    y = [0.1, 0.2, 0.3, 0.4]
+    model = InsideForestRegressor(rf_params={"n_estimators": 5, "random_state": 0})
+    model.fit(X=X, y=y)
+
+    importances = model.feature_importances_
+    assert isinstance(importances, np.ndarray)
+    assert importances.shape[0] == X.shape[1]
+
+    import matplotlib.axes
+
+    ax = model.plot_importances()
+    assert isinstance(ax, matplotlib.axes.Axes)
+
