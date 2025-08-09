@@ -123,3 +123,19 @@ def test_save_and_load_roundtrip(tmp_path):
 
     assert np.array_equal(model.labels_, loaded.labels_)
     assert np.array_equal(preds, loaded_preds)
+
+
+def test_score_normalizes_dataframe_like_predict():
+    X = pd.DataFrame(data={"feat 1": [0, 1, 2, 3], "feat 2": [3, 2, 1, 0]})
+    y = [0, 1, 0, 1]
+    model = InsideForestClassifier(rf_params={"n_estimators": 5, "random_state": 0})
+    model.fit(X=X, y=y)
+
+    # Reorder columns and keep spaces to exercise normalization logic
+    X_test = X[["feat 2", "feat 1"]]
+    score = model.score(X_test, y)
+
+    X_norm = X.copy()
+    X_norm.columns = ["feat_1", "feat_2"]
+    expected = model.rf.score(X_norm, y)
+    assert score == pytest.approx(expected)

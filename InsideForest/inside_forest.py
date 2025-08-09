@@ -193,6 +193,41 @@ class _BaseInsideForest:
         df_clusterizado["cluster"] = df_clusterizado["cluster"].fillna(value=-1)
         return df_clusterizado["cluster"].to_numpy()
 
+    def score(self, X, y):
+        """Compute the underlying forest's score on the provided data.
+
+        This delegates to :meth:`self.rf.score` after applying the same
+        column normalization performed in :meth:`predict`. The exact metric
+        returned depends on the type of the wrapped random forest (e.g.,
+        accuracy for classifiers or :math:`R^2` for regressors).
+
+        Parameters
+        ----------
+        X : array-like or pandas.DataFrame
+            Feature matrix. If a DataFrame is given, its columns are renamed
+            by replacing spaces with underscores and re-ordered to match the
+            training data.
+        y : array-like
+            Target vector.
+
+        Returns
+        -------
+        float
+            Score computed by the underlying random forest estimator.
+        """
+
+        if self.feature_names_ is None:
+            raise RuntimeError("InsideForest instance is not fitted yet")
+
+        if isinstance(X, pd.DataFrame):
+            X_df = X.copy()
+            X_df.columns = [str(c).replace(" ", "_") for c in X_df.columns]
+            X_df = X_df[self.feature_names_]
+        else:
+            X_df = pd.DataFrame(data=X, columns=self.feature_names_)
+
+        return self.rf.score(X_df, y)
+
     def save(self, filepath: str):
         """Save the fitted model and derived attributes to ``filepath``.
 
