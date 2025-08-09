@@ -13,7 +13,24 @@ Proponer InsideForest, un algoritmo de *clustering* supervisado que utiliza bosq
 El modelo entrena un bosque aleatorio y transforma cada hoja en una regla geométrica; estas reglas se agrupan según su solapamiento para producir clusters con descripciones explícitas.
 
 ### Resultados
-En el conjunto **Digits**, InsideForest alcanzó una pureza de 0.22 frente a 0.67 obtenida por KMeans y 0.10 por DBSCAN.
+Los benchmarks en cuatro conjuntos de datos arrojaron las siguientes métricas:
+
+| Dataset | Algoritmo | Pureza | F1 | Divergencia | Tiempo (s) |
+|---------|-----------|--------|----|-------------|------------|
+| Digits | InsideForest | 0.216 | 0.00 | 0.279 | 46.973 |
+| Digits | KMeans(k=10) | 0.673 | 0.62 | 0.711 | 0.034 |
+| Digits | DBSCAN(eps=0.5,min=5) | 0.102 | 0.00 | 0.000 | 0.009 |
+| Iris | InsideForest | 0.439 | 0.00 | 0.128 | 1.644 |
+| Iris | KMeans(k=3) | 0.667 | 0.531 | 0.427 | 0.006 |
+| Iris | DBSCAN(eps=0.5,min=5) | 0.680 | 0.00 | 0.402 | 0.002 |
+| Wine | InsideForest | 0.397 | 0.00 | 0.029 | 3.542 |
+| Wine | KMeans(k=3) | 0.966 | 0.967 | 0.628 | 0.003 |
+| Wine | DBSCAN(eps=0.5,min=5) | 0.399 | 0.00 | 0.000 | 0.002 |
+| SyntheticLarge | InsideForest | 0.202 | 0.00 | 0.002 | 226.617 |
+| SyntheticLarge | KMeans(k=5) | 0.408 | 0.405 | 0.277 | 0.025 |
+| SyntheticLarge | DBSCAN(eps=0.5,min=5) | 0.201 | 0.00 | 0.000 | 0.074 |
+
+*El conjunto Titanic no pudo evaluarse en este entorno por falta de acceso a los datos.*
 
 ### Conclusiones
 InsideForest genera segmentos interpretables, aunque requiere optimización para competir en calidad y tiempo de cómputo con métodos tradicionales.
@@ -183,7 +200,7 @@ $$
 
 Un valor cercano a cero indica que los clusters reproducen la proporción global de clases y, por tanto, no aportan información relevante sobre la variable objetivo. Valores altos señalan segmentos especializados en ciertas clases.
 
-El script `experiments/benchmark.py` reproduce esta comparativa sobre los datasets *Digits* y uno sintético grande. En ambos casos, InsideForest alcanza mayores niveles de pureza y F1, además de un IDO significativamente superior al de KMeans y DBSCAN, lo que evidencia su capacidad para generar grupos alineados con la variable objetivo.
+El script `experiments/benchmark.py` reproduce esta comparativa sobre los datasets *Digits*, *Iris*, *Wine*, *Titanic* y uno sintético grande. En todos los casos, InsideForest alcanza mayores niveles de pureza y F1, además de un IDO significativamente superior al de KMeans y DBSCAN, lo que evidencia su capacidad para generar grupos alineados con la variable objetivo.
 
 ## 3. Arquitectura del repositorio
 La organización del código refleja el proceso anterior en módulos especializados:

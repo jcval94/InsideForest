@@ -44,15 +44,45 @@ python -m experiments.benchmark
 ```
 
 This command prints tables for each dataset with purity, macro F1,
-target-divergence and runtime. Example output for the digits dataset:
+target-divergence and runtime. Datasets include Digits, Iris, Wine,
+Titanic and a synthetic large classification set. The following blocks
+show the results obtained in this environment (Titanic is omitted due to
+dataset download restrictions):
 
 ```
 === Dataset: Digits ===
             algorithm  purity   f1  divergence  runtime
-         InsideForest   0.216 0.00       0.279   48.097
-         KMeans(k=10)   0.673 0.62       0.711    0.037
+         InsideForest   0.216 0.00       0.279   46.973
+         KMeans(k=10)   0.673 0.62       0.711    0.034
 DBSCAN(eps=0.5,min=5)   0.102 0.00       0.000    0.009
 ```
+
+```
+=== Dataset: Iris ===
+            algorithm  purity    f1  divergence  runtime
+         InsideForest   0.439 0.000       0.128    1.644
+          KMeans(k=3)   0.667 0.531       0.427    0.006
+DBSCAN(eps=0.5,min=5)   0.680 0.000       0.402    0.002
+```
+
+```
+=== Dataset: Wine ===
+            algorithm  purity    f1  divergence  runtime
+         InsideForest   0.397 0.000       0.029    3.542
+          KMeans(k=3)   0.966 0.967       0.628    0.003
+DBSCAN(eps=0.5,min=5)   0.399 0.000       0.000    0.002
+```
+
+```
+=== Dataset: SyntheticLarge ===
+            algorithm  purity    f1  divergence  runtime
+         InsideForest   0.202 0.000       0.002  226.617
+          KMeans(k=5)   0.408 0.405       0.277    0.025
+DBSCAN(eps=0.5,min=5)   0.201 0.000       0.000    0.074
+```
+
+Titanic results require downloading the dataset; run the benchmark
+locally with network access to reproduce them.
 
 ## Basic workflow
 The typical order for applying InsideForest is:
