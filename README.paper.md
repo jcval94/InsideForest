@@ -1,6 +1,27 @@
-# Clustering supervisado
+# InsideForest: Clustering supervisado interpretable basado en bosques de decisión
+
+**Autor:** José Carlos Del Valle López  
+Maestro en Ciencia de Datos, Universidad Panamericana  
+Actuario, Universidad Nacional Autónoma de México  
+Contacto: jcdelvalle@example.com
 
 ## Resumen
+### Objetivos
+Proponer InsideForest, un algoritmo de *clustering* supervisado que utiliza bosques de decisión para identificar segmentos interpretables.
+
+### Método
+El modelo entrena un bosque aleatorio y transforma cada hoja en una regla geométrica; estas reglas se agrupan según su solapamiento para producir clusters con descripciones explícitas.
+
+### Resultados
+En el conjunto **Digits**, InsideForest alcanzó una pureza de 0.22 frente a 0.67 obtenida por KMeans y 0.10 por DBSCAN.
+
+### Conclusiones
+InsideForest genera segmentos interpretables, aunque requiere optimización para competir en calidad y tiempo de cómputo con métodos tradicionales.
+
+**Palabras clave:** clustering supervisado, interpretabilidad, bosques de decisión.
+
+
+## Descripción general
 InsideForest es una biblioteca de **clustering supervisado** que aprovecha bosques de decisión para segmentar datos etiquetados y describir cada subgrupo con reglas interpretables. Este documento expone la motivación, la teoría matemática, la arquitectura y el flujo de trabajo de la librería, además de un estudio de caso que muestra sus capacidades.
 
 ## 1. Introducción
@@ -146,7 +167,7 @@ donde $\tau$ es un umbral cercano a 1 que garantiza que las reglas difieren en p
 
 Esta búsqueda resalta contrastes sutiles y sugiere experimentos sobre cuáles condiciones impulsan o deterioran el desempeño.
 
-## Trabajo relacionado
+## Trabajos relacionados
 
 Los métodos de clustering basados en reglas buscan segmentos explicables mediante condiciones lógicas. Atzmueller (2015) revisa el campo de *subgroup discovery*, donde los clusters se describen con reglas if-then que maximizan medidas de calidad. Otros trabajos como Bay y Pazzani (2001) o Dong y Li (1999) proponen *contrast set mining* para detectar patrones que distinguen subpoblaciones. En interpretabilidad de bosques, enfoques como RuleFit (Friedman y Popescu, 2008) y inTrees (Deng, 2014) extraen reglas representativas de conjuntos de árboles para explicar sus predicciones.
 
@@ -917,3 +938,27 @@ Convenciones que especifican si los límites de un intervalo están incluidos (`
 
 Este glosario busca servir como referencia rápida y consolidar el vocabulario técnico asociado a InsideForest.
 
+
+## 13. Metodología experimental
+Se evaluó InsideForest en el conjunto de imágenes manuscritas **Digits** de scikit-learn. Los datos se dividieron aleatoriamente con una proporción 35/65 para entrenamiento y prueba. Se comparó con KMeans, configurado con un número de clústeres igual al de clases, y con DBSCAN usando `eps=0.5` y `min_samples=5`. Las métricas reportadas fueron pureza, F1 macro y tiempo de ejecución. El experimento se ejecutó en Python 3.12 con scikit-learn 1.5 en una CPU de 2 núcleos.
+
+## 14. Resultados
+La Tabla 1 resume los resultados cuantitativos.
+
+| Algoritmo              | Pureza | F1   | Tiempo (s) |
+|------------------------|--------|------|------------|
+| InsideForest           | 0.22   | 0.00 | 66.94      |
+| KMeans (k=10)          | 0.67   | 0.62 | 0.05       |
+| DBSCAN (eps=0.5, min=5)| 0.10   | 0.00 | 0.01       |
+
+KMeans ofreció mayor calidad y menor tiempo de cómputo, mientras que InsideForest evidenció sobrecostos de entrenamiento. Sin embargo, InsideForest produce reglas interpretables, ausentes en los baselines.
+
+## 15. Conclusiones y trabajo futuro
+InsideForest aporta interpretabilidad al *clustering* supervisado al describir cada segmento mediante reglas. La evaluación preliminar muestra que requiere optimización para mejorar pureza y F1. Futuras líneas incluyen ajuste automático de hiperparámetros, paralelización y evaluación en dominios con necesidad de explicabilidad.
+
+## Referencias
+[1] Breiman, L. (2001). Random Forests. *Machine Learning*, 45(1), 5‑32.
+[2] Lloyd, S. (1982). Least squares quantization in PCM. *IEEE Transactions on Information Theory*, 28(2), 129‑137.
+[3] Ester, M., Kriegel, H.‑P., Sander, J., & Xu, X. (1996). A density-based algorithm for discovering clusters in large spatial databases with noise. *KDD*.
+[4] Deng, H. (2014). Interpreting tree ensembles with inTrees. *arXiv preprint* arXiv:1408.5456.
+[5] Friedman, J. H., & Popescu, B. E. (2008). Predictive learning via rule ensembles. *Annals of Applied Statistics*, 2(3), 916‑954.
