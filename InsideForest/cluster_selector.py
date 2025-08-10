@@ -5,12 +5,14 @@ import pandas as pd
 from collections import defaultdict, Counter
 import random
 import math
+import warnings
 
 
 def select_clusters(
     df_datos: pd.DataFrame,
     df_reglas: pd.DataFrame,
     keep_all_clusters: bool = True,
+    fallback_cluster: float | None = None,
 ):
     """Determine cluster assignments for each record based on rules.
 
@@ -27,6 +29,10 @@ def select_clusters(
     keep_all_clusters : bool, optional
         If True, also store all clusters and their weights satisfied by each
         record. Otherwise, only the main cluster (highest weight) is kept.
+    fallback_cluster : float, optional
+        Cluster to assign to records that do not match any rule. If ``None``
+        (default), unassigned records remain with value ``-1`` and a warning is
+        issued.
 
     Returns
     -------
@@ -99,6 +105,21 @@ def select_clusters(
         actualizar = cumple_regla & (ponderador > ponderador_datos)
         clusters_datos[actualizar] = cluster
         ponderador_datos[actualizar] = ponderador
+
+    # Detect records without assigned cluster after evaluating all rules
+    indices_sin_cluster = np.where(clusters_datos == -1)[0]
+    if len(indices_sin_cluster) > 0:
+        if fallback_cluster is not None:
+            clusters_datos[indices_sin_cluster] = fallback_cluster
+            if keep_all_clusters:
+                for i in indices_sin_cluster:
+                    clusters_datos_all[i].append(fallback_cluster)
+                    ponderadores_datos_all[i].append(0.0)
+        else:
+            warnings.warn(
+                f"{len(indices_sin_cluster)} records did not match any rule.",
+                UserWarning,
+            )
 
     return clusters_datos, clusters_datos_all, ponderadores_datos_all
 
