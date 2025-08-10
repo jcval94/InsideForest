@@ -91,7 +91,7 @@ class Trees:
       return estructura_iter, camino
 
 
-  def get_rangos(self, regr, data1, verbose=0, percentil=90, n_jobs=-1):
+  def get_rangos(self, regr, data1, verbose=0, percentil=90, n_jobs=-1, random_state=0):
     # This function may be slow; add tqdm to the main loop.
 
     if self.lang == 'pyspark':
@@ -162,8 +162,18 @@ class Trees:
       paths = paths_filtrados
       if not valores:
         return pd.DataFrame(columns=['Regla', 'Importancia', 'N_regla', 'N_arbol', 'Va_Obj_minima'])
-      percent_ = np.percentile(valores, percentil)
-      estructuras_maximizadoras = [[pa[0], val] for pa, val in zip(paths, valores) if val >= percent_]
+      rng = np.random.RandomState(random_state)
+      if percentil is None:
+        percent_ = np.nan
+        estructuras_maximizadoras = [[pa[0], val] for pa, val in zip(paths, valores)]
+      else:
+        percent_ = np.percentile(valores, percentil)
+        high_idx = [i for i, val in enumerate(valores) if val >= percent_]
+        low_idx = [i for i, val in enumerate(valores) if val < percent_]
+        sample_size = int(len(low_idx) * 0.1)
+        sampled_low_idx = rng.choice(low_idx, size=sample_size, replace=False).tolist() if sample_size > 0 else []
+        selected_idx = high_idx + sampled_low_idx
+        estructuras_maximizadoras = [[paths[i][0], valores[i]] for i in selected_idx]
 
       importanc = []
       for n_path in range(len(estructuras_maximizadoras)):
