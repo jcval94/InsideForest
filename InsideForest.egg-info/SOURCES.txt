@@ -2,6 +2,7 @@ LICENSE
 README.md
 setup.py
 InsideForest/__init__.py
+InsideForest/cluster_selector.py
 InsideForest/descrip.py
 InsideForest/inside_forest.py
 InsideForest/labels.py
@@ -13,4 +14,17 @@ InsideForest.egg-info/PKG-INFO
 InsideForest.egg-info/SOURCES.txt
 InsideForest.egg-info/dependency_links.txt
 InsideForest.egg-info/top_level.txt
+experiments/__init__.py
+experiments/benchmark.py
+experiments/rf_param_benchmark.py
+experiments/summary_benchmark.py
+tests/test_chimera_values_selector.py
+tests/test_cluster_selector.py
 tests/test_descrip.py
+tests/test_descrip_helpers.py
+tests/test_eps_search_perf.py
+tests/test_inside_forest_fit_predict.py
+tests/test_inside_forest_params.py
+tests/test_inside_forest_regressor_fit_predict.py
+tests/test_iou_equivalence.py
+tests/test_trees.py
