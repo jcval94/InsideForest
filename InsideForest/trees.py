@@ -170,7 +170,7 @@ class Trees:
         percent_ = np.percentile(valores, percentil)
         high_idx = [i for i, val in enumerate(valores) if val >= percent_]
         low_idx = [i for i, val in enumerate(valores) if val < percent_]
-        sample_size = int(len(low_idx) * 0.1)
+        sample_size = int(len(low_idx) * 0.2)
         sampled_low_idx = rng.choice(low_idx, size=sample_size, replace=False).tolist() if sample_size > 0 else []
         selected_idx = high_idx + sampled_low_idx
         estructuras_maximizadoras = [[paths[i][0], valores[i]] for i in selected_idx]
