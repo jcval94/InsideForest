@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Dict, List, Sequence, Tuple, Mapping
+from typing import Any, Dict, List, Sequence, Tuple, Mapping, Optional
 import numpy as np
 import pandas as pd
 from collections import defaultdict, Counter
@@ -734,3 +734,343 @@ def match_class_distribution(
         counts[y_idx[i]] += 1.0
 
     return asignacion
+
+
+# -------------------------------
+# Utilidades de probabilidad
+# -------------------------------
+
+
+def _as_prob(x: np.ndarray, eps: float = 1e-12) -> np.ndarray:
+    x = np.asarray(x, dtype=np.float64)
+    x = np.clip(x, eps, None)
+    s = float(x.sum())
+    if s <= 0:
+        return np.full_like(x, 1.0 / len(x))
+    return x / s
+
+
+def _cv(p: np.ndarray) -> float:
+    m = float(p.mean())
+    if m == 0:
+        return 0.0
+    return float(p.std() / (m + 1e-12))
+
+
+def _round_quota(pi: np.ndarray, n: int) -> np.ndarray:
+    raw = pi * n
+    flo = np.floor(raw).astype(int)
+    rem = int(n - flo.sum())
+    if rem > 0:
+        order = np.argsort(-(raw - flo))
+        flo[order[:rem]] += 1
+    return flo
+
+
+def compress_distribution_to_K(Py: np.ndarray, K: int) -> np.ndarray:
+    """
+    Comprime la dist. de y (conteos Py) a K masas sin perder “silueta”
+    fusionando repetidamente las dos masas más pequeñas.
+    Devuelve proporciones (suman 1).
+    """
+    masses = list(np.asarray(Py, dtype=np.float64))
+    if K >= len(masses):
+        return _as_prob(np.asarray(masses, dtype=np.float64))
+    masses.sort()
+    while len(masses) > K:
+        a = masses.pop(0)
+        b = masses.pop(0)
+        masses.append(a + b)
+        masses.sort()
+    masses.sort(reverse=True)
+    return _as_prob(np.asarray(masses, dtype=np.float64))
+
+
+# ---------------------------------------
+# Selector: etiquetas = valores de records
+# ---------------------------------------
+
+
+class ChimeraValuesSelector:
+    """
+    Asigna UN valor por fila (siempre de su propio menú) de forma que:
+      - La cantidad de valores DISTINTOS (K) puede fijarse o autoelegirse.
+      - La distribución de frecuencias por valor elegido IMITA la silueta de y
+        (comprime Py→K masas y traduce esas cuotas a K valores reales).
+      - La calidad semántica del valor v se mide con s(v) = log q_v · P(y).
+
+    Flujo:
+      fit(records_train, y_train):
+        - Aprende q_v(y) con suavizado de Laplace sobre disponibilidad.
+      predict(records, n_labels=None, k_range=(2,12)):
+        - Construye catálogo S de K valores (set-cover + calidad).
+        - Asigna CUOTAS objetivo ~ pi_K*n a cada valor de S (respetando capacidades).
+        - Asigna cada fila a su mejor opción en S con capacidad disponible.
+    """
+
+    def __init__(self, smoothing: float = 1.0, seed: Optional[int] = 42):
+        self.smoothing = smoothing
+        self.seed = seed
+
+        self.classes_: Optional[np.ndarray] = None
+        self.Py_: Optional[np.ndarray] = None
+        self.value_to_idx_: Dict[Any, int] = {}
+        self.idx_to_value_: List[Any] = []
+        self.q_: Optional[np.ndarray] = None
+
+    def _build_vocab(self, records: Sequence[Sequence[Any]]):
+        Vset = set()
+        for row in records:
+            if not row:
+                Vset.add(None)
+            else:
+                Vset.update(row)
+        self.idx_to_value_ = sorted(Vset, key=lambda x: (x is None, str(x)))
+        self.value_to_idx_ = {v: i for i, v in enumerate(self.idx_to_value_)}
+
+    def _ensure_vocab(self, records: Sequence[Sequence[Any]]):
+        new_vals = []
+        for row in records:
+            row = row if row else [None]
+            for v in row:
+                if v not in self.value_to_idx_:
+                    new_vals.append(v)
+        if not new_vals:
+            return
+        start = len(self.idx_to_value_)
+        for j, v in enumerate(new_vals, start=start):
+            self.value_to_idx_[v] = j
+            self.idx_to_value_.append(v)
+        V_new = len(self.idx_to_value_)
+        T = len(self.classes_)
+        q_new = np.full((V_new, T), 1.0 / max(T, 1), dtype=np.float64)
+        if self.q_ is not None:
+            q_new[: self.q_.shape[0], :] = self.q_
+        self.q_ = q_new
+
+    def _menus_idx(self, records: Sequence[Sequence[Any]]) -> List[np.ndarray]:
+        out = []
+        for row in records:
+            row = row if row else [None]
+            out.append(np.array([self.value_to_idx_[v] for v in row], dtype=int))
+        return out
+
+    def fit(self, records: Sequence[Sequence[Any]], y: Sequence[Any]):
+        rng = np.random.default_rng(self.seed)
+        y = np.asarray(y)
+        self.classes_, y_idx = np.unique(y, return_inverse=True)
+        T = len(self.classes_)
+        self.Py_ = np.bincount(y_idx, minlength=T).astype(np.float64)
+        self._build_vocab(records)
+        V = len(self.idx_to_value_)
+
+        counts = np.zeros((V, T), dtype=np.float64)
+        for i, row in enumerate(records):
+            opts = row if row else [None]
+            for v in opts:
+                counts[self.value_to_idx_[v], y_idx[i]] += 1.0
+
+        counts += float(self.smoothing)
+        counts /= counts.sum(axis=1, keepdims=True)
+        self.q_ = counts
+        return self
+
+    def _value_quality(self) -> np.ndarray:
+        assert self.q_ is not None and self.Py_ is not None
+        Pt = self.Py_ / self.Py_.sum()
+        return (np.log(np.clip(self.q_, 1e-12, 1.0)) @ Pt)
+
+    def _build_value_rows(self, records_idx: List[np.ndarray]) -> Dict[int, set]:
+        value_rows: Dict[int, set] = defaultdict(set)
+        for i, arr in enumerate(records_idx):
+            for v in arr:
+                value_rows[int(v)].add(i)
+        return value_rows
+
+    def _set_cover_catalog(
+        self,
+        value_rows: Dict[int, set],
+        V: int,
+        n_rows: int,
+        K_target: int,
+        s_val: np.ndarray,
+    ) -> Tuple[List[int], int]:
+        remaining = set(range(n_rows))
+        S = []
+        while remaining:
+            best_v = max(
+                range(V),
+                key=lambda v: (len(value_rows.get(v, set()) & remaining), s_val[v]),
+            )
+            S.append(best_v)
+            remaining -= value_rows.get(best_v, set())
+        k_min = len(S)
+        if K_target > k_min:
+            extras = sorted(
+                (v for v in range(V) if v not in S),
+                key=lambda v: s_val[v],
+                reverse=True,
+            )[: K_target - k_min]
+            S.extend(extras)
+        S = sorted(S, key=lambda v: s_val[v], reverse=True)
+        return S, k_min
+
+    def _feasible_quotas(
+        self,
+        S: List[int],
+        value_rows: Dict[int, set],
+        piK: np.ndarray,
+        n: int,
+    ) -> np.ndarray:
+        base_quota = _round_quota(piK, n)
+        K = len(S)
+        cap = np.array([len(value_rows.get(v, set())) for v in S], dtype=int)
+
+        quota = np.minimum(base_quota, cap)
+        deficit = int(n - quota.sum())
+        if deficit > 0:
+            for j in range(K):
+                if deficit == 0:
+                    break
+                add = min(deficit, int(cap[j] - quota[j]))
+                if add > 0:
+                    quota[j] += add
+                    deficit -= add
+
+        if quota.sum() < n:
+            need = int(n - quota.sum())
+            for j in range(K):
+                if need == 0:
+                    break
+                quota[j] += 1
+                need -= 1
+        return quota
+
+    def _assign_with_quotas(
+        self,
+        records_idx: List[np.ndarray],
+        S: List[int],
+        quota: np.ndarray,
+        s_val: np.ndarray,
+    ) -> np.ndarray:
+        n = len(records_idx)
+        s_map = {v: s_val[v] for v in S}
+        cap_left = quota.copy().astype(int)
+        S_set = set(S)
+
+        row_opts = []
+        for arr in records_idx:
+            opts = [v for v in arr if v in S_set]
+            opts.sort(key=lambda v: s_map[v], reverse=True)
+            row_opts.append(opts)
+
+        order_rows = sorted(
+            range(n),
+            key=lambda i: (
+                len(row_opts[i]),
+                -sum(s_map[v] for v in row_opts[i]) if row_opts[i] else -1,
+            ),
+        )
+
+        assign = -np.ones(n, dtype=int)
+        for i in order_rows:
+            for v in row_opts[i]:
+                j = S.index(v)
+                if cap_left[j] > 0:
+                    assign[i] = v
+                    cap_left[j] -= 1
+                    break
+
+        for i in range(n):
+            if assign[i] >= 0:
+                continue
+            for v in row_opts[i]:
+                assign[i] = v
+                break
+            if assign[i] < 0 and records_idx[i].size > 0:
+                assign[i] = int(records_idx[i][0])
+
+        return assign
+
+    def predict(
+        self,
+        records: Sequence[Sequence[Any]],
+        n_labels: Optional[int] = None,
+        k_range: Tuple[int, int] = (2, 12),
+    ) -> Dict[str, Any]:
+        assert (
+            self.q_ is not None and self.Py_ is not None and self.classes_ is not None
+        ), "Llama fit() primero."
+        self._ensure_vocab(records)
+        records_idx = self._menus_idx(records)
+        n = len(records_idx)
+        V, T = self.q_.shape
+
+        s_val = self._value_quality()
+        value_rows = self._build_value_rows(records_idx)
+
+        if n_labels is not None:
+            K_candidates = [int(max(1, n_labels))]
+        else:
+            lo, hi = k_range
+            lo = max(1, int(lo))
+            hi = max(lo, int(hi))
+            K_candidates = list(range(lo, min(hi, lo + 20) + 1))
+            if int(math.sqrt(n) + 2) not in K_candidates:
+                K_candidates.append(int(math.sqrt(n) + 2))
+
+        best = None
+        for K in K_candidates:
+            S, k_min = self._set_cover_catalog(value_rows, V, n, K, s_val)
+            if K < k_min:
+                continue
+
+            Py = self.Py_ / self.Py_.sum()
+            piK = compress_distribution_to_K(Py, len(S))
+            if piK.shape[0] != len(S):
+                piK = np.resize(piK, len(S))
+            quota = self._feasible_quotas(S, value_rows, piK, n)
+
+            assign_idx = self._assign_with_quotas(records_idx, S, quota, s_val)
+
+            s_pos = {v: j for j, v in enumerate(S)}
+            hist = np.zeros(len(S), dtype=float)
+            for v in assign_idx:
+                if v in s_pos:
+                    hist[s_pos[v]] += 1.0
+            hist /= max(1, n)
+            cv_diff = abs(_cv(hist) - _cv(Py))
+
+            score = (-hist @ s_val[S]) + 0.05 * len(S) + 0.5 * cv_diff
+            cand = (score, cv_diff, S, quota, assign_idx)
+            if (best is None) or (cand[0] < best[0]):
+                best = cand
+
+        if best is None:
+            raise RuntimeError("No se encontró K factible en el rango dado.")
+
+        _, cv_diff, S, quota, assign_idx = best
+        labels = [self.idx_to_value_[j] for j in assign_idx]
+
+        Py = self.Py_ / self.Py_.sum()
+        piK = compress_distribution_to_K(Py, len(S))
+        if piK.shape[0] != len(S):
+            piK = np.resize(piK, len(S))
+        target_hist = piK.copy()
+        s_pos = {v: j for j, v in enumerate(S)}
+        actual_hist = np.zeros(len(S), dtype=float)
+        for v in assign_idx:
+            if v in s_pos:
+                actual_hist[s_pos[v]] += 1.0
+        actual_hist /= max(1, n)
+
+        return {
+            "labels": labels,
+            "selected_values": [self.idx_to_value_[v] for v in S],
+            "n_labels": len(S),
+            "target_hist": target_hist,
+            "actual_hist": actual_hist,
+            "label_to_quota": {self.idx_to_value_[S[j]]: int(quota[j]) for j in range(len(S))},
+            "cv_diff": float(cv_diff),
+            "classes": self.classes_,
+        }

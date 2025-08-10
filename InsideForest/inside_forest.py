@@ -35,9 +35,10 @@ class _BaseInsideForest:
     method : str or None, optional
         Strategy used to consolidate final cluster labels in
         :meth:`Regions.labels`. Available options are ``"select_clusters"``
-        (default), ``"balance_lists_n_clusters"``, ``"max_prob_clusters"`` and
-        ``"menu"`` which leverages :class:`MenuClusterSelector`. When ``None``
-        or ``"select_clusters"`` the raw output of :func:`select_clusters` is
+        (default), ``"balance_lists_n_clusters"``, ``"max_prob_clusters``,
+        ``"match_class_distribution"``, ``"chimera`` and ``"menu"`` which
+        leverages :class:`MenuClusterSelector`. When ``None`` or
+        ``"select_clusters"`` the raw output of :func:`select_clusters` is
         used.
     divide : int, default 5
         Value forwarded to :func:`get_frontiers` when computing cluster
@@ -344,6 +345,19 @@ class _BaseInsideForest:
                     "Input data must contain all feature columns used during fitting: "
                     f"{', '.join(self.feature_names_)}."
                 ) from err
+
+        # Some label consolidation strategies require an auxiliary target
+        # column even at prediction time. When the method depends on class
+        # information and the incoming data lacks it (as is typical during
+        # inference), we use the random forest's own predictions as a
+        # surrogate target so that downstream selectors can operate.
+        if self.method == "match_class_distribution" and self.var_obj not in X_df.columns:
+            try:
+                y_pred = self.rf.predict(X_df)
+            except NotFittedError:
+                raise RuntimeError("Random forest not fitted; call fit() first")
+            X_df = X_df.copy()
+            X_df[self.var_obj] = y_pred
 
         labels = self.regions.labels(
             df=X_df,

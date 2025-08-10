@@ -77,6 +77,8 @@ def main() -> None:
         "select_clusters",
         "balance_lists_n_clusters",
         "max_prob_clusters",
+        "match_class_distribution",
+        "chimera",
         "menu",
     ]
 

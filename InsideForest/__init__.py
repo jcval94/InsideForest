@@ -16,6 +16,8 @@ from .cluster_selector import (
     MenuClusterSelector,
     balance_lists_n_clusters,
     max_prob_clusters,
+    match_class_distribution,
+    ChimeraValuesSelector,
 )
 
 # Backward compatibility

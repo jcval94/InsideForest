@@ -117,18 +117,18 @@ the baselines are summarized below; complete results are available in
 
 ### RandomForest sweep on additional datasets
 
-We repeated the same 83-run parameter sweep on four additional datasets
-(*Digits*, *Wine*, *Breast Cancer* and *Iris*). The *Titanic* dataset was
-skipped due to download restrictions. The highest-purity configuration for
-each dataset is summarized below; complete results remain in
-`rf_results.csv`.
+We repeated the same parameter sweep (120 `RandomForest` configurations
+combined with six cluster-selection methods) on four datasets (*Digits*,
+*Wine*, *Breast Cancer* and *Iris*). The *Titanic* dataset was skipped due
+to download restrictions. The highest-purity configuration for each
+dataset is summarized below; complete results remain in `rf_results.csv`.
 
 | Dataset | Algorithm | Purity | Macro F1 | Accuracy | Runtime |
 | --- | --- | --- | --- | --- | --- |
-| breast_cancer | breast_cancer_select_clusters_cfg1 | 0.95 | 0.81 | 0.85 | 0.35 |
-| digits | digits_select_clusters_cfg11 | 0.80 | 0.62 | 0.55 | 2.66 |
-| iris | iris_balance_lists_n_clusters_cfg2 | 0.95 | 0.95 | 0.95 | 0.95 |
-| wine | wine_select_clusters_cfg6 | 1.00 | 0.79 | 0.65 | 1.19 |
+| breast_cancer | breast_cancer_menu_cfg20 | 0.95 | 0.85 | 0.85 | 1.73 |
+| digits | KMeans(k=10) | 0.77 | 0.65 | 0.70 | 0.00 |
+| iris | iris_balance_lists_n_clusters_cfg1 | 0.90 | 0.90 | 0.90 | 0.56 |
+| wine | wine_select_clusters_cfg2 | 0.95 | 0.75 | 0.65 | 0.28 |
 
 ## Basic workflow
 The typical order for applying InsideForest is:
@@ -176,6 +176,8 @@ You can control how final cluster labels are consolidated through the
 - `"balance_lists_n_clusters"`: balance cluster assignments
 - `"max_prob_clusters"`: favor clusters with higher probabilities
 - `"menu"`: apply `MenuClusterSelector` to maximize an information-theoretic objective
+- `"match_class_distribution"`: imitate the class proportions when assigning clusters
+- `"chimera"`: compress class silhouettes and assign values with quota enforcement
 
 After fitting, you can inspect the random forest's feature importances and
 optionally visualize them:

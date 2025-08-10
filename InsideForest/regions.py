@@ -26,7 +26,9 @@ from .cluster_selector import (
     MenuClusterSelector,
     balance_lists_n_clusters,
     max_prob_clusters,
+    match_class_distribution,
     select_clusters,
+    ChimeraValuesSelector,
 )
 
 logger = logging.getLogger(__name__)
@@ -1627,12 +1629,13 @@ class Regions:
     method : str or None, optional
         Cluster selection strategy. Available options are
         ``"select_clusters"`` (default), ``"balance_lists_n_clusters"``,
-        ``"max_prob_clusters"`` and ``"menu"`` which applies
-        :class:`MenuClusterSelector`. If ``None`` or ``"select_clusters"`` the
-        direct output of :func:`select_clusters` is used.
+        ``"max_prob_clusters"``, ``"match_class_distribution"``, ``"chimera``
+        and ``"menu"`` which applies :class:`MenuClusterSelector`. If ``None``
+        or ``"select_clusters"`` the direct output of :func:`select_clusters`
+        is used.
     var_obj : str, default "target"
         Name of the target column in ``df`` used by supervised methods such as
-        ``"menu"``.
+        ``"menu"``, ``"match_class_distribution"`` or ``"chimera"``.
     return_dfs : bool, default True
         When ``True`` return both the clustered DataFrame and the cluster
         description. If ``False`` only the computed labels are returned.
@@ -1687,6 +1690,24 @@ class Regions:
     elif method == "max_prob_clusters":
       labels = max_prob_clusters(records=records, probs=probas,
                                  n_clusters=n_clusters, seed=1)
+    elif method == "match_class_distribution":
+      if y is None:
+        raise RuntimeError(
+          "match_class_distribution requires 'df' to include the target column"
+        )
+      labels = match_class_distribution(records=records, y=y,
+                                        n_clusters=n_clusters, seed=1)
+    elif method in ("chimera", "chimera_values_selector", "ChimeraValuesSelector"):
+      selector = getattr(self, "_chimera_selector", None)
+      if y is not None:
+        selector = ChimeraValuesSelector()
+        selector.fit(records, y)
+        self._chimera_selector = selector
+      elif selector is None:
+        raise RuntimeError(
+          "ChimeraValuesSelector not fitted; provide data with target first"
+        )
+      labels = selector.predict(records, n_labels=n_clusters)["labels"]
     elif method in ("menu", "MenuClusterSelector", "menu_cluster_selector"):
       selector = getattr(self, "_menu_selector", None)
       if y is not None:
