@@ -144,26 +144,37 @@ class Trees:
         paths.append([x for x in path_ if x != ''])
 
       valores = []
+      valores_proxy = []
       paths_filtrados = []
       for path in paths:
         texto = path[1] if len(path) > 1 else ''
         m = val_pat.search(texto)
         if m:
-          valores.append(float(m.group(1).replace('_', '')))
+          v = float(m.group(1).replace('_', ''))
+          valores.append(v)
+          valores_proxy.append(v)
           paths_filtrados.append(path)
         else:
           mc = cls_pat.search(texto)
           if mc:
+            label = mc.group(1).replace('_', '')
+            valores.append(label)
             try:
-              valores.append(float(mc.group(1).replace('_', '')))
-              paths_filtrados.append(path)
+              v = float(label)
             except ValueError:
-              continue
+              v = np.nan
+            valores_proxy.append(v)
+            paths_filtrados.append(path)
       paths = paths_filtrados
       if not valores:
         return pd.DataFrame(columns=['Regla', 'Importancia', 'N_regla', 'N_arbol', 'Va_Obj_minima'])
-      percent_ = np.percentile(valores, percentil)
-      estructuras_maximizadoras = [[pa[0], val] for pa, val in zip(paths, valores) if val >= percent_]
+
+      numeric_vals = [v for v in valores_proxy if not np.isnan(v)]
+      percent_ = np.percentile(numeric_vals, percentil) if numeric_vals else None
+      estructuras_maximizadoras = []
+      for pa, proxy in zip(paths, valores_proxy):
+        if percent_ is None or np.isnan(proxy) or proxy >= percent_:
+          estructuras_maximizadoras.append([pa[0], proxy])
 
       importanc = []
       for n_path in range(len(estructuras_maximizadoras)):
@@ -178,7 +189,7 @@ class Trees:
         ]
 
       asdf = pd.DataFrame(importanc, columns=['Regla', 'Importancia', 'N_regla', 'N_arbol'])
-      asdf['Va_Obj_minima'] = percent_
+      asdf['Va_Obj_minima'] = percent_ if percent_ is not None else np.nan
       return asdf
 
     def _run_parallel(items, func, n_jobs, use_tqdm, desc):

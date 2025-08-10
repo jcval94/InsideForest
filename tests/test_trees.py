@@ -33,6 +33,15 @@ def test_class_leaf_no_crash():
     assert isinstance(res, pd.DataFrame)
 
 
+def test_categorical_class_labels():
+    X = pd.DataFrame({'col0': [0, 1, 2, 3]})
+    y = ['a', 'b', 'a', 'b']
+    clf = RandomForestClassifier(n_estimators=1, random_state=0).fit(X, y)
+    t = Trees()
+    res = t.get_rangos(clf, X, percentil=0, n_jobs=1)
+    assert not res.empty
+
+
 def test_percentil_parameter_affects_output():
     df, y = _build_regression_data()
     reg = RandomForestRegressor(n_estimators=1, random_state=0).fit(df, y)
