@@ -511,7 +511,13 @@ class Trees:
        logger.info("Obtaining a summary of the trees")
     
     try:
-       df_summ = self.get_summary_optimizado(df, df_full_arboles, var_obj, no_trees_search, verbose)
+       df_summ = self.get_summary_optimizado(
+           df,
+           df_full_arboles,
+           var_obj,
+           no_branch_lim=no_trees_search,
+           verbose=verbose,
+       )
     except Exception as exc:
        logger.exception("Error generating tree summary: %s", exc)
        raise
