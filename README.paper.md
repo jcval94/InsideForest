@@ -32,6 +32,59 @@ Los benchmarks en cuatro conjuntos de datos arrojaron las siguientes métricas:
 
 *El conjunto Titanic no pudo evaluarse en este entorno por falta de acceso a los datos.*
 
+#### Búsqueda de `eps`
+
+La función optimizada `get_eps_multiple_groups_opt` reutiliza una matriz de
+distancias precalculada y realiza una búsqueda binaria sobre `eps`, evitando
+recalcular distancias en cada iteración. En un conjunto sintético de 200
+observaciones la versión previa promedió **0.061 s** por llamada, mientras que la
+optimizada terminó en **0.044 s**, logrando una aceleración de **1.4×**.
+
+#### Resumen de reglas
+
+El nuevo `get_summary_optimizado` vectoriza el cálculo de métricas para cada
+regla del bosque. En un problema de regresión con 500 muestras, 10 variables y un
+bosque de 10 árboles, el método original requirió **18.08 s** frente a los **4.93 s**
+de la versión optimizada, lo que representa un aumento de velocidad de **3.7×**.
+
+#### Barrido de hiperparámetros de RandomForest
+
+Se exploraron 20 configuraciones de `RandomForest` variando
+`n_estimators` de 5 a 100 en pasos de 5 y `max_depth` en {2, 4, 6, 8, 10, None}
+sobre el conjunto **Iris** (30 muestras). Cada configuración se combinó con cuatro
+estrategias de selección de clústeres (`select_clusters`,
+`balance_lists_n_clusters`, `max_prob_clusters`, `menu`) y se comparó con
+KMeans y DBSCAN. Las cinco ejecuciones con mayor pureza y los baselines son:
+
+| Algoritmo | Pureza | Macro F1 | Exactitud | NMI | AMI | ARI | Bcubed F1 | Divergencia | Tiempo |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| select_clusters_cfg19 | 0.95 | 0.68 | 0.55 | 0.67 | 0.50 | 0.46 | 0.66 | 0.63 | 0.93 |
+| select_clusters_cfg13 | 0.95 | 0.66 | 0.55 | 0.67 | 0.50 | 0.46 | 0.66 | 0.63 | 0.71 |
+| select_clusters_cfg3 | 0.90 | 0.67 | 0.65 | 0.69 | 0.61 | 0.50 | 0.71 | 0.56 | 0.31 |
+| balance_lists_n_clusters_cfg3 | 0.90 | 0.90 | 0.90 | 0.74 | 0.71 | 0.70 | 0.83 | 0.56 | 0.80 |
+| select_clusters_cfg17 | 0.90 | 0.66 | 0.55 | 0.60 | 0.43 | 0.39 | 0.63 | 0.58 | 0.89 |
+
+**Baselines**
+
+| Algoritmo | Pureza | Macro F1 | Exactitud | NMI | AMI | ARI | Bcubed F1 | Divergencia | Tiempo |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| KMeans(k=3) | 0.87 | 0.87 | 0.87 | 0.71 | 0.69 | 0.66 | 0.80 | 0.53 | 0.03 |
+| DBSCAN(eps=0.5,min=5) | 0.33 | 0.17 | 0.33 | 0.00 | 0.00 | 0.00 | 0.50 | 0.00 | 0.00 |
+
+#### Barrido de RandomForest en datasets adicionales
+
+El mismo experimento (120 configuraciones combinadas con seis métodos de
+selección de clústeres) se aplicó a cuatro conjuntos adicionales. La mejor
+configuración de cada uno se resume a continuación; los detalles completos
+permanecen en `rf_results.csv`.
+
+| Dataset | Algoritmo | Pureza | Macro F1 | Exactitud | Tiempo |
+| --- | --- | --- | --- | --- | --- |
+| breast_cancer | breast_cancer_menu_cfg20 | 0.95 | 0.85 | 0.85 | 1.73 |
+| digits | KMeans(k=10) | 0.77 | 0.65 | 0.70 | 0.00 |
+| iris | iris_balance_lists_n_clusters_cfg1 | 0.90 | 0.90 | 0.90 | 0.56 |
+| wine | wine_select_clusters_cfg2 | 0.95 | 0.75 | 0.65 | 0.28 |
+
 ### Conclusiones
 InsideForest genera segmentos interpretables, aunque requiere optimización para competir en calidad y tiempo de cómputo con métodos tradicionales.
 
