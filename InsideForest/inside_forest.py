@@ -220,6 +220,8 @@ class _BaseInsideForest:
         else:
             if isinstance(X, pd.DataFrame):
                 X_df = X.copy()
+                if self.var_obj in X_df.columns:
+                    X_df = X_df.drop(columns=[self.var_obj])
             else:
                 X_df = pd.DataFrame(data=X)
 

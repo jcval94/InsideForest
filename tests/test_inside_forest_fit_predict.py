@@ -49,6 +49,22 @@ def test_fit_accepts_df_with_target_column():
     assert model.labels_.shape[0] == len(df)
 
 
+def test_fit_with_y_and_df_includes_target_column():
+    df = pd.DataFrame(
+        data={
+            'feat1': [0, 1, 2, 3],
+            'feat2': [3, 2, 1, 0],
+            'target': [0, 1, 0, 1],
+        }
+    )
+    y = df['target'].to_numpy()
+    model = InsideForestClassifier(rf_params={'n_estimators': 5, 'random_state': 0})
+    model.fit(X=df, y=y)
+    assert 'target' not in model.feature_names_
+    preds = model.predict(df[['feat1', 'feat2']])
+    assert preds.shape == (4,)
+
+
 def test_fit_df_missing_target_raises():
     df = pd.DataFrame(data={'feat1': [0, 1], 'feat2': [1, 0]})
     model = InsideForestClassifier()
