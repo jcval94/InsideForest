@@ -44,7 +44,9 @@ class Models:
 
     X = df.drop(columns=[target_col]).values
     y = df.loc[:, target_col].values
-    for k in range(1,int(len(df))):
+    fp = fn = 0
+    y_pred = None
+    for k in range(1, int(len(df))):
       try:
         knn = KNeighborsClassifier(n_neighbors=k)
         knn.fit(X, y)
@@ -55,17 +57,20 @@ class Models:
         break
       tn, fp, fn, tp = cm.ravel()
       if criterio_fp:
-        if fp>min_obs:
+        if fp > min_obs:
           break
       else:
-        if fn>min_obs:
+        if fn > min_obs:
           break
-    if fn>0:
+    if y_pred is None:
+      return df.iloc[0:0], df
+    if fn > 0:
       false_negatives = (y == 1) & (y_pred == 0)
       return df[false_negatives], df[~false_negatives]
-    if fp>0:
+    if fp > 0:
       false_positives = (y == 0) & (y_pred == 1)
       return df[false_positives], df[~false_positives]
+    return df.iloc[0:0], df
   
   def get_cvRF(self, X_train, y_train, param_grid):
     """Grid-search a RandomForest classifier.
