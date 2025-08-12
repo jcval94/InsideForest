@@ -95,7 +95,31 @@ class Trees:
 
 
   def get_rangos(self, regr, data1, verbose=0, percentil=None, low_frac=None,
-                 n_jobs=-1, random_state=0):
+                 n_jobs=1, random_state=0):
+    """Extract tree rules and importances.
+
+    Parameters
+    ----------
+    regr : estimator
+        Modelo de bosque entrenado.
+    data1 : pandas.DataFrame
+        Conjunto de datos usado para reemplazar los nombres de las
+        características.
+    verbose : int, default 0
+        Nivel de verbosidad.
+    percentil : float, optional
+        Percentil para filtrar hojas de los árboles.
+    low_frac : float, optional
+        Fracción de valores por debajo del percentil a muestrear.
+    n_jobs : int, default 1
+        Número de trabajos en paralelo. Se emplea ``prefer="threads"`` para
+        evitar el *pickling*. La ejecución en paralelo solo compensa cuando
+        cada árbol es costoso de procesar; en bosques pequeños el modo
+        secuencial reduce la sobrecarga.
+    random_state : int, default 0
+        Semilla para operaciones aleatorias.
+    """
+
     # This function may be slow; add tqdm to the main loop.
 
     if percentil is None:
@@ -114,6 +138,7 @@ class Trees:
     pattern = re.compile(r'\bfeature_(\d+)\b')
     val_pat = re.compile(r'value:\s*\[?([-+]?\d+(?:\.\d+)?(?:e[-+]?\d+)?)\]?', re.I)
     cls_pat = re.compile(r'class:\s*(\S+)', re.I)
+    leaf_pat = re.compile(r'(?:value|class):', re.I)
 
     def process_tree(n_estimador, arbol_individual):
       if self.lang == 'pyspark':
@@ -125,11 +150,11 @@ class Trees:
       r = pattern.sub(lambda m: feature_names[int(m.group(1))], r)
 
       estructura = r.split('\n')
-      estructura_iter = estructura.copy()
+      estructura_iter = estructura[:]
       paths = []
 
       for i, valor in enumerate(estructura):
-        if not (('value: ' in valor) or ('class: ' in valor)):
+        if not leaf_pat.search(valor):
           continue
         estructura_iter, path_ = self.get_path(estructura_iter)
         estructura_rep = [v.count('|') for v in path_[0]]
@@ -171,7 +196,7 @@ class Trees:
       paths = paths_filtrados
       if not valores:
         return pd.DataFrame(columns=['Regla', 'Importancia', 'N_regla', 'N_arbol', 'Va_Obj_minima'])
-      rng = np.random.RandomState(random_state)
+      rng = np.random.RandomState(random_state + n_estimador)
       if percentil is None:
         percent_ = np.nan
         estructuras_maximizadoras = [[pa[0], val] for pa, val in zip(paths, valores)]
@@ -205,7 +230,7 @@ class Trees:
       try:
         if n_jobs == 1:
           return [func(i, a) for i, a in enumerate(it)]
-        return Parallel(n_jobs=n_jobs)(delayed(func)(i, a) for i, a in enumerate(it))
+        return Parallel(n_jobs=n_jobs, prefer="threads")(delayed(func)(i, a) for i, a in enumerate(it))
       except Exception:
         return [func(i, a) for i, a in enumerate(items)]
 
