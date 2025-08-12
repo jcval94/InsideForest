@@ -40,13 +40,19 @@ class _BaseInsideForest:
         leverages :class:`MenuClusterSelector`. When ``None`` or
         ``"select_clusters"`` the raw output of :func:`select_clusters` is
         used.
-    divide : int, default 5
-        Value forwarded to :func:`get_frontiers` when computing cluster
-        frontiers.
-    get_detail : bool, default False
-        When ``True`` :meth:`fit` computes and stores additional cluster
-        details and frontiers.
-    """
+        divide : int, default 5
+            Value forwarded to :func:`get_frontiers` when computing cluster
+            frontiers.
+        get_detail : bool, default False
+            When ``True`` :meth:`fit` computes and stores additional cluster
+            details and frontiers.
+        leaf_percentile : int, default 95
+            Percentile used to retain the most important leaves when extracting
+            rules from trees.
+        low_leaf_fraction : float, default 0.05
+            Fraction of leaves below ``leaf_percentile`` to sample when
+            building the rule set.
+        """
 
     def __init__(
         self,
@@ -59,6 +65,8 @@ class _BaseInsideForest:
         method="select_clusters",
         divide=5,
         get_detail=False,
+        leaf_percentile=95,
+        low_leaf_fraction=0.05,
     ):
         self.rf_params = rf_params or {}
         self.tree_params = tree_params or {}
@@ -68,6 +76,12 @@ class _BaseInsideForest:
         self.method = method
         self.divide = divide
         self.get_detail = get_detail
+        self.leaf_percentile = leaf_percentile
+        self.low_leaf_fraction = low_leaf_fraction
+
+        # Ensure tree parameters include the percentile settings
+        self.tree_params.setdefault("percentil", leaf_percentile)
+        self.tree_params.setdefault("low_frac", low_leaf_fraction)
 
         self.rf = rf_cls(**self.rf_params)
         self.trees = Trees(**self.tree_params)
@@ -105,6 +119,8 @@ class _BaseInsideForest:
             "method": self.method,
             "divide": self.divide,
             "get_detail": self.get_detail,
+            "leaf_percentile": self.leaf_percentile,
+            "low_leaf_fraction": self.low_leaf_fraction,
         }
 
     def set_params(self, **params):
@@ -132,6 +148,8 @@ class _BaseInsideForest:
                 self.rf.set_params(**{sub_key: value})
             elif key == "tree_params":
                 self.tree_params = value
+                self.tree_params.setdefault("percentil", self.leaf_percentile)
+                self.tree_params.setdefault("low_frac", self.low_leaf_fraction)
                 self.trees = Trees(**self.tree_params)
             elif key.startswith("tree_params__"):
                 sub_key = key.split("__", 1)[1]
@@ -144,8 +162,16 @@ class _BaseInsideForest:
                 "method",
                 "divide",
                 "get_detail",
+                "leaf_percentile",
+                "low_leaf_fraction",
             }:
                 setattr(self, key, value)
+                if key == "leaf_percentile":
+                    self.tree_params["percentil"] = value
+                    self.trees = Trees(**self.tree_params)
+                elif key == "low_leaf_fraction":
+                    self.tree_params["low_frac"] = value
+                    self.trees = Trees(**self.tree_params)
             else:
                 raise ValueError(f"Invalid parameter '{key}'")
 
@@ -424,6 +450,8 @@ class _BaseInsideForest:
             "method": self.method,
             "divide": self.divide,
             "get_detail": self.get_detail,
+            "leaf_percentile": self.leaf_percentile,
+            "low_leaf_fraction": self.low_leaf_fraction,
             "labels_": self.labels_,
             "feature_names_": self.feature_names_,
             "df_clusters_descript_": self.df_clusters_descript_,
@@ -459,6 +487,8 @@ class _BaseInsideForest:
             method=payload.get("method", "select_clusters"),
             divide=payload["divide"],
             get_detail=payload.get("get_detail", False),
+            leaf_percentile=payload.get("leaf_percentile", 95),
+            low_leaf_fraction=payload.get("low_leaf_fraction", 0.05),
         )
         model.rf = payload["rf"]
         model.labels_ = payload["labels_"]
@@ -486,6 +516,8 @@ class InsideForestClassifier(_BaseInsideForest):
         method="select_clusters",
         divide=5,
         get_detail=False,
+        leaf_percentile=95,
+        low_leaf_fraction=0.05,
     ):
         super().__init__(
             RandomForestClassifier,
@@ -497,6 +529,8 @@ class InsideForestClassifier(_BaseInsideForest):
             method=method,
             divide=divide,
             get_detail=get_detail,
+            leaf_percentile=leaf_percentile,
+            low_leaf_fraction=low_leaf_fraction,
         )
 
 
@@ -514,6 +548,8 @@ class InsideForestRegressor(_BaseInsideForest):
         method="select_clusters",
         divide=5,
         get_detail=False,
+        leaf_percentile=95,
+        low_leaf_fraction=0.05,
     ):
         super().__init__(
             RandomForestRegressor,
@@ -525,6 +561,8 @@ class InsideForestRegressor(_BaseInsideForest):
             method=method,
             divide=divide,
             get_detail=get_detail,
+            leaf_percentile=leaf_percentile,
+            low_leaf_fraction=low_leaf_fraction,
         )
 
 

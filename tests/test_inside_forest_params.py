@@ -24,6 +24,8 @@ def test_get_params_returns_init_values():
     assert params["method"] == "balance_lists_n_clusters"
     assert params["divide"] == 3
     assert params["get_detail"] is True
+    assert params["leaf_percentile"] == 95
+    assert params["low_leaf_fraction"] == 0.05
 
 
 def test_set_params_updates_attributes():
@@ -47,6 +49,11 @@ def test_set_params_updates_attributes():
 
     model.set_params(method="menu")
     assert model.method == "menu"
+
+    model.set_params(leaf_percentile=80)
+    assert model.leaf_percentile == 80
+    model.set_params(low_leaf_fraction=0.1)
+    assert model.low_leaf_fraction == 0.1
 
     with pytest.raises(ValueError):
         model.set_params(unknown=1)
