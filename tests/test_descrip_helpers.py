@@ -9,6 +9,7 @@ from InsideForest.descrip import (
     _scale_clusters,
     _compute_inflection_points,
     _merge_outputs,
+    _list_rules_to_text,
 )
 
 
@@ -87,3 +88,8 @@ def test_merge_outputs():
     }
     assert expected_cols.issubset(final_df.columns)
     assert "cluster_ponderador" not in final_df.columns
+
+
+def test_list_rules_to_text_empty_rule_set_returns_placeholder():
+    meta_df = pd.DataFrame()
+    assert _list_rules_to_text([], meta_df, lang="en") == "—"
