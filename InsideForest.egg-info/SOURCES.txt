@@ -16,6 +16,7 @@ InsideForest.egg-info/dependency_links.txt
 InsideForest.egg-info/top_level.txt
 experiments/__init__.py
 experiments/benchmark.py
+experiments/benchmark_get_rangos.py
 experiments/rf_param_benchmark.py
 experiments/summary_benchmark.py
 tests/test_chimera_values_selector.py
