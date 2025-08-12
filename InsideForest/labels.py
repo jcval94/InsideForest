@@ -129,6 +129,12 @@ class Labels:
         upper_bounds = sub_df.loc[row_index, 'lsup'].copy()
         variables = list(upper_bounds.index)
 
+        # Early exit when there are no variables to filter on.
+        # Returning an empty DataFrame prevents index errors when constructing
+        # boolean conditions on an empty list of variables.
+        if len(variables) == 0:
+            return df.iloc[0:0]
+
         conditions = [
             (df[var] <= upper_bounds[var]) & (df[var] > lower_bounds[var])
             for var in variables
