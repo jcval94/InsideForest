@@ -86,6 +86,9 @@ def select_clusters(
         ponderador = regla['ponderador']
         cluster = regla['cluster']
 
+        missing_cols = [col for col in variables if col not in df_datos.columns]
+        if missing_cols:
+            raise KeyError(f"Columns not found in df_datos: {missing_cols}")
         X_datos = df_datos[variables]
         condiciones = [
             (X_datos[var].to_numpy() >= linf[var]) & (X_datos[var].to_numpy() <= lsup[var])

@@ -2,6 +2,7 @@ import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import pandas as pd
+import pytest
 from InsideForest.cluster_selector import select_clusters
 
 
@@ -23,3 +24,18 @@ def test_fallback_cluster_assignment():
     assert clusters[1] == 99
     assert clusters_all[1] == [99]
     assert ponderadores_all[1] == [0.0]
+
+
+def test_missing_column_in_rule_raises_error():
+    df_datos = pd.DataFrame({'x': [0.5]})
+    cols = pd.MultiIndex.from_tuples([
+        ('linf', 'y'),
+        ('lsup', 'y'),
+        ('metrics', 'ponderador'),
+    ])
+    df_reglas = pd.DataFrame([[0.0, 1.0, 1.0]], columns=cols)
+    df_reglas['cluster'] = [1.0]
+
+    with pytest.raises(KeyError) as excinfo:
+        select_clusters(df_datos, df_reglas)
+    assert 'y' in str(excinfo.value)
