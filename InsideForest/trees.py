@@ -11,10 +11,13 @@ logger = logging.getLogger(__name__)
 
 class Trees:
 
-  def __init__(self, lang='python',n_sample_multiplier=2, ef_sample_multiplier=3):
+  def __init__(self, lang='python',n_sample_multiplier=2, ef_sample_multiplier=3,
+               percentil=95, low_frac=0.05):
     self.lang = lang
     self.n_sample_multiplier = n_sample_multiplier
     self.ef_sample_multiplier = ef_sample_multiplier
+    self.percentil = percentil
+    self.low_frac = low_frac
 
 
   def transform_tree_structure(self, tree_str):
@@ -91,8 +94,14 @@ class Trees:
       return estructura_iter, camino
 
 
-  def get_rangos(self, regr, data1, verbose=0, percentil=90, n_jobs=-1, random_state=0):
+  def get_rangos(self, regr, data1, verbose=0, percentil=None, low_frac=None,
+                 n_jobs=-1, random_state=0):
     # This function may be slow; add tqdm to the main loop.
+
+    if percentil is None:
+      percentil = self.percentil
+    if low_frac is None:
+      low_frac = self.low_frac
 
     if self.lang == 'pyspark':
       arboles_estimadores = self.transform_tree_structure(regr.toDebugString)
@@ -170,7 +179,7 @@ class Trees:
         percent_ = np.percentile(valores, percentil)
         high_idx = [i for i, val in enumerate(valores) if val >= percent_]
         low_idx = [i for i, val in enumerate(valores) if val < percent_]
-        sample_size = int(len(low_idx) * 0.2)
+        sample_size = int(len(low_idx) * low_frac)
         sampled_low_idx = rng.choice(low_idx, size=sample_size, replace=False).tolist() if sample_size > 0 else []
         selected_idx = high_idx + sampled_low_idx
         estructuras_maximizadoras = [[paths[i][0], valores[i]] for i in selected_idx]
