@@ -282,6 +282,20 @@ La organización del código refleja el proceso anterior en módulos especializa
 - `Models` proporciona utilidades de validación cruzada y métodos vecinos más cercanos.
 - `Descrip` genera descripciones en lenguaje natural, generaliza condiciones y construye tablas de interpretación.
 
+Ejemplo de integración con OpenAI para `Descrip`:
+
+```python
+from openai import OpenAI
+import os
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+respuesta = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Describe la región: 4.3 <= sepal length (cm) <= 5.8"}],
+)
+print(respuesta.choices[0].message.content)
+```
+
 ## 4. Metodología de uso
 El método central `InsideForest.fit(X, y)` ejecuta una secuencia determinista de pasos que convierte un `RandomForest` en regiones interpretables y etiquetas de cluster. El flujo puede resumirse como:
 
