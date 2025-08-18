@@ -254,6 +254,29 @@ os.environ["OPENAI_API_KEY"] = "sk-your-key"
 res = generate_descriptions(iris_conds, OPENAI_API_KEY=os.getenv("OPENAI_API_KEY"))
 ```
 
+You can also interact with the OpenAI API directly:
+
+```python
+from openai import OpenAI
+import os
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant."},
+        {
+            "role": "user",
+            "content": (
+                "Summarize: 4.3 <= sepal length (cm) <= 5.8 and "
+                "1.0 <= petal width (cm) <= 1.8"
+            ),
+        },
+    ],
+)
+print(response.choices[0].message.content)
+```
+
 ### `categorize_conditions`
 
 ```python
