@@ -219,12 +219,25 @@ Compara los clusters A y B usando las reglas de una fila de la tabla de experime
 ## Experimentos
 
 El módulo `experiments/benchmark.py` ejecuta comparativas de clustering
-supervisado sobre un conjunto de datos de tamaño mediano (`Digits`) y
-otro grande generado sintéticamente. Compara `InsideForest` con
-baselines tradicionales como KMeans y DBSCAN, reportando pureza,
-F1 macro y tiempo de ejecución. También incluye un análisis de
-sensibilidad para los hiperparámetros clave: `K` en KMeans y
-`eps`/`min_samples` en DBSCAN.
+supervisado en conjuntos de datos como `Digits`, `Iris` y `Wine`.
+Compara `InsideForest` con baselines tradicionales como KMeans y DBSCAN,
+reportando pureza, F1 macro, exactitud, métricas de información y tiempo
+de ejecución. También realiza un análisis de sensibilidad para los
+hiperparámetros clave: `K` en KMeans y `eps`/`min_samples` en DBSCAN.
+
+Los resultados recientes se resumen a continuación:
+
+| Dataset | Algoritmo | Pureza | F1 Macro | Exactitud | NMI | AMI | ARI | Bcubed F1 | Divergencia | Tiempo (s) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Digits | InsideForest | 0.783 | 0.362 | 0.261 | 0.501 | 0.339 | 0.169 | 0.218 | 0.789 | 39.570 |
+| Digits | KMeans(k=10) | 0.673 | 0.620 | 0.666 | 0.672 | 0.669 | 0.531 | 0.633 | 0.711 | 0.047 |
+| Digits | DBSCAN(eps=0.5,min=5) | 0.102 | 0.018 | 0.102 | 0.000 | 0.000 | 0.000 | 0.182 | 0.000 | 0.014 |
+| Iris | InsideForest | 0.714 | 0.581 | 0.673 | 0.511 | 0.481 | 0.445 | 0.680 | 0.388 | 0.990 |
+| Iris | KMeans(k=3) | 0.667 | 0.531 | 0.580 | 0.590 | 0.584 | 0.433 | 0.710 | 0.427 | 0.002 |
+| Iris | DBSCAN(eps=0.5,min=5) | 0.680 | 0.674 | 0.680 | 0.511 | 0.505 | 0.442 | 0.651 | 0.402 | 0.002 |
+| Wine | InsideForest | 0.810 | 0.511 | 0.422 | 0.398 | 0.285 | 0.248 | 0.484 | 0.495 | 3.308 |
+| Wine | KMeans(k=3) | 0.966 | 0.967 | 0.966 | 0.876 | 0.875 | 0.897 | 0.937 | 0.628 | 0.004 |
+| Wine | DBSCAN(eps=0.5,min=5) | 0.399 | 0.190 | 0.399 | 0.000 | 0.000 | 0.000 | 0.509 | 0.000 | 0.002 |
 
 Ejecuta el script con:
 

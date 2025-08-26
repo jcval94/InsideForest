@@ -221,12 +221,25 @@ Compares clusters A and B using the rules provided by a row from the experiments
 ## Experiments
 
 The `experiments/benchmark.py` module runs supervised clustering
-benchmarks on a medium sized dataset (`Digits`) and on a synthetically
-generated large dataset. It compares `InsideForest` with traditional
-baselines like KMeans and DBSCAN, reporting purity, macro F1-score and
-runtime for each method. It also performs a basic sensitivity analysis
-on key hyperparameters: `K` for KMeans and `eps`/`min_samples` for
-DBSCAN.
+benchmarks on datasets such as `Digits`, `Iris` and `Wine`. It compares
+`InsideForest` with traditional baselines like KMeans and DBSCAN,
+reporting purity, macro F1-score, accuracy, information-theoretic
+metrics and runtime. A basic sensitivity analysis is also provided for
+key hyperparameters: `K` for KMeans and `eps`/`min_samples` for DBSCAN.
+
+Recent results are summarized below:
+
+| Dataset | Algorithm | Purity | Macro F1 | Accuracy | NMI | AMI | ARI | Bcubed F1 | Divergence | Time (s) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Digits | InsideForest | 0.783 | 0.362 | 0.261 | 0.501 | 0.339 | 0.169 | 0.218 | 0.789 | 39.570 |
+| Digits | KMeans(k=10) | 0.673 | 0.620 | 0.666 | 0.672 | 0.669 | 0.531 | 0.633 | 0.711 | 0.047 |
+| Digits | DBSCAN(eps=0.5,min=5) | 0.102 | 0.018 | 0.102 | 0.000 | 0.000 | 0.000 | 0.182 | 0.000 | 0.014 |
+| Iris | InsideForest | 0.714 | 0.581 | 0.673 | 0.511 | 0.481 | 0.445 | 0.680 | 0.388 | 0.990 |
+| Iris | KMeans(k=3) | 0.667 | 0.531 | 0.580 | 0.590 | 0.584 | 0.433 | 0.710 | 0.427 | 0.002 |
+| Iris | DBSCAN(eps=0.5,min=5) | 0.680 | 0.674 | 0.680 | 0.511 | 0.505 | 0.442 | 0.651 | 0.402 | 0.002 |
+| Wine | InsideForest | 0.810 | 0.511 | 0.422 | 0.398 | 0.285 | 0.248 | 0.484 | 0.495 | 3.308 |
+| Wine | KMeans(k=3) | 0.966 | 0.967 | 0.966 | 0.876 | 0.875 | 0.897 | 0.937 | 0.628 | 0.004 |
+| Wine | DBSCAN(eps=0.5,min=5) | 0.399 | 0.190 | 0.399 | 0.000 | 0.000 | 0.000 | 0.509 | 0.000 | 0.002 |
 
 Execute the script with:
 
