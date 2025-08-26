@@ -297,7 +297,12 @@ def conditions_to_tokens(conds: list[str]) -> set[str]:
 # 2. GENERADOR DE EXPERIMENTOS PARA UN SOLO Df2
 # ------------------------------------------------------------------ #
 
-def experiments_from_df2(df2: pd.DataFrame, meta: pd.DataFrame) -> pd.DataFrame:
+def experiments_from_df2(
+    df2: pd.DataFrame,
+    meta: pd.DataFrame,
+    df_data: pd.DataFrame | None = None,
+    var_obj: str = "target",
+) -> pd.DataFrame:
     """Generate pairwise cluster comparisons for a single Df2.
 
     Parameters
@@ -307,13 +312,20 @@ def experiments_from_df2(df2: pd.DataFrame, meta: pd.DataFrame) -> pd.DataFrame:
         ``cluster_ef_sample`` and ``cluster_n_sample`` columns.
     meta : pd.DataFrame
         Metadata indexed by ``rule_token`` providing actionability metrics.
+    df_data : pd.DataFrame, optional
+        Raw dataset used to compute cluster descriptions. If provided, the
+        effectiveness and number of observations for the intersection between
+        clusters is computed by applying the shared rules to ``df_data``.
+    var_obj : str, default "target"
+        Name of the target column inside ``df_data`` used to estimate
+        effectiveness.
 
     Returns
     -------
     pd.DataFrame
         Each row contains the comparison between two clusters along with the
-        exclusive variables and a score penalizing difficult actions and
-        rewarding overlap.
+        exclusive variables, intersection statistics and a score penalizing
+        difficult actions and rewarding overlap.
     """
     # --- action table -----------------------------
     meta_idx = meta.set_index('rule_token')
@@ -327,6 +339,28 @@ def experiments_from_df2(df2: pd.DataFrame, meta: pd.DataFrame) -> pd.DataFrame:
         inters     = sorted(conds_a & conds_b)
         only_a     = sorted(conds_a - conds_b)
         only_b     = sorted(conds_b - conds_a)
+
+        # -------------------- intersection stats -----------------------
+        inter_ef = None
+        inter_n = None
+        if df_data is not None and inters:
+            def _apply_conditions(data, conds):
+                for cond in conds:
+                    match = re.match(
+                        r"\s*([-\d\.eE]+)\s*<=\s*([A-Za-z_][A-Za-z0-9_]*)\s*<=\s*([-\d\.eE]+)",
+                        str(cond),
+                    )
+                    if match and match.group(2) in data.columns:
+                        low = float(match.group(1))
+                        high = float(match.group(3))
+                        var = match.group(2)
+                        data = data[(data[var] >= low) & (data[var] <= high)]
+                return data
+
+            df_inter = _apply_conditions(df_data.copy(), inters)
+            inter_n = int(df_inter.shape[0])
+            if var_obj in df_inter.columns and inter_n > 0:
+                inter_ef = float(df_inter[var_obj].mean())
 
         # Determine which cluster has lower effectiveness
         delta_ef   = row_a['cluster_ef_sample'] - row_b['cluster_ef_sample']
@@ -378,6 +412,8 @@ def experiments_from_df2(df2: pd.DataFrame, meta: pd.DataFrame) -> pd.DataFrame:
             'n_only_a'           : n_only_a,
             'n_only_b'           : n_only_b,
             'intersection'       : inters,
+            'intersection_ef_sample': inter_ef,
+            'intersection_n_sample' : inter_n,
             'only_cluster_a'     : only_subset_a,
             'only_cluster_b'     : only_subset_b,
             'score'              : score,
@@ -390,7 +426,11 @@ def experiments_from_df2(df2: pd.DataFrame, meta: pd.DataFrame) -> pd.DataFrame:
 # ------------------------------------------------------------------ #
 # 3. PIPELINE GENERAL PARA «n» Df2
 # ------------------------------------------------------------------ #
-def run_experiments(mx, df2_dict: dict[str, pd.DataFrame]) -> pd.DataFrame:
+def run_experiments(
+    mx,
+    df2_dict: dict[str, pd.DataFrame],
+    data_dict: dict[str, pd.DataFrame] | None = None,
+) -> pd.DataFrame:
     """Generate and consolidate hypotheses for multiple datasets.
 
     Parameters
@@ -399,6 +439,10 @@ def run_experiments(mx, df2_dict: dict[str, pd.DataFrame]) -> pd.DataFrame:
         Instance used to extract metadata from ``cluster_descripcion`` fields.
     df2_dict : dict[str, pd.DataFrame]
         Mapping of dataset name to its corresponding Df2 table.
+    data_dict : dict[str, pd.DataFrame], optional
+        Optional mapping of dataset name to the raw data used to create each
+        Df2. When provided, intersection effectiveness and observation counts
+        are computed using these DataFrames.
 
     Returns
     -------
@@ -410,7 +454,8 @@ def run_experiments(mx, df2_dict: dict[str, pd.DataFrame]) -> pd.DataFrame:
 
     for name, df2 in df2_dict.items():
         df1  = mx.extract(df2)
-        hypo = experiments_from_df2(df2, df1)
+        df_raw = data_dict.get(name) if data_dict else None
+        hypo = experiments_from_df2(df2, df1, df_raw, var_obj=getattr(mx, "var_obj", "target"))
 
         if not hypo.empty:
             hypo['dataset'] = name
@@ -427,6 +472,7 @@ def run_experiments(mx, df2_dict: dict[str, pd.DataFrame]) -> pd.DataFrame:
                 'variables_a', 'variables_b', 'variables_intersection',
                 'difficulty_a', 'difficulty_b', 'n_intersection',
                 'n_only_a', 'n_only_b', 'intersection',
+                'intersection_ef_sample', 'intersection_n_sample',
                 'only_cluster_a', 'only_cluster_b', 'score']
         return pd.DataFrame(columns=cols)
 
