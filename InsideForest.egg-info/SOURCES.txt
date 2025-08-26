@@ -18,6 +18,7 @@ experiments/__init__.py
 experiments/benchmark.py
 experiments/benchmark_get_rangos.py
 experiments/rf_param_benchmark.py
+experiments/select_clusters_hyperparam.py
 experiments/summary_benchmark.py
 tests/test_chimera_values_selector.py
 tests/test_cluster_selector.py
@@ -28,4 +29,6 @@ tests/test_inside_forest_fit_predict.py
 tests/test_inside_forest_params.py
 tests/test_inside_forest_regressor_fit_predict.py
 tests/test_iou_equivalence.py
+tests/test_metadata_run_experiments.py
+tests/test_models.py
 tests/test_trees.py
