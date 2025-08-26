@@ -74,6 +74,21 @@ pred_labels = in_f.predict(X_rest)  # cluster labels for the remaining data
 training_labels = in_f.labels_  # labels for the training subset
 ```
 
+### FAST presets and feature reduction
+
+InsideForest can automatically pick faster training parameters and reduce
+features based on dataset size:
+
+```python
+in_f = InsideForestClassifier(auto_fast=True, auto_feature_reduce=True)
+in_f.fit(X_train, y_train)
+```
+
+Use `explicit_k_features` to fix the number of retained features and
+`fast_overrides` to tweak the automatic presets. After fitting, the
+attributes `_feature_mask_`, `feature_names_in_`, `feature_names_out_`,
+`_size_bucket_`, and `_fast_params_used_` reveal the applied settings.
+
 You can control how final cluster labels are consolidated through the
 `method` parameter. Available strategies are:
 

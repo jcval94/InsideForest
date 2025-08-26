@@ -74,6 +74,22 @@ pred_labels = in_f.predict(X_rest)  # etiquetas de cluster para los datos restan
 etiquetas_entrenamiento = in_f.labels_  # etiquetas para el subconjunto de entrenamiento
 ```
 
+### Presets FAST y reducción de características
+
+InsideForest puede elegir automáticamente parámetros de entrenamiento más
+rápidos y reducir características según el tamaño del conjunto de datos:
+
+```python
+in_f = InsideForestClassifier(auto_fast=True, auto_feature_reduce=True)
+in_f.fit(X_train, y_train)
+```
+
+Usa `explicit_k_features` para fijar el número de características
+conservadas y `fast_overrides` para ajustar los presets automáticos.
+Tras el entrenamiento, los atributos `_feature_mask_`, `feature_names_in_`,
+`feature_names_out_`, `_size_bucket_` y `_fast_params_used_` muestran la
+configuración aplicada.
+
 Puedes controlar cómo se eligen las etiquetas finales mediante el parámetro
 `method`. Las estrategias disponibles son:
 
