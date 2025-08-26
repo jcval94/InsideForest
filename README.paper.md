@@ -13,22 +13,19 @@ Proponer InsideForest, un algoritmo de *clustering* supervisado que utiliza bosq
 El modelo entrena un bosque aleatorio y transforma cada hoja en una regla geométrica; estas reglas se agrupan según su solapamiento para producir clusters con descripciones explícitas.
 
 ### Resultados
-Los benchmarks en cuatro conjuntos de datos arrojaron las siguientes métricas:
+Los benchmarks en tres conjuntos de datos arrojaron las siguientes métricas:
 
 | Dataset | Algorithm | Purity | Macro F1 | Accuracy | Nmi | Ami | Ari | Bcubed F1 | Divergencia | Tiempo (s) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Digits | InsideForest | 0.216 | 0.113 | 0.216 | 0.195 | 0.191 | 0.064 | 0.266 | 0.279 | 71.623 |
-| Digits | KMeans(k=10) | 0.673 | 0.620 | 0.666 | 0.672 | 0.669 | 0.531 | 0.633 | 0.711 | 0.049 |
-| Digits | DBSCAN(eps=0.5,min=5) | 0.102 | 0.018 | 0.102 | 0.000 | 0.000 | 0.000 | 0.182 | 0.000 | 0.013 |
-| Iris | InsideForest | 0.439 | 0.365 | 0.439 | 0.152 | 0.125 | 0.027 | 0.534 | 0.128 | 2.269 |
-| Iris | KMeans(k=3) | 0.667 | 0.531 | 0.580 | 0.590 | 0.584 | 0.433 | 0.710 | 0.427 | 0.003 |
-| Iris | DBSCAN(eps=0.5,min=5) | 0.680 | 0.674 | 0.680 | 0.511 | 0.505 | 0.442 | 0.651 | 0.402 | 0.003 |
-| Wine | InsideForest | 0.397 | 0.245 | 0.388 | 0.009 | -0.004 | 0.001 | 0.488 | 0.029 | 5.311 |
-| Wine | KMeans(k=3) | 0.966 | 0.967 | 0.966 | 0.876 | 0.875 | 0.897 | 0.937 | 0.628 | 0.003 |
-| Wine | DBSCAN(eps=0.5,min=5) | 0.399 | 0.190 | 0.399 | 0.000 | 0.000 | 0.000 | 0.509 | 0.000 | 0.003 |
-| SyntheticLarge | InsideForest | 0.202 | 0.071 | 0.202 | 0.000 | -0.000 | -0.000 | 0.333 | 0.002 | 340.066 |
-| SyntheticLarge | KMeans(k=5) | 0.408 | 0.405 | 0.408 | 0.151 | 0.150 | 0.114 | 0.292 | 0.277 | 0.082 |
-| SyntheticLarge | DBSCAN(eps=0.5,min=5) | 0.201 | 0.067 | 0.201 | 0.000 | 0.000 | 0.000 | 0.333 | 0.000 | 0.082 |
+| Digits | InsideForest | 0.783 | 0.362 | 0.261 | 0.501 | 0.339 | 0.169 | 0.218 | 0.789 | 39.570 |
+| Digits | KMeans(k=10) | 0.673 | 0.620 | 0.666 | 0.672 | 0.669 | 0.531 | 0.633 | 0.711 | 0.047 |
+| Digits | DBSCAN(eps=0.5,min=5) | 0.102 | 0.018 | 0.102 | 0.000 | 0.000 | 0.000 | 0.182 | 0.000 | 0.014 |
+| Iris | InsideForest | 0.714 | 0.581 | 0.673 | 0.511 | 0.481 | 0.445 | 0.680 | 0.388 | 0.990 |
+| Iris | KMeans(k=3) | 0.667 | 0.531 | 0.580 | 0.590 | 0.584 | 0.433 | 0.710 | 0.427 | 0.002 |
+| Iris | DBSCAN(eps=0.5,min=5) | 0.680 | 0.674 | 0.680 | 0.511 | 0.505 | 0.442 | 0.651 | 0.402 | 0.002 |
+| Wine | InsideForest | 0.810 | 0.511 | 0.422 | 0.398 | 0.285 | 0.248 | 0.484 | 0.495 | 3.308 |
+| Wine | KMeans(k=3) | 0.966 | 0.967 | 0.966 | 0.876 | 0.875 | 0.897 | 0.937 | 0.628 | 0.004 |
+| Wine | DBSCAN(eps=0.5,min=5) | 0.399 | 0.190 | 0.399 | 0.000 | 0.000 | 0.000 | 0.509 | 0.000 | 0.002 |
 
 *El conjunto Titanic no pudo evaluarse en este entorno por falta de acceso a los datos.*
 
