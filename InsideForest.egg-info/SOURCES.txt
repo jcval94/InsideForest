@@ -31,4 +31,5 @@ tests/test_inside_forest_regressor_fit_predict.py
 tests/test_iou_equivalence.py
 tests/test_metadata_run_experiments.py
 tests/test_models.py
+tests/test_numeric_utils.py
 tests/test_trees.py
