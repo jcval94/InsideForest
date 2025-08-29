@@ -355,3 +355,7 @@ table = build_conditions_table(bool_conds, df, effectiveness, weights, n_groups=
 
 Esto produce un `DataFrame` resumen donde cada condición se etiqueta por grupo junto con la efectividad y el peso proporcionados.
 
+## Utilidades de optimización
+
+InsideForest ahora incluye un optimizador de Newton con región de confianza para problemas con restricciones de caja. La función auxiliar `_find_maximum` expone el parámetro `optim_method` para alternar entre el ascenso por gradiente estándar y este enfoque de región de confianza, que usa derivadas analíticas o por diferencias finitas y suele converger con menos evaluaciones respetando los límites.
+
