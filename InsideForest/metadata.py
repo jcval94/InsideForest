@@ -33,7 +33,7 @@ class Profile(Enum):
 class MetaExtractor:
     """
     Extract a minimal, investigation or full slice of metadata for the
-    variables referenced in df_QW['cluster_descripcion'].
+    variables referenced in df_QW['cluster_description'].
 
     *Synonyms and suffix stripping are fully inferred from the metadata.*
     """
@@ -204,11 +204,11 @@ class MetaExtractor:
         cols: List[str] | None = None
     ) -> pd.DataFrame:
 
-        if "cluster_descripcion" not in df_QW.columns:
-            raise KeyError("df_QW must contain 'cluster_descripcion' column")
+        if "cluster_description" not in df_QW.columns:
+            raise KeyError("df_QW must contain 'cluster_description' column")
 
-        # tokens = self._tokens(df_QW["cluster_descripcion"])
-        tokens = self._extract_tokens(df_QW["cluster_descripcion"])
+        # tokens = self._tokens(df_QW["cluster_description"])
+        tokens = self._extract_tokens(df_QW["cluster_description"])
         mapping = {t: self._map_to_var(self._canon(t)) for t in tokens}
         valid   = {tok: var for tok, var in mapping.items() if var in list(self.meta.index)}
 
@@ -308,7 +308,7 @@ def experiments_from_df2(
     Parameters
     ----------
     df2 : pd.DataFrame
-        Table with one row per cluster including ``cluster_descripcion``,
+        Table with one row per cluster including ``cluster_description``,
         ``cluster_ef_sample`` and ``cluster_n_sample`` columns.
     meta : pd.DataFrame
         Metadata indexed by ``rule_token`` providing actionability metrics.
@@ -333,8 +333,8 @@ def experiments_from_df2(
     recs = []
     for (_, row_a), (_, row_b) in itertools.combinations(df2.iterrows(), 2):
 
-        conds_a = set(parse_rule_string(row_a['cluster_descripcion']))
-        conds_b = set(parse_rule_string(row_b['cluster_descripcion']))
+        conds_a = set(parse_rule_string(row_a['cluster_description']))
+        conds_b = set(parse_rule_string(row_b['cluster_description']))
 
         inters     = sorted(conds_a & conds_b)
         only_a     = sorted(conds_a - conds_b)
@@ -436,7 +436,7 @@ def run_experiments(
     Parameters
     ----------
     mx : MetaExtractor
-        Instance used to extract metadata from ``cluster_descripcion`` fields.
+        Instance used to extract metadata from ``cluster_description`` fields.
     df2_dict : dict[str, pd.DataFrame]
         Mapping of dataset name to its corresponding Df2 table.
     data_dict : dict[str, pd.DataFrame], optional

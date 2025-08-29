@@ -41,7 +41,7 @@ else:  # Only executed if import succeeded
 logger = logging.getLogger(__name__)
 
 
-def primer_punto_inflexion_decreciente(data, bins=10, window_length=5, polyorder=2):
+def first_decreasing_inflection_point(data, bins=10, window_length=5, polyorder=2):
     """
     Find the first decreasing inflection point in a histogram.
 
@@ -52,7 +52,7 @@ def primer_punto_inflexion_decreciente(data, bins=10, window_length=5, polyorder
     - polyorder: polynomial order for the Savitzky-Golay filter.
 
     Returns:
-    - punto_inflexion: bin value where the first decreasing inflection occurs.
+    - inflection_point: bin value where the first decreasing inflection occurs.
     """
 
     if len(data) == 0:
@@ -99,9 +99,9 @@ def primer_punto_inflexion_decreciente(data, bins=10, window_length=5, polyorder
         return None  # No decreasing inflection point found
 
     # Select the first decreasing inflection point
-    primer_inflexion = bin_centers[inflection_indices[0]]
+    first_inflection = bin_centers[inflection_indices[0]]
 
-    return primer_inflexion
+    return first_inflection
 
 
 def replace_with_dict(df, columns, var_rename):
@@ -131,7 +131,7 @@ def replace_with_dict(df, columns, var_rename):
     df_replaced = df.copy()
     replace_info = {}
 
-    # Ordenar las claves por longitud descendente para evitar conflictos en subcadenas
+    # Sort keys by descending length to avoid substring conflicts
     sorted_keys = sorted(var_rename.keys(), key=len, reverse=True)
     escaped_keys = [re.escape(k) for k in sorted_keys]
     pattern = re.compile("|".join(escaped_keys))
@@ -160,16 +160,16 @@ def replace_with_dict(df, columns, var_rename):
 
 
 def _prepare_cluster_data(
-    df_datos_descript: pd.DataFrame,
-    df_datos_clusterizados: pd.DataFrame,
+    df_descriptive: pd.DataFrame,
+    df_clustered: pd.DataFrame,
     targets: List[str],
 ):
     """Compute cluster statistics and auxiliary tables."""
 
-    sorted_descriptions = df_datos_descript.sort_values(
-        "cluster_ponderador", ascending=False
+    sorted_descriptions = df_descriptive.sort_values(
+        "cluster_weight", ascending=False
     )
-    clusters_with_desc = df_datos_clusterizados.merge(
+    clusters_with_desc = df_clustered.merge(
         sorted_descriptions, on="cluster", how="left"
     )
     class_cluster_counts = (
@@ -205,7 +205,7 @@ def _scale_clusters(cluster_df: pd.DataFrame) -> pd.DataFrame:
     numeric_cols = scaled_clusters.select_dtypes(include=np.number).columns
     scaler = StandardScaler()
     scaled_clusters[numeric_cols] = scaler.fit_transform(scaled_clusters[numeric_cols])
-    scaled_clusters["importancia"] = scaled_clusters.sum(axis=1)
+    scaled_clusters["importance"] = scaled_clusters.sum(axis=1)
     return scaled_clusters
 
 
@@ -217,10 +217,10 @@ def _compute_inflection_points(
 ):
     """Mark clusters considered good based on inflection points."""
 
-    first_inflection = primer_punto_inflexion_decreciente(
+    first_inflection = first_decreasing_inflection_point(
         scaled_clusters[0], bins=20, window_length=5, polyorder=2
     )
-    second_inflection = primer_punto_inflexion_decreciente(
+    second_inflection = first_decreasing_inflection_point(
         scaled_clusters[1], bins=20, window_length=5, polyorder=2
     )
     good_mask = (cluster_stats[1] > 1) & (
@@ -229,21 +229,21 @@ def _compute_inflection_points(
         | (cluster_stats[0] < inflex_pond_inf)
     )
     cluster_stats = cluster_stats.copy()
-    cluster_stats["buenos"] = np.where(good_mask, 1, 0)
+    cluster_stats["good"] = np.where(good_mask, 1, 0)
     return cluster_stats, first_inflection, second_inflection
 
 
 def _merge_outputs(
-    df_datos_descript: pd.DataFrame,
+    df_descriptive: pd.DataFrame,
     class1_rate_by_cluster: pd.Series,
     cluster_stats: pd.DataFrame,
     var_rename: Dict[str, str],
 ):
     """Merge descriptive data with computed cluster statistics."""
 
-    final_descriptions = df_datos_descript.copy()
+    final_descriptions = df_descriptive.copy()
     final_descriptions, _ = replace_with_dict(
-        final_descriptions, ["cluster_descripcion"], var_rename
+        final_descriptions, ["cluster_description"], var_rename
     )
     final_descriptions = final_descriptions.merge(
         class1_rate_by_cluster.reset_index(), on="cluster", how="left"
@@ -252,15 +252,15 @@ def _merge_outputs(
         cluster_stats.reset_index(), on="cluster", how="left"
     )
     final_descriptions = final_descriptions.rename(
-        columns={"1_x": "Probabilidad", "1_y": "N_probabilidad", 0: "Soporte"}
+        columns={"1_x": "Probability", "1_y": "N_probability", 0: "Support"}
     )
-    return final_descriptions.drop(columns=["cluster_ponderador"])
+    return final_descriptions.drop(columns=["cluster_weight"])
 
 
-def get_descripciones_valiosas(
-    df_datos_descript,
-    df_datos_clusterizados,
-    TARGETS,
+def get_valuable_descriptions(
+    df_descriptive,
+    df_clustered,
+    targets,
     var_rename,
     inflex_pond_sup=0.4,
     inflex_pond_inf=0.5,
@@ -273,7 +273,7 @@ def get_descripciones_valiosas(
         class1_rate_by_cluster,
         cluster_stats,
         valuable_clusters,
-    ) = _prepare_cluster_data(df_datos_descript, df_datos_clusterizados, TARGETS)
+    ) = _prepare_cluster_data(df_descriptive, df_clustered, targets)
     scaled_clusters = _scale_clusters(valuable_clusters)
     cluster_stats, _, _ = _compute_inflection_points(
         cluster_stats, scaled_clusters, inflex_pond_sup, inflex_pond_inf
@@ -339,19 +339,19 @@ def generate_descriptions(
         f"Only respond with the descriptions in {language}. Conditions:\n\n{conditions_text}"
     )
 
-    mensajes = [
+    messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt},
     ]
 
     try:
-        respuesta = client.chat.completions.create(messages=mensajes, **default_params)
+        response = client.chat.completions.create(messages=messages, **default_params)
     except Exception as exc:
         logger.exception("Error calling the OpenAI API: %s", exc)
         return {"responses": []}
 
     # Split the response into a list of descriptions per line
-    descriptions = respuesta.choices[0].message.content.strip().split("\n")
+    descriptions = response.choices[0].message.content.strip().split("\n")
     descriptions = [desc.strip() for desc in descriptions if desc.strip()]
 
     # Return a dictionary with the responses
@@ -513,8 +513,8 @@ def categorize_conditions_generalized(condition_list, df, n_groups=2):
 def build_conditions_table(
     condition_list,
     df,
-    efectividades,
-    ponderadores=None,
+    effectiveness,
+    weights=None,
     n_groups=3,
     fill_value="N/A",
 ):
@@ -526,9 +526,9 @@ def build_conditions_table(
         List of conditions in the form ``"min <= VAR <= max …"``.
     df : pd.DataFrame
         Reference DataFrame used to compute quantiles.
-    efectividades : list[float] | pd.Series
+    effectiveness : list[float] | pd.Series
         Effectiveness metric for each condition.
-    ponderadores : list[float] | pd.Series | None, default None
+    weights : list[float] | pd.Series | None, default None
         Optional metric (support, frequency, etc.) for each condition.
     n_groups : int, default 3
         Number of groups for ``categorize_conditions``.
@@ -538,7 +538,7 @@ def build_conditions_table(
     Returns
     -------
     pd.DataFrame
-        Resulting table with columns ``Grupo``, ``Efectividad``, ``Ponderador``
+        Resulting table with columns ``Group``, ``Effectiveness``, ``Weight``
         and the extracted variables in alphabetical order.
     """
 
@@ -555,20 +555,20 @@ def build_conditions_table(
 
     rows = []
     n = len(descriptions)
-    if len(efectividades) != n:
+    if len(effectiveness) != n:
         raise ValueError(
-            "`efectividades` must have the same length as `condition_list`"
+            "`effectiveness` must have the same length as `condition_list`"
         )
-    if ponderadores is None:
-        ponderadores = [np.nan] * n
-    elif len(ponderadores) != n:
-        raise ValueError("`ponderadores` must have the same length as `condition_list`")
+    if weights is None:
+        weights = [np.nan] * n
+    elif len(weights) != n:
+        raise ValueError("`weights` must have the same length as `condition_list`")
 
     for idx, desc in enumerate(descriptions):
         row = {
-            "Grupo": idx + 1,
-            "Efectividad": efectividades[idx],
-            "Ponderador": ponderadores[idx],
+            "Group": idx + 1,
+            "Effectiveness": effectiveness[idx],
+            "Weight": weights[idx],
         }
         row.update({var: fill_value for var in variables})
 
@@ -577,7 +577,7 @@ def build_conditions_table(
 
         rows.append(row)
 
-    final_cols = ["Grupo", "Efectividad", "Ponderador"] + variables
+    final_cols = ["Group", "Effectiveness", "Weight"] + variables
     return pd.DataFrame(rows, columns=final_cols)
 
 
@@ -609,7 +609,7 @@ def _parse_relative_description(desc: Union[str, float, None]) -> Dict[str, str]
     return pares
 
 
-def expandir_categorias(
+def expand_categories(
     df: pd.DataFrame, desc_col: str = "cluster_desc_relative", inplace: bool = False
 ) -> pd.DataFrame:
     """
@@ -769,18 +769,18 @@ def cluster_pairs_sim(
 
     return pd.DataFrame(
         rows,
-        columns=["cluster_1", "cluster_2", "similitud", f"delta_{metric}", "score"],
+        columns=["cluster_1", "cluster_2", "similarity", f"delta_{metric}", "score"],
     )
 
 
 def get_frontiers(
-    df_datos_descript: pd.DataFrame, df: pd.DataFrame, divide: int = 5
+    df_descriptive: pd.DataFrame, df: pd.DataFrame, divide: int = 5
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Generate cluster frontiers from descriptions.
 
     Parameters
     ----------
-    df_datos_descript : pd.DataFrame
+    df_descriptive : pd.DataFrame
         DataFrame with cluster descriptions.
     df : pd.DataFrame
         Reference DataFrame to compute percentiles.
@@ -790,33 +790,33 @@ def get_frontiers(
     Returns
     -------
     tuple(pd.DataFrame, pd.DataFrame)
-        ``df_datos_explain`` with expanded columns and ``frontiers`` with
+        ``df_explain`` with expanded columns and ``frontiers`` with
         cluster pairs ordered by score.
     """
-    descrip_generales = [
+    general_descriptions = [
         x
-        for x in df_datos_descript["cluster_descripcion"].unique().tolist()
+        for x in df_descriptive["cluster_description"].unique().tolist()
         if isinstance(x, str)
     ]
 
-    descrip = categorize_conditions(descrip_generales, df, divide)
-    df_datos_descript["cluster_desc_relative"] = df_datos_descript[
-        "cluster_descripcion"
-    ].replace({k: v for k, v in zip(descrip_generales, descrip["responses"])})
+    desc = categorize_conditions(general_descriptions, df, divide)
+    df_descriptive["cluster_desc_relative"] = df_descriptive[
+        "cluster_description"
+    ].replace({k: v for k, v in zip(general_descriptions, desc["responses"])})
 
-    df_datos_explain = expandir_categorias(df_datos_descript)
-    df_datos_explain = df_datos_explain[df_datos_explain["cluster_n_sample"] > 0]
+    df_explain = expand_categories(df_descriptive)
+    df_explain = df_explain[df_explain["cluster_n_sample"] > 0]
 
     ORD_MAP_LOCAL = {f"PERCENTILE {i}": i for i in range(1, 101)}
-    df_datos_explain_gen = df_datos_explain.sort_values(
+    df_explain_gen = df_explain.sort_values(
         "cluster_n_sample", ascending=False
     ).head(40)
-    similarity_matrix(df_datos_explain_gen, ORD_MAP_LOCAL)
+    similarity_matrix(df_explain_gen, ORD_MAP_LOCAL)
     frontiers = cluster_pairs_sim(
-        df_datos_explain_gen, ORD_MAP_LOCAL, metric="cluster_ef_sample"
+        df_explain_gen, ORD_MAP_LOCAL, metric="cluster_ef_sample"
     )
     frontiers.sort_values("score", ascending=False, inplace=True)
-    return df_datos_explain, frontiers
+    return df_explain, frontiers
 
 
 # ╭──────────────────╮
@@ -1091,7 +1091,7 @@ def _gpt_hypothesis(
         return None
 
 
-def generar_hypotesis(
+def generate_hypothesis(
     meta_df: pd.DataFrame,
     exp_df: pd.DataFrame,
     *,
@@ -1101,10 +1101,7 @@ def generar_hypotesis(
     gpt_model: str = "gpt-4o-mini",
     temperature: float = 0.2,
 ) -> str:
-    """
-    Create a hypothesis report comparing the subgroups
-    (intersection ∧ A) vs (intersection ∧ B).
-    """
+    """Create a hypothesis report comparing two subgroups."""
     row = exp_df.iloc[0]
     row_ci = {k.lower(): v for k, v in row.items()}
 

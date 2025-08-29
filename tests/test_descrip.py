@@ -9,7 +9,7 @@ from InsideForest.descrip import (
     categorize_conditions_generalized,
     build_conditions_table,
     _gpt_hypothesis,
-    generar_hypotesis,
+    generate_hypothesis,
     get_frontiers,
 )
 
@@ -61,9 +61,9 @@ def test_build_conditions_table_basic():
     table = build_conditions_table(conds, df, efectiv, ponder, n_groups=3)
     expected = pd.DataFrame(
         {
-            'Grupo': [1, 2],
-            'Efectividad': [0.5, 0.2],
-            'Ponderador': [1.0, 2.0],
+            'Group': [1, 2],
+            'Effectiveness': [0.5, 0.2],
+            'Weight': [1.0, 2.0],
             'Var1': ['Percentile 33.33', 'Percentile 100'],
             'Var2': ['Percentile 33.33', 'Percentile 33.33'],
         }
@@ -112,7 +112,7 @@ def test_generar_hypotesis_fallback_without_gpt(monkeypatch):
         "cluster_ef_b": [0.2],
         "delta_ef": [0.1],
     })
-    result = generar_hypotesis(meta_df, exp_df, target="tok", use_gpt=True, lang="es")
+    result = generate_hypothesis(meta_df, exp_df, target="tok", use_gpt=True, lang="es")
     assert "Etiqueta" in result
 
 
@@ -129,7 +129,7 @@ def test_generar_hypotesis_handles_missing_subgroups(monkeypatch):
         "cluster_ef_b": [0.2],
         "delta_ef": [0.1],
     })
-    result = generar_hypotesis(meta_df, exp_df, target="tok", use_gpt=False, lang="es")
+    result = generate_hypothesis(meta_df, exp_df, target="tok", use_gpt=False, lang="es")
     assert "Etiqueta" in result
 
 
@@ -147,7 +147,7 @@ def test_generar_hypotesis_handles_lowercase_columns(monkeypatch):
         "cluster_ef_b": [0.2],
         "delta_ef": [0.1],
     })
-    result = generar_hypotesis(meta_df, exp_df, target="tok", use_gpt=False, lang="es")
+    result = generate_hypothesis(meta_df, exp_df, target="tok", use_gpt=False, lang="es")
     assert "Etiqueta" in result
     assert "10.00%" in result
 
@@ -156,7 +156,7 @@ def test_get_frontiers_basic():
     df = pd.DataFrame({'x': range(10), 'y': range(10)})
     desc_df = pd.DataFrame({
         'cluster': [0, 1],
-        'cluster_descripcion': [
+        'cluster_description': [
             '0 <= x <= 4 and 0 <= y <= 4',
             '5 <= x <= 9 and 0 <= y <= 4',
         ],
@@ -170,4 +170,4 @@ def test_get_frontiers_basic():
     assert df_explain.loc[df_explain['cluster'] == 0, 'x'].iat[0] == 'PERCENTILE 40'
     assert frontiers.iloc[0]['cluster_1'] == 0
     assert frontiers.iloc[0]['cluster_2'] == 1
-    assert frontiers.iloc[0]['similitud'] == pytest.approx(0.5)
+    assert frontiers.iloc[0]['similarity'] == pytest.approx(0.5)

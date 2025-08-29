@@ -129,18 +129,19 @@ def select_clusters(
 
 class MenuClusterSelector:
     """
-    Selector de 'clústers' cuando X = records (solo menús por fila).
-    Entrena con y para estimar q_v(y). En predicción elige un valor por fila
-    maximizando un objetivo global: J = w_nmi * NMI + w_v * V_measure - λ * RegK.
+    Cluster selector when X = records (one menu per row).
+    Trains with y to estimate q_v(y). During prediction chooses a value per row
+    maximizing a global objective: J = w_nmi * NMI + w_v * V_measure - λ * RegK.
 
-    - fit(records_train, y): calcula q_v(y) (suavizado Laplace) y fija el vocabulario de valores.
-    - predict(records, n_clusters=None): asigna un valor por fila SIN ver y, optimizando J
-      por ascenso coordinado (greedy por mejoras de J). Si se da n_clusters=K, primero
-      restringe a un catálogo S de tamaño K mediante cobertura+calidad y luego optimiza.
+    - fit(records_train, y): compute q_v(y) (Laplace smoothing) and set the
+      vocabulary of values.
+    - predict(records, n_clusters=None): assign one value per row without seeing y,
+      optimizing J via coordinate ascent (greedy improvements). If n_clusters=K,
+      first restrict to a catalog S of size K using coverage+quality and then optimize.
     """
 
     # =========================
-    #   MÉTRICAS (explícitas)
+    #   METRICS (explicit)
     # =========================
     @staticmethod
     def _safe_div(a, b):
@@ -185,7 +186,7 @@ class MenuClusterSelector:
     def _v_measure_from_soft(cls, C: np.ndarray, Py: np.ndarray, Pv: np.ndarray,
                              beta: float = 1.0) -> float:
         """
-        V-measure = armónica(homogeneidad, completitud) sobre C, Py, Pv.
+        V-measure = harmonic(homogeneity, completeness) over C, Py, Pv.
         """
         n = C.sum()
         if n <= 0:
@@ -215,9 +216,9 @@ class MenuClusterSelector:
     @staticmethod
     def _k_regularizer(Pv: np.ndarray, target_K: int | None, lam: float) -> float:
         """
-        Regularizador global sobre el nº de valores usados:
-          - Si target_K es None: Reg = lam * H(V)  (castiga alta entropía ⇒ menos valores efectivos).
-          - Si target_K es int:  Reg = lam * (H(V) - log(target_K))^2  (empuja a ~K valores).
+        Global regularizer over the number of values used:
+          - If target_K is None: Reg = lam * H(V) (penalizes high entropy ⇒ fewer effective values).
+          - If target_K is int:  Reg = lam * (H(V) - log(target_K))^2 (pushes toward ~K values).
         """
         if lam <= 0.0:
             return 0.0
@@ -273,7 +274,7 @@ class MenuClusterSelector:
         self.value_to_idx_ = {v: i for i, v in enumerate(self.idx_to_value_)}
 
     def _ensure_vocab_for_predict(self, records: Sequence[Sequence[Any]]):
-        # Añade valores no vistos en train con q_v uniforme (suavizado)
+        # Add unseen values from train with uniform q_v (smoothing)
         new_vals = []
         for row in records:
             for v in (row if row else [None]):
@@ -449,9 +450,9 @@ class MenuClusterSelector:
 
     def predict(self, records: Sequence[Sequence[Any]], n_clusters: int | None = None) -> List[Any]:
         """
-        Asigna 1 valor por fila maximizando J = w_nmi*NMI + w_v*V - lam_k*RegK,
-        usando ascenso coordinado (greedy por mejoras).
-        Si n_clusters=K, primero restringe a un catálogo S de tamaño K (cobertura+calidad).
+        Assign one value per row maximizing J = w_nmi*NMI + w_v*V - lam_k*RegK,
+        using coordinate ascent (greedy improvements).
+        If n_clusters=K, first restrict to a catalog S of size K (coverage+quality).
         """
         assert (
             self.q_ is not None and self.classes_ is not None and self.Py_ is not None
@@ -482,12 +483,12 @@ def balance_lists_n_clusters(
     seed: int | None = None,
 ) -> List[Any]:
     """
-    Asigna **un único valor por fila** optimizando dos objetivos con *peso idéntico*:
+    Assign **a single value per row** optimizing two objectives with identical weight:
 
-    • |distinct - n_clusters| →   acercarse al nº deseado de clusters
-      (si `n_clusters` es `None`, se toma el mínimo posible de forma natural).
+    • |distinct - n_clusters| → approach the desired number of clusters
+      (if `n_clusters` is `None`, the minimum possible is chosen naturally).
 
-    • Desbalance absoluto    →   Σ |c_v – ideal| / n, donde `ideal = n / k`.
+    • Absolute imbalance → Σ |c_v – ideal| / n, where ``ideal = n / k``.
     """
     rng = random.Random(seed)
     records = [row if row else [-1] for row in records]
@@ -511,7 +512,7 @@ def balance_lists_n_clusters(
         return cluster_term + imbalance(cnt)
 
     def neighbour(assign: List[Any]) -> List[Any]:
-        """Mueve una fila a otra opción válida (aleatorio)."""
+        """Move one row to another valid option (random)."""
         i = rng.randrange(n)
         row = records[i]
         cur = assign[i]
@@ -522,7 +523,7 @@ def balance_lists_n_clusters(
         new[i] = rng.choice(alt)
         return new
 
-    # Inicialización razonable ------------------------------------------
+    # Reasonable initialization ------------------------------------------
     val_rows = defaultdict(list)
     for idx, row in enumerate(records):
         for v in row:
@@ -588,11 +589,11 @@ def max_prob_clusters(
     seed: int | None = None,
 ) -> List[Any]:
     """
-    Selecciona **un valor por fila** cumpliendo:
-      • Si `n_clusters` es `None`  →  minimiza el nº de valores distintos.
-      • Si `n_clusters` es un entero:
-          – intenta devolver EXACTAMENTE ese nº de clusters, maximizando la suma de probabilidades.
-          – si es imposible, usa el valor factible más próximo (`k_min` o `k_max`).
+    Select **one value per row** such that:
+      • If `n_clusters` is `None` → minimize number of distinct values.
+      • If `n_clusters` is an integer:
+          – attempt to return EXACTLY that number of clusters, maximizing the sum of probabilities.
+          – if impossible, use the nearest feasible value (`k_min` or `k_max`).
     """
     rng = random.Random(seed)
     n = len(records)
@@ -633,7 +634,7 @@ def max_prob_clusters(
 
     S = set(list(S)[:k_target])  # asegura |S| == k_target
 
-    # Paso 3: asignación greedy -----------------------------------------
+    # Step 3: greedy assignment -----------------------------------------
     assign: List[Any] = []
     for row in records:
         opts = [v for v in row if v in S]
@@ -690,29 +691,24 @@ def match_class_distribution(
     *,
     seed: int | None = None,
 ) -> List[Any]:
-    """Asignar un valor por fila imitando la distribución de ``y``.
-
-    Para cada registro se selecciona una etiqueta de su lista de opciones de
-    forma que, de manera codiciosa, la distribución de clases dentro de cada
-    etiqueta sea lo más parecida posible a la distribución global observada en
-    ``y``.
+    """Assign a value per row imitating the distribution of ``y``.
 
     Parameters
     ----------
     records : Sequence[Sequence[Any]]
-        Lista de opciones de etiqueta por fila.
+        List of label options per row.
     y : Sequence[Any]
-        Clases objetivo asociadas a cada fila.
+        Target classes associated with each row.
     n_clusters : int | None, optional
-        Número deseado de etiquetas distintas. Se usa como cota blanda
-        priorizando las más frecuentes.
+        Desired number of distinct labels. Used as a soft bound,
+        prioritizing the most frequent.
     seed : int | None, optional
-        Semilla para la aleatoriedad del orden de procesamiento.
+        Random seed for processing order.
 
     Returns
     -------
     List[Any]
-        Etiqueta seleccionada para cada fila.
+        Label selected for each row.
     """
 
     rng = np.random.default_rng(seed)
@@ -793,9 +789,9 @@ def _round_quota(pi: np.ndarray, n: int) -> np.ndarray:
 
 def compress_distribution_to_K(Py: np.ndarray, K: int) -> np.ndarray:
     """
-    Comprime la dist. de y (conteos Py) a K masas sin perder “silueta”
-    fusionando repetidamente las dos masas más pequeñas.
-    Devuelve proporciones (suman 1).
+    Compress the distribution of y (counts Py) to K masses without losing "shape"
+    by repeatedly merging the two smallest masses.
+    Returns proportions that sum to 1.
     """
     masses = list(np.asarray(Py, dtype=np.float64))
     if K >= len(masses):
@@ -817,19 +813,19 @@ def compress_distribution_to_K(Py: np.ndarray, K: int) -> np.ndarray:
 
 class ChimeraValuesSelector:
     """
-    Asigna UN valor por fila (siempre de su propio menú) de forma que:
-      - La cantidad de valores DISTINTOS (K) puede fijarse o autoelegirse.
-      - La distribución de frecuencias por valor elegido IMITA la silueta de y
-        (comprime Py→K masas y traduce esas cuotas a K valores reales).
-      - La calidad semántica del valor v se mide con s(v) = log q_v · P(y).
+    Assign ONE value per row (always from its own menu) such that:
+      - The number of DISTINCT values (K) can be fixed or auto-chosen.
+      - The frequency distribution per chosen value mimics the shape of y
+        (compress Py→K masses and translate those quotas to K actual values).
+      - The semantic quality of value v is measured with s(v) = log q_v · P(y).
 
-    Flujo:
+    Flow:
       fit(records_train, y_train):
-        - Aprende q_v(y) con suavizado de Laplace sobre disponibilidad.
+        - Learn q_v(y) with Laplace smoothing over availability.
       predict(records, n_labels=None, k_range=(2,12)):
-        - Construye catálogo S de K valores (set-cover + calidad).
-        - Asigna CUOTAS objetivo ~ pi_K*n a cada valor de S (respetando capacidades).
-        - Asigna cada fila a su mejor opción en S con capacidad disponible.
+        - Build catalog S of K values (set-cover + quality).
+        - Assign target quotas ~ pi_K*n to each value of S (respecting capacities).
+        - Assign each row to its best option in S with available capacity.
     """
 
     def __init__(self, smoothing: float = 1.0, seed: Optional[int] = 42):
@@ -1071,7 +1067,7 @@ class ChimeraValuesSelector:
                 best = cand
 
         if best is None:
-            raise RuntimeError("No se encontró K factible en el rango dado.")
+            raise RuntimeError("No feasible K found in the given range.")
 
         _, cv_diff, S, quota, assign_idx = best
         labels = [self.idx_to_value_[j] for j in assign_idx]

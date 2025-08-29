@@ -15,7 +15,7 @@ def test_run_experiments_includes_intersection_stats():
     # cluster descriptions with a shared rule on x
     df2 = pd.DataFrame({
         'cluster': [0, 1],
-        'cluster_descripcion': [
+        'cluster_description': [
             '0 <= x <= 5 AND 0 <= y <= 5',
             '0 <= x <= 5 AND 5 <= y <= 10',
         ],
