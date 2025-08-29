@@ -101,23 +101,22 @@ class Trees:
     Parameters
     ----------
     regr : estimator
-        Modelo de bosque entrenado.
+        Trained forest model.
     data1 : pandas.DataFrame
-        Conjunto de datos usado para reemplazar los nombres de las
-        características.
+        Dataset used to replace feature names.
     verbose : int, default 0
-        Nivel de verbosidad.
+        Verbosity level.
     percentil : float, optional
-        Percentil para filtrar hojas de los árboles.
+        Percentile to filter tree leaves.
     low_frac : float, optional
-        Fracción de valores por debajo del percentil a muestrear.
+        Fraction of values below the percentile to sample.
     n_jobs : int, default 1
-        Número de trabajos en paralelo. Se emplea ``prefer="threads"`` para
-        evitar el *pickling*. La ejecución en paralelo solo compensa cuando
-        cada árbol es costoso de procesar; en bosques pequeños el modo
-        secuencial reduce la sobrecarga.
+        Number of parallel jobs. Uses ``prefer="threads"`` to avoid
+        pickling. Parallel execution only pays off when each tree is
+        expensive to process; for small forests sequential mode reduces
+        overhead.
     random_state : int, default 0
-        Semilla para operaciones aleatorias.
+        Seed for random operations.
     """
 
     # This function may be slow; add tqdm to the main loop.
@@ -326,11 +325,11 @@ class Trees:
       Parameters
       ----------
       no_branch_lim : int | None, optional
-          Número máximo de árboles a procesar. Si es ``None`` se utilizan
-          todos los árboles disponibles.
+          Maximum number of trees to process. If ``None`` all available
+          trees are used.
       """
 
-      # 1) Calcular el pivot que resume por N_regla, N_arbol, feature, operador
+      # 1) Compute pivot summarizing by N_regla, N_arbol, feature, operator
       agrupacion = pd.pivot_table(
           df_full_arboles,
           index=['N_regla', 'N_arbol', 'feature', 'operador'],
@@ -338,16 +337,16 @@ class Trees:
           aggfunc=['min', 'max', 'mean'],
       )
 
-      # 2) Extraer valores de min y max según el operador
+      # 2) Extract min and max values depending on the operator
       agrupacion_min = agrupacion['min'].reset_index()
       agrupacion_min = agrupacion_min[agrupacion_min['operador'] == '<=']
       agrupacion_max = agrupacion['max'].reset_index()
       agrupacion_max = agrupacion_max[agrupacion_max['operador'] == '>']
 
-      # 3) Concatenar y ordenar
+      # 3) Concatenate and sort
       agrupacion = pd.concat([agrupacion_min, agrupacion_max]).sort_values(['N_arbol', 'N_regla'])
 
-      # 4) Seleccionar los árboles a procesar
+      # 4) Select trees to process
       top_100_arboles = agrupacion['N_arbol'].unique()
       if no_branch_lim is not None:
           top_100_arboles = top_100_arboles[:no_branch_lim]

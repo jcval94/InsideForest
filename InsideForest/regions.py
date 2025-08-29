@@ -1020,7 +1020,7 @@ class Regions:
       cluster_id += n_reglas
     return lista_reglas
 
-  def generar_descripcion_clusters(self, df_reglas):
+  def generate_cluster_descriptions(self, df_reglas):
       """
       Generate a DataFrame with textual descriptions and weights for each cluster
       based on the rules defined in ``df_reglas``.
@@ -1033,7 +1033,7 @@ class Regions:
       # import numpy as np
       # import pandas as pd
 
-      cluster_descripciones = []
+      cluster_descriptions = []
 
       for idx, row in df_reglas.iterrows():
           # Extraer el identificador del cluster; si viene encapsulado, extraer el valor escalar
@@ -1060,18 +1060,18 @@ class Regions:
               # print('media_ponderadore')
               ponderador = np.mean(ponderador)
 
-          cluster_descripciones.append({
+          cluster_descriptions.append({
               'cluster': cluster_id,
-              'cluster_descripcion': descripcion,
-              'cluster_ponderador': ponderador,
+              'cluster_description': descripcion,
+              'cluster_weight': ponderador,
               'cluster_ef_sample': ef_sample,
               'cluster_n_sample': n_sample,
               'cluster_count': count
           })
 
-      df_clusters_descripcion = pd.DataFrame(cluster_descripciones)
+      df_clusters_description = pd.DataFrame(cluster_descriptions)
 
-      return df_clusters_descripcion
+      return df_clusters_description
 
 
   def asignar_clusters_a_datos(self, df_datos, df_reglas, keep_all_clusters=True):
@@ -1132,10 +1132,10 @@ class Regions:
               np.mean(lst) if lst else np.nan for lst in uniq_weights
           ]
 
-      # --- 4) Generar la descripción de clusters (usando el método propio)
-      df_clusters_descripcion = self.generar_descripcion_clusters(df_reglas)
+      # --- 4) Generate cluster descriptions using the internal method
+      df_clusters_description = self.generate_cluster_descriptions(df_reglas)
 
-      return df_datos_clusterizados, df_clusters_descripcion
+      return df_datos_clusterizados, df_clusters_description
 
   def eliminar_reglas_redundantes(self, lista_reglas):
       """
@@ -1320,193 +1320,206 @@ class Regions:
 
   def apply_clustering_and_similarity(self, df, cluster_columns, dbscan_params=None, kmeans_params=None):
       """
-      Aplica DBSCAN y KMeans a las columnas de clusters seleccionadas, agrega las etiquetas
-      de clustering al DataFrame y encuentra las columnas que más se parecen a cada
-      conjunto de etiquetas de clustering.
-      
-      Parámetros
+      Apply DBSCAN and KMeans to selected cluster columns, append the labels
+      to the DataFrame and find the columns most similar to each set of labels.
+
+      Parameters
       ----------
       df : pd.DataFrame
-          DataFrame que contiene las columnas de clusters seleccionadas.
+          DataFrame containing the selected cluster columns.
       cluster_columns : list of str
-          Lista de nombres de columnas binarias a usar para el clustering.
+          Names of binary columns used for clustering.
       dbscan_params : dict, optional
-          Parámetros para el algoritmo DBSCAN. Si no se proporciona, se usarán los valores por defecto.
+          Parameters for the DBSCAN algorithm. If not provided, defaults are used.
       kmeans_params : dict, optional
-          Parámetros para el algoritmo KMeans. Si no se proporciona, se usarán los valores por defecto.
-      
-      Retorna
+          Parameters for the KMeans algorithm. If not provided, defaults are used.
+
+      Returns
       -------
       df : pd.DataFrame
-          DataFrame original con columnas adicionales:
-              - 'db_labels': etiquetas de cluster de DBSCAN
-              - 'km_labels': etiquetas de cluster de KMeans
-              - 'db_most_similar_cluster': nombre de la columna más similar a 'db_labels'
-              - 'km_most_similar_cluster': nombre de la columna más similar a 'km_labels'
+          Original DataFrame with additional columns:
+              - 'db_labels': DBSCAN cluster labels
+              - 'km_labels': KMeans cluster labels
+              - 'db_most_similar_cluster': column most similar to 'db_labels'
+              - 'km_most_similar_cluster': column most similar to 'km_labels'
       correlation_df : pd.DataFrame
-          DataFrame con las correlaciones entre los cluster labels y las columnas de clusters.
+          DataFrame with correlations between cluster labels and cluster columns.
       """
-      # Validar que las columnas existen
+      # Validate that the columns exist
       for col in cluster_columns:
           if col not in df.columns:
               raise ValueError(f"Column '{col}' does not exist in the DataFrame.")
-      
-      # Preparar los datos para clustering
+
+      # Prepare data for clustering
       X = df[cluster_columns].values
-      
-      # Aplicar DBSCAN
+
+      # Apply DBSCAN
       if dbscan_params is None:
           dbscan_params = {'eps': 0.5, 'min_samples': 2}
       dbscan = DBSCAN(**dbscan_params)
       db_labels = dbscan.fit_predict(X)
       df['db_labels'] = db_labels
-      
-      # Aplicar KMeans
+
+      # Apply KMeans
       if kmeans_params is None:
-          # Elegir n_clusters de KMeans, aquí se usa 2 por defecto
+          # Choose n_clusters for KMeans, using 2 by default
           kmeans_params = {'n_clusters': 2, 'random_state': 42}
       kmeans = KMeans(**kmeans_params)
       km_labels = kmeans.fit_predict(X)
       df['km_labels'] = km_labels
-      
-      # Calcular correlaciones entre db_labels y cluster_columns
-      # Usamos correlación de Pearson
+
+      # Compute correlations between db_labels and cluster_columns
+      # Use Pearson correlation
       correlation_db = df[cluster_columns].apply(lambda col: df['db_labels'].corr(col))
       correlation_km = df[cluster_columns].apply(lambda col: df['km_labels'].corr(col))
-      
-      # Encontrar las columnas más similares
+
+      # Find the most similar columns
       db_most_similar_cluster = correlation_db.abs().idxmax()
       km_most_similar_cluster = correlation_km.abs().idxmax()
-      
-      # Agregar las columnas de similitud al DataFrame
+
+      # Add similarity columns to the DataFrame
       df['db_most_similar_cluster'] = db_most_similar_cluster
       df['km_most_similar_cluster'] = km_most_similar_cluster
-      
-      # Crear un DataFrame de correlaciones
+
+      # Create a correlation DataFrame
       correlation_df = pd.DataFrame({
           'cluster_column': cluster_columns,
           'db_corr': correlation_db,
           'km_corr': correlation_km
       })
-      
+
       return df, correlation_df
 
   def get_last_increasing_inflexion_point(self, data, bins=15):
       """
-      Encuentra el último punto de inflexión creciente en un histograma.
+      Find the last increasing inflection point in a histogram.
 
       Args:
-          data (list or array-like): Los datos originales.
-          bins (int): Número de bins para el histograma.
+          data (list or array-like): Original data.
+          bins (int): Number of bins for the histogram.
 
       Returns:
-          float: El valor del borde del bin donde ocurre el último punto de inflexión creciente.
+          float: Right edge of the bin where the last increasing inflection occurs.
       """
-      # Generar el histograma
+      # Generate histogram
       hist, bin_edges = np.histogram(data, bins=bins)
-      
-      # Calcular la derivada de la frecuencia del histograma
+
+      # Compute derivative of histogram frequency
       first_derivative = np.diff(hist)
-      
-      # Encontrar los índices donde la derivada es positiva (crecimiento)
+
+      # Find indices where derivative is positive (growth)
       increasing_points = np.where(first_derivative > 0)[0]
-      
+
       if len(increasing_points) == 0:
-          raise ValueError("No se encontró un punto de inflexión creciente.")
-      
-      # Tomar el último punto de inflexión creciente
+          raise ValueError("No increasing inflection point found.")
+
+      # Take the last increasing inflection point
       last_increasing_index = increasing_points[-1]
-      
-      # Obtener el borde derecho del bin correspondiente al último punto de inflexión creciente
+
+      # Get right edge of the bin for the last increasing inflection
       last_inflexion_point = bin_edges[last_increasing_index + 1]
-      
+
       return last_inflexion_point
 
 
   def get_first_decreasing_inflexion_point(self, data, bins=10):
       """
-      Encuentra el primer punto de inflexión decreciente en un histograma.
+      Find the first decreasing inflection point in a histogram.
 
       Args:
-          data (list or array-like): Los datos originales.
-          bins (int): Número de bins para el histograma.
+          data (list or array-like): Original data.
+          bins (int): Number of bins for the histogram.
 
       Returns:
-          float: El valor del borde del bin donde ocurre el primer punto de inflexión decreciente.
+          float: Right edge of the bin where the first decreasing inflection occurs.
       """
-      # Generar el histograma
+      # Generate histogram
       hist, bin_edges = np.histogram(data, bins=bins)
-      
-      # Calcular la derivada de la frecuencia del histograma
+
+      # Compute derivative of histogram frequency
       first_derivative = np.diff(hist)
-      
-      # Encontrar los índices donde la derivada es negativa (decrecimiento)
+
+      # Find indices where derivative is negative (decrease)
       decreasing_points = np.where(first_derivative < 0)[0]
-      
+
       if len(decreasing_points) == 0:
-          raise ValueError("No se encontró un punto de inflexión decreciente.")
-      
-      # Tomar el primer punto de inflexión decreciente
+          raise ValueError("No decreasing inflection point found.")
+
+      # Take the first decreasing inflection point
       first_decreasing_index = decreasing_points[0]
-      
-      # Obtener el borde derecho del bin correspondiente al primer punto de inflexión decreciente
+
+      # Get right edge of the bin for the first decreasing inflection
       first_inflexion_point = bin_edges[first_decreasing_index + 1]
-      
+
       return first_inflexion_point
 
 
   def add_active_clusters(self, df, cluster_prefix='cluster_', new_column='active_clusters'):
       """
-      Agrega una nueva columna al DataFrame que contiene una lista de clusters activos (valor = 1) para cada fila.
-      
-      Parámetros:
-      - df (pd.DataFrame): El DataFrame de entrada que contiene las columnas de clusters.
-      - cluster_prefix (str, opcional): Prefijo que identifica las columnas de clusters. Por defecto es 'cluster_'.
-      - new_column (str, opcional): Nombre de la nueva columna a crear. Por defecto es 'active_clusters'.
-      
-      Retorna:
-      - pd.DataFrame: El DataFrame original con la nueva columna agregada.
+      Add a column listing active clusters (value = 1) for each row.
+
+      Parameters
+      ----------
+      df : pd.DataFrame
+          Input DataFrame containing cluster columns.
+      cluster_prefix : str, default 'cluster_'
+          Prefix identifying cluster columns.
+      new_column : str, default 'active_clusters'
+          Name of the column to create.
+
+      Returns
+      -------
+      pd.DataFrame
+          Original DataFrame with the new column added.
       """
-      
-      # Identificar las columnas que corresponden a los clusters
+
+      # Identify cluster columns
       cluster_columns = [col for col in df.columns if col.startswith(cluster_prefix)]
-      
-      # Verificar si se encontraron columnas de clusters
+
+      # Ensure cluster columns exist
       if not cluster_columns:
-          raise ValueError(f"No se encontraron columnas que comiencen con el prefijo '{cluster_prefix}'.")
-      
-      # Extraer los números de los clusters y crear un mapeo de columna a número
+          raise ValueError(f"No columns start with prefix '{cluster_prefix}'.")
+
+      # Extract cluster numbers and build mapping
       cluster_mapping = {}
       for col in cluster_columns:
           try:
-              # Asumiendo que el nombre de la columna es algo como 'cluster_3.0'
+              # Assume column name like 'cluster_3.0'
               cluster_number = col.split('_')[1].split('.')[0]
               cluster_mapping[col] = int(cluster_number)
           except (IndexError, ValueError):
               raise ValueError(f"The format of column '{col}' is invalid. Expected 'cluster_<number>.0'.")
-      
-      # Utilizar una lista por comprensión para obtener los clusters activos por fila
+
+      # List active clusters per row
       df[new_column] = [
           [cluster_mapping[col] for col in cluster_columns if row[col] == 1]
           for _, row in df.iterrows()
       ]
-      
+
       return df
 
 
   def convert_list_to_string(self, df, list_column, sorted=False, delimiter=',', new_key_column='clusters_key'):
       """
-      Convierte una columna de listas en cadenas de texto (opcionalmente ordenadas) para usarlas como llaves de unión.
+      Convert a column of lists into comma-separated strings to be used as join keys.
 
-      Parámetros:
-      - df (pd.DataFrame): DataFrame de entrada.
-      - list_column (str): Nombre de la columna que contiene las listas.
-      - sorted (bool): Si se debe ordenar la lista antes de convertirla a cadena.
-      - delimiter (str): Delimitador para concatenar los elementos de la lista.
-      - new_key_column (str): Nombre de la nueva columna que contendrá las cadenas.
+      Parameters
+      ----------
+      df : pd.DataFrame
+          Input DataFrame.
+      list_column : str
+          Column containing lists.
+      sorted : bool, default False
+          Whether to sort the list before conversion.
+      delimiter : str, default ','
+          Delimiter used to join list elements.
+      new_key_column : str, default 'clusters_key'
+          Name of the new column to store the strings.
 
-      Retorna:
-      - pd.DataFrame: DataFrame con la nueva columna de llaves.
+      Returns
+      -------
+      pd.DataFrame
+          DataFrame with the new key column.
       """
       if list_column not in df.columns:
           raise KeyError(f"Column '{list_column}' does not exist in the DataFrame")
@@ -1517,8 +1530,8 @@ class Regions:
           df[new_key_column] = df[list_column].apply(lambda x: delimiter.join(map(str, x)))
       return df
 
-  def get_clusters_importantes(self, df_clusterizado):
-    """Identifica los clusters más representativos de un DataFrame."""
+  def get_important_clusters(self, df_clusterizado):
+    """Identify the most representative clusters of a DataFrame."""
 
     if 'clusters_list' not in df_clusterizado.columns:
         raise KeyError("DataFrame must contain the 'clusters_list' column")
@@ -1649,7 +1662,7 @@ class Regions:
     
     lista_reglas = copy.deepcopy(df_reres)
 
-    # Asignar IDs únicos a las reglas
+    # Assign unique IDs to the rules
     lista_reglas = self.asignar_ids_unicos(lista_reglas)
 
     # Eliminar reglas redundantes
@@ -1663,7 +1676,7 @@ class Regions:
     df_datos_clusterizados, df_clusters_descripcion = self.asignar_clusters_a_datos(df, df_reglas_importantes)
 
     # if include_summary_cluster:
-    #   df_datos_clusterizados = self.get_clusters_importantes(df_datos_clusterizados)
+    #   df_datos_clusterizados = self.get_important_clusters(df_datos_clusterizados)
     
     records = df_datos_clusterizados['clusters_list'].tolist()
     probas = {
@@ -1759,7 +1772,7 @@ class Regions:
 
       return df_corr
 
-  def obtener_clusters(self, df_clust, cluster_objetivo, n=5, direccion='ambos'):
+  def get_correlated_clusters(self, df_clust, cluster_objetivo, n=5, direccion='ambos'):
       """Return clusters with highest or lowest correlation to a target.
 
       Parameters
@@ -1784,30 +1797,30 @@ class Regions:
       corr_matrix = self.get_corr_clust(df_clust)
 
       if cluster_objetivo not in corr_matrix.columns:
-          raise ValueError(f"El cluster '{cluster_objetivo}' no se encuentra en la matriz de correlación.")
-      
-      # Obtener la serie de correlaciones para el cluster objetivo y eliminar la autocorrelación
+          raise ValueError(f"Cluster '{cluster_objetivo}' not found in correlation matrix.")
+
+      # Retrieve correlations for the target cluster and remove autocorrelation
       correlaciones = corr_matrix[cluster_objetivo].drop(labels=[cluster_objetivo])
-      
+
       if direccion == 'arriba':
-          # Ordenar de mayor a menor (correlaciones positivas más fuertes)
+          # Sort descending (strongest positive correlations)
           correlaciones_ordenadas = correlaciones.sort_values(ascending=False)
           top_n = correlaciones_ordenadas.head(n)
       elif direccion == 'abajo':
-          # Ordenar de menor a mayor (correlaciones negativas más fuertes)
+          # Sort ascending (strongest negative correlations)
           correlaciones_ordenadas = correlaciones.sort_values(ascending=True)
           top_n = correlaciones_ordenadas.head(n)
       elif direccion == 'ambos':
-          # Obtener las top n positivas y las top n negativas
+          # Get top n positive and top n negative correlations
           top_n_arriba = correlaciones.sort_values(ascending=False).head(n)
           top_n_abajo = correlaciones.sort_values(ascending=True).head(n)
           top_n = pd.concat([top_n_arriba, top_n_abajo])
       elif direccion == 'bottom':
-          # Obtener las n correlaciones más cercanas a cero
+          # Get the n correlations closest to zero
           correlaciones_ordenadas = correlaciones.reindex(correlaciones.abs().sort_values(ascending=True).index)
           top_n = correlaciones_ordenadas.head(n)
       else:
           raise ValueError("Parameter 'direccion' must be 'arriba', 'abajo', 'ambos' or 'bottom'.")
-      
+
       return top_n.sort_values(ascending=False)
 

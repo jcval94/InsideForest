@@ -16,8 +16,8 @@ from InsideForest.descrip import (
 def _sample_frames():
     df_desc = pd.DataFrame({
         "cluster": [0, 1, 2],
-        "cluster_ponderador": [0.3, 0.5, 0.2],
-        "cluster_descripcion": ["a", "b", "c"],
+        "cluster_weight": [0.3, 0.5, 0.2],
+        "cluster_description": ["a", "b", "c"],
     })
     df_cluster = pd.DataFrame({
         "cluster": [0, 0, 1, 1, 1, 2],
@@ -45,7 +45,7 @@ def test_scale_clusters():
     df_desc, df_cluster = _sample_frames()
     _, _, _, _, valuable = _prepare_cluster_data(df_desc, df_cluster, ["target"])
     scaled = _scale_clusters(valuable)
-    assert "importancia" in scaled.columns
+    assert "importance" in scaled.columns
     assert np.isclose(scaled[0].mean(), 0.0)
     assert np.isclose(scaled[1].mean(), 0.0)
 
@@ -59,8 +59,8 @@ def test_compute_inflection_points():
     updated, p0, p1 = _compute_inflection_points(
         cluster_stats, scaled, 0.4, 0.5
     )
-    assert "buenos" in updated.columns
-    assert updated["buenos"].isin([0, 1]).all()
+    assert "good" in updated.columns
+    assert updated["good"].isin([0, 1]).all()
     assert p0 is not None and p1 is not None
 
 
@@ -80,14 +80,14 @@ def test_merge_outputs():
     final_df = _merge_outputs(sorted_desc, rate_series, updated, {})
     expected_cols = {
         "cluster",
-        "cluster_descripcion",
-        "Probabilidad",
-        "N_probabilidad",
-        "Soporte",
-        "buenos",
+        "cluster_description",
+        "Probability",
+        "N_probability",
+        "Support",
+        "good",
     }
     assert expected_cols.issubset(final_df.columns)
-    assert "cluster_ponderador" not in final_df.columns
+    assert "cluster_weight" not in final_df.columns
 
 
 def test_list_rules_to_text_empty_rule_set_returns_placeholder():
