@@ -14,31 +14,32 @@ import pandas as pd
 from scipy.signal import savgol_filter
 from sklearn.preprocessing import StandardScaler
 
-try:  # OpenAI SDK is optional
-    from openai import OpenAI  # type: ignore
-except Exception as exc:  # pragma: no cover - import failure path
-    OpenAI = None  # type: ignore[assignment]
-    _client = None
-    logging.warning("OpenAI package not available (%s)", exc)
-else:  # Only executed if import succeeded
+logger = logging.getLogger(__name__)
+_client = None
+
+
+def get_openai_client():
+    """Return a cached OpenAI client if credentials are available."""
+    global _client
+    if _client is not None:
+        return _client
+    try:  # OpenAI SDK is optional
+        from openai import OpenAI  # type: ignore
+    except Exception:
+        return None
     try:
         from google.colab import userdata  # type: ignore
 
-        OPENAI_API_KEY = userdata.get("OPENAI_API_KEY")
+        api_key = userdata.get("OPENAI_API_KEY")
     except Exception:
-        OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-    if not OPENAI_API_KEY:
+        api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return None
+    try:
+        _client = OpenAI(api_key=api_key)
+    except Exception:
         _client = None
-        logging.warning("OPENAI_API_KEY not set; GPT features disabled")
-    else:
-        try:
-            _client = OpenAI(api_key=OPENAI_API_KEY)
-        except Exception as exc:
-            _client = None
-            logging.warning("OpenAI disabled (%s)", exc)
-
-logger = logging.getLogger(__name__)
+    return _client
 
 
 def first_decreasing_inflection_point(data, bins=10, window_length=5, polyorder=2):
@@ -1044,13 +1045,15 @@ def _local_hypothesis_text(
 
 
 def _gpt_hypothesis(
-    payload: dict[str, Any], *, model: str, temperature: float
+    payload: dict[str, Any], *, model: str, temperature: float, client: Any | None = None
 ) -> Optional[str]:
     """Wrapper: send payload to GPT and return the structured report."""
-    if _client is None:
+    if client is None:
+        client = get_openai_client()
+    if client is None:
         return None
     try:
-        rsp = _client.chat.completions.create(
+        rsp = client.chat.completions.create(
             model=model,
             temperature=temperature,
             messages=[
@@ -1117,37 +1120,41 @@ def generate_hypothesis(
                 side.append(se)
 
     # ===== GPT PATH =====
-    if use_gpt and _client is not None:
-        payload = {
-            "lang": lang,
-            "target": _meta_lookup(target, meta_df, lang=lang)[0],
-            "target_description": _meta_lookup(target, meta_df, lang=lang)[1],
-            "shared_rules": _get("intersection", ""),
-            "subgroup_a": _get("only_cluster_a", ""),
-            "subgroup_b": _get("only_cluster_b", ""),
-            "metrics": {
-                "p_a": _get("cluster_ef_a"),
-                "p_b": _get("cluster_ef_b"),
-                "delta": _get("delta_ef"),
-            },
-            "tokens_info": {
-                t: {
-                    "label": _meta_lookup(t, meta_df, lang=lang)[0],
-                    "description": _meta_lookup(t, meta_df, lang=lang)[1],
-                    "domain": _meta_lookup(t, meta_df, lang=lang)[2],
-                    "side_effect": _meta_lookup(t, meta_df, lang=lang)[3],
-                }
-                for t in (
-                    _extract_tokens(pd.Series([_get("intersection", "")]))
-                    | _extract_tokens(pd.Series([_get("only_cluster_a", "")]))
-                    | _extract_tokens(pd.Series([_get("only_cluster_b", "")]))
-                )
-            },
-        }
+    if use_gpt:
+        client = get_openai_client()
+        if client is not None:
+            payload = {
+                "lang": lang,
+                "target": _meta_lookup(target, meta_df, lang=lang)[0],
+                "target_description": _meta_lookup(target, meta_df, lang=lang)[1],
+                "shared_rules": _get("intersection", ""),
+                "subgroup_a": _get("only_cluster_a", ""),
+                "subgroup_b": _get("only_cluster_b", ""),
+                "metrics": {
+                    "p_a": _get("cluster_ef_a"),
+                    "p_b": _get("cluster_ef_b"),
+                    "delta": _get("delta_ef"),
+                },
+                "tokens_info": {
+                    t: {
+                        "label": _meta_lookup(t, meta_df, lang=lang)[0],
+                        "description": _meta_lookup(t, meta_df, lang=lang)[1],
+                        "domain": _meta_lookup(t, meta_df, lang=lang)[2],
+                        "side_effect": _meta_lookup(t, meta_df, lang=lang)[3],
+                    }
+                    for t in (
+                        _extract_tokens(pd.Series([_get("intersection", "")]))
+                        | _extract_tokens(pd.Series([_get("only_cluster_a", "")]))
+                        | _extract_tokens(pd.Series([_get("only_cluster_b", "")]))
+                    )
+                },
+            }
 
-        txt = _gpt_hypothesis(payload, model=gpt_model, temperature=temperature)
-        if txt:
-            return txt
+            txt = _gpt_hypothesis(
+                payload, model=gpt_model, temperature=temperature, client=client
+            )
+            if txt:
+                return txt
 
     # ===== LOCAL PATH =====
     inter_txt = _list_rules_to_text(_get("intersection", ""), meta_df, lang=lang)
