@@ -356,6 +356,10 @@ table = build_conditions_table(bool_conds, df, effectiveness, weights, n_groups=
 
 This produces a summary `DataFrame` where each condition is tagged by group along with the provided effectiveness and weight.
 
+## Optimization utilities
+
+InsideForest now includes a trust-region Newton optimizer for box-constrained problems. The helper function `_find_maximum` exposes an `optim_method` parameter to switch between standard gradient ascent and this trust-region approach, which uses analytic or finite-difference derivatives and typically converges in fewer evaluations while respecting bounds.
+
 ## Tests
 
 Latest test run:
