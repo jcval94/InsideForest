@@ -1624,11 +1624,17 @@ class Regions:
     return df_clusterizado_add.drop(columns='clusters_key')
 
 
-  def labels(self, df, df_reres, n_clusters=None,
-             include_summary_cluster=False,
-             method=None,
-             return_dfs=True,
-             var_obj="target"):
+  def labels(
+      self,
+      df,
+      df_reres,
+      n_clusters=None,
+      include_summary_cluster=False,
+      method=None,
+      return_dfs=True,
+      var_obj="target",
+      seed: int | None = 1,
+  ):
     """Assign cluster labels by selecting and applying rules.
 
     Parameters
@@ -1652,6 +1658,8 @@ class Regions:
     var_obj : str, default "target"
         Name of the target column in ``df`` used by supervised methods such as
         ``"menu"``, ``"match_class_distribution"`` or ``"chimera"``.
+    seed : int or None, default 1
+        Random seed passed to stochastic cluster selection utilities.
     return_dfs : bool, default True
         When ``True`` return both the clustered DataFrame and the cluster
         description. If ``False`` only the computed labels are returned.
@@ -1701,22 +1709,25 @@ class Regions:
 
     # Tratamiento de los clusters para agregar n_cluster
     if method == "balance_lists_n_clusters":
-      labels = balance_lists_n_clusters(records=records,
-                                        n_clusters=n_clusters, seed=1)
+      labels = balance_lists_n_clusters(
+        records=records, n_clusters=n_clusters, seed=seed
+      )
     elif method == "max_prob_clusters":
-      labels = max_prob_clusters(records=records, probs=probas,
-                                 n_clusters=n_clusters, seed=1)
+      labels = max_prob_clusters(
+        records=records, probs=probas, n_clusters=n_clusters, seed=seed
+      )
     elif method == "match_class_distribution":
       if y is None:
         raise RuntimeError(
           "match_class_distribution requires 'df' to include the target column"
         )
-      labels = match_class_distribution(records=records, y=y,
-                                        n_clusters=n_clusters, seed=1)
+      labels = match_class_distribution(
+        records=records, y=y, n_clusters=n_clusters, seed=seed
+      )
     elif method in ("chimera", "chimera_values_selector", "ChimeraValuesSelector"):
       selector = getattr(self, "_chimera_selector", None)
       if y is not None:
-        selector = ChimeraValuesSelector()
+        selector = ChimeraValuesSelector(seed=seed)
         selector.fit(records, y)
         self._chimera_selector = selector
       elif selector is None:
@@ -1727,12 +1738,12 @@ class Regions:
     elif method in ("menu", "MenuClusterSelector", "menu_cluster_selector"):
       selector = getattr(self, "_menu_selector", None)
       if y is not None:
-        selector = MenuClusterSelector()
+        selector = MenuClusterSelector(seed=seed)
         selector.fit(records, y)
         self._menu_selector = selector
       elif selector is None:
         raise RuntimeError(
-            "MenuClusterSelector not fitted; provide data with target first"
+            "MenuClusterSelector not fitted; provide data with target first",
         )
       labels = selector.predict(records, n_clusters=n_clusters)
     elif method is None or method == "select_clusters":

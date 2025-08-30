@@ -134,7 +134,10 @@ class _BaseInsideForest:
         max_cases : int, default 750
             Maximum number of cases to analyze. If the input dataset contains
             more rows, a random subset of at most ``max_cases`` rows is used.
-        """
+    seed : int, default 42
+        Random seed controlling subsampling, the underlying random forest and
+        the stochastic components of :meth:`Regions.labels`.
+    """
 
     def __init__(
         self,
@@ -154,9 +157,14 @@ class _BaseInsideForest:
         auto_feature_reduce=False,
         explicit_k_features: Optional[int] = None,
         fast_overrides: Optional[Dict[str, Any]] = None,
+        seed: int = 42,
     ):
         self.rf_cls = rf_cls
         self.rf_params = rf_params or {}
+        self._user_rf_random_state = self.rf_params.get("random_state")
+        self.seed = seed
+        if self._user_rf_random_state is None:
+            self.rf_params["random_state"] = seed
         self.tree_params = tree_params or {}
         self.var_obj = var_obj
         self.n_clusters = n_clusters
@@ -229,6 +237,7 @@ class _BaseInsideForest:
             "auto_feature_reduce": self.auto_feature_reduce,
             "explicit_k_features": self.explicit_k_features,
             "fast_overrides": self.fast_overrides,
+            "seed": self.seed,
         }
 
     def set_params(self, **params):
@@ -249,10 +258,15 @@ class _BaseInsideForest:
         for key, value in params.items():
             if key == "rf_params":
                 self.rf_params = value
+                self._user_rf_random_state = self.rf_params.get("random_state")
+                if self._user_rf_random_state is None:
+                    self.rf_params["random_state"] = self.seed
                 self.rf.set_params(**self.rf_params)
             elif key.startswith("rf__"):
                 sub_key = key.split("__", 1)[1]
                 self.rf_params[sub_key] = value
+                if sub_key == "random_state":
+                    self._user_rf_random_state = value
                 self.rf.set_params(**{sub_key: value})
             elif key == "tree_params":
                 self.tree_params = value
@@ -277,6 +291,7 @@ class _BaseInsideForest:
                 "auto_feature_reduce",
                 "explicit_k_features",
                 "fast_overrides",
+                "seed",
             }:
                 setattr(self, key, value)
                 if key == "leaf_percentile":
@@ -285,6 +300,10 @@ class _BaseInsideForest:
                 elif key == "low_leaf_fraction":
                     self.tree_params["low_frac"] = value
                     self.trees = Trees(**self.tree_params)
+                elif key == "seed":
+                    if self._user_rf_random_state is None:
+                        self.rf_params["random_state"] = value
+                        self.rf.set_params(random_state=value)
             else:
                 raise ValueError(f"Invalid parameter '{key}'")
 
@@ -394,7 +413,7 @@ class _BaseInsideForest:
         # Limit number of cases analyzed using random sampling
         n_samples = len(X_df)
         if n_samples > self.max_cases:
-            rng = np.random.default_rng(42)
+            rng = np.random.default_rng(self.seed)
             selected = rng.choice(n_samples, size=self.max_cases, replace=False)
             X_df = X_df.iloc[selected].copy()
             if y is not None:
@@ -440,6 +459,8 @@ class _BaseInsideForest:
             self._size_bucket_ = _size_bucket(n, d)
 
             self.rf_params = combined.get("rf_params", self.rf_params)
+            if self._user_rf_random_state is None:
+                self.rf_params["random_state"] = self.seed
             self.tree_params = combined.get("tree_params", self.tree_params)
             self.divide = combined.get("divide", self.divide)
             self.method = combined.get("method", self.method)
@@ -477,6 +498,7 @@ class _BaseInsideForest:
                 method=self.method,
                 return_dfs=True,
                 var_obj=self.var_obj,
+                seed=self.seed,
             )
             labels = pd.Series(labels).fillna(value=-1).to_numpy()
             self.labels_ = labels
@@ -497,6 +519,7 @@ class _BaseInsideForest:
                 method=self.method,
                 return_dfs=False,
                 var_obj=self.var_obj,
+                seed=self.seed,
             )
             labels = pd.Series(labels).fillna(value=-1).to_numpy()
             self.labels_ = labels
@@ -614,6 +637,7 @@ class _BaseInsideForest:
             method=self.method,
             return_dfs=False,
             var_obj=self.var_obj,
+            seed=self.seed,
         )
         labels = pd.Series(labels).fillna(value=-1).to_numpy()
         return labels
@@ -746,6 +770,7 @@ class InsideForestClassifier(_BaseInsideForest):
         auto_feature_reduce=False,
         explicit_k_features: Optional[int] = None,
         fast_overrides: Optional[Dict[str, Any]] = None,
+        seed: int = 42,
     ):
         super().__init__(
             RandomForestClassifier,
@@ -764,6 +789,7 @@ class InsideForestClassifier(_BaseInsideForest):
             auto_feature_reduce=auto_feature_reduce,
             explicit_k_features=explicit_k_features,
             fast_overrides=fast_overrides,
+            seed=seed,
         )
 
 
@@ -788,6 +814,7 @@ class InsideForestRegressor(_BaseInsideForest):
         auto_feature_reduce=False,
         explicit_k_features: Optional[int] = None,
         fast_overrides: Optional[Dict[str, Any]] = None,
+        seed: int = 42,
     ):
         super().__init__(
             RandomForestRegressor,
@@ -806,6 +833,7 @@ class InsideForestRegressor(_BaseInsideForest):
             auto_feature_reduce=auto_feature_reduce,
             explicit_k_features=explicit_k_features,
             fast_overrides=fast_overrides,
+            seed=seed,
         )
 
 
