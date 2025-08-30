@@ -24,8 +24,9 @@ def test_get_params_returns_init_values():
     assert params["method"] == "balance_lists_n_clusters"
     assert params["divide"] == 3
     assert params["get_detail"] is True
-    assert params["leaf_percentile"] == 95
-    assert params["low_leaf_fraction"] == 0.05
+    assert params["leaf_percentile"] == 96
+    assert params["low_leaf_fraction"] == 0.03
+    assert params["max_cases"] == 750
 
 
 def test_set_params_updates_attributes():
@@ -54,6 +55,29 @@ def test_set_params_updates_attributes():
     assert model.leaf_percentile == 80
     model.set_params(low_leaf_fraction=0.1)
     assert model.low_leaf_fraction == 0.1
+    model.set_params(max_cases=100)
+    assert model.max_cases == 100
 
     with pytest.raises(ValueError):
         model.set_params(unknown=1)
+
+
+def test_fit_respects_max_cases():
+    import numpy as np
+
+    X = np.random.rand(100, 2)
+    y = np.random.randint(0, 2, size=100)
+    model = InsideForestClassifier(rf_params={"n_estimators": 1}, max_cases=50)
+    model.fit(X, y)
+    assert len(model.labels_) == 50
+
+
+def test_sampling_is_deterministic():
+    import numpy as np
+
+    X = np.random.rand(1000, 2)
+    y = np.arange(1000)
+    model = InsideForestClassifier(rf_params={"n_estimators": 1}, max_cases=100)
+    model.fit(X, y)
+    expected = np.random.default_rng(42).choice(1000, size=100, replace=False)
+    assert np.array_equal(model._sample_indices_, expected)
