@@ -187,7 +187,7 @@ class _BaseInsideForest:
         # Attributes populated after fitting
         self.labels_ = None
         self.feature_names_ = None
-        self.df_clusters_descript_ = None
+        self.df_clusters_description_ = None
         self.df_reres_ = None
         self.df_datos_explain_ = None
         self.frontiers_ = None
@@ -446,7 +446,7 @@ class _BaseInsideForest:
         df_reres = self.regions.prio_ranges(separacion_dim=separacion_dim, df=df)
 
         if self.get_detail:
-            df_datos_clusterizados, df_clusters_descripcion, labels = self.regions.labels(
+            df_datos_clusterizados, df_clusters_description, labels = self.regions.labels(
                 df=df,
                 df_reres=df_reres,
                 n_clusters=self.n_clusters,
@@ -457,11 +457,11 @@ class _BaseInsideForest:
             )
             labels = pd.Series(labels).fillna(value=-1).to_numpy()
             self.labels_ = labels
-            self.df_clusters_descript_ = df_clusters_descripcion
+            self.df_clusters_description_ = df_clusters_description
             self.df_reres_ = df_reres
 
             df_datos_explain, frontiers = get_frontiers(
-                df_datos_descript=df_clusters_descripcion, df=df, divide=self.divide
+                df_descriptive=df_clusters_description, df=df, divide=self.divide
             )
             self.df_datos_explain_ = df_datos_explain
             self.frontiers_ = frontiers
@@ -478,7 +478,7 @@ class _BaseInsideForest:
             labels = pd.Series(labels).fillna(value=-1).to_numpy()
             self.labels_ = labels
             self.df_reres_ = df_reres
-            self.df_clusters_descript_ = None
+            self.df_clusters_description_ = None
             self.df_datos_explain_ = None
             self.frontiers_ = None
 
@@ -652,7 +652,7 @@ class _BaseInsideForest:
             "low_leaf_fraction": self.low_leaf_fraction,
             "labels_": self.labels_,
             "feature_names_": self.feature_names_,
-            "df_clusters_descript_": self.df_clusters_descript_,
+            "df_clusters_description_": self.df_clusters_description_,
             "df_reres_": self.df_reres_,
             "df_datos_explain_": self.df_datos_explain_,
             "frontiers_": self.frontiers_,
@@ -691,7 +691,7 @@ class _BaseInsideForest:
         model.rf = payload["rf"]
         model.labels_ = payload["labels_"]
         model.feature_names_ = payload["feature_names_"]
-        model.df_clusters_descript_ = payload["df_clusters_descript_"]
+        model.df_clusters_description_ = payload["df_clusters_description_"]
         model.df_reres_ = payload["df_reres_"]
         model.df_datos_explain_ = payload["df_datos_explain_"]
         model.frontiers_ = payload["frontiers_"]

@@ -171,11 +171,11 @@ def test_fit_respects_get_detail_flag_regressor():
     y = [0.1, 0.4, 0.2, 0.3]
     model = InsideForestRegressor(rf_params={'n_estimators': 5, 'random_state': 0})
     model.fit(X=X, y=y)
-    assert model.df_clusters_descript_ is None
+    assert model.df_clusters_description_ is None
 
     model_detail = InsideForestRegressor(
         rf_params={'n_estimators': 5, 'random_state': 0}, get_detail=True
     )
     model_detail.fit(X=X, y=y)
-    assert model_detail.df_clusters_descript_ is not None
+    assert model_detail.df_clusters_description_ is not None
 
