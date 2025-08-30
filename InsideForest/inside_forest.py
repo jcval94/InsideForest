@@ -125,12 +125,15 @@ class _BaseInsideForest:
         get_detail : bool, default False
             When ``True`` :meth:`fit` computes and stores additional cluster
             details and frontiers.
-        leaf_percentile : int, default 95
+        leaf_percentile : int, default 96
             Percentile used to retain the most important leaves when extracting
             rules from trees.
-        low_leaf_fraction : float, default 0.05
+        low_leaf_fraction : float, default 0.03
             Fraction of leaves below ``leaf_percentile`` to sample when
             building the rule set.
+        max_cases : int, default 750
+            Maximum number of cases to analyze. If the input dataset contains
+            more rows, a random subset of at most ``max_cases`` rows is used.
         """
 
     def __init__(
@@ -144,8 +147,9 @@ class _BaseInsideForest:
         method="select_clusters",
         divide=5,
         get_detail=False,
-        leaf_percentile=95,
-        low_leaf_fraction=0.05,
+        leaf_percentile=96,
+        low_leaf_fraction=0.03,
+        max_cases=750,
         auto_fast=False,
         auto_feature_reduce=False,
         explicit_k_features: Optional[int] = None,
@@ -162,6 +166,7 @@ class _BaseInsideForest:
         self.get_detail = get_detail
         self.leaf_percentile = leaf_percentile
         self.low_leaf_fraction = low_leaf_fraction
+        self.max_cases = max_cases
 
         # FAST knobs
         self.auto_fast = auto_fast
@@ -191,6 +196,7 @@ class _BaseInsideForest:
         self.df_reres_ = None
         self.df_datos_explain_ = None
         self.frontiers_ = None
+        self._sample_indices_ = None
 
     def get_params(self, deep=True):
         """Return estimator parameters.
@@ -218,6 +224,7 @@ class _BaseInsideForest:
             "get_detail": self.get_detail,
             "leaf_percentile": self.leaf_percentile,
             "low_leaf_fraction": self.low_leaf_fraction,
+            "max_cases": self.max_cases,
             "auto_fast": self.auto_fast,
             "auto_feature_reduce": self.auto_feature_reduce,
             "explicit_k_features": self.explicit_k_features,
@@ -265,6 +272,7 @@ class _BaseInsideForest:
                 "get_detail",
                 "leaf_percentile",
                 "low_leaf_fraction",
+                "max_cases",
                 "auto_fast",
                 "auto_feature_reduce",
                 "explicit_k_features",
@@ -382,6 +390,21 @@ class _BaseInsideForest:
                     X_df = X_df.drop(columns=[self.var_obj])
             else:
                 X_df = pd.DataFrame(data=X)
+
+        # Limit number of cases analyzed using random sampling
+        n_samples = len(X_df)
+        if n_samples > self.max_cases:
+            rng = np.random.default_rng(42)
+            selected = rng.choice(n_samples, size=self.max_cases, replace=False)
+            X_df = X_df.iloc[selected].copy()
+            if y is not None:
+                if _HAS_PANDAS and isinstance(y, (pd.Series, pd.DataFrame)):
+                    y = y.iloc[selected]
+                else:
+                    y = np.asarray(y)[selected]
+            self._sample_indices_ = selected
+        else:
+            self._sample_indices_ = np.arange(n_samples)
 
         # Replace spaces with underscores to keep compatibility with Trees
         X_df.columns = [str(c).replace(" ", "_") for c in X_df.columns]
@@ -650,6 +673,7 @@ class _BaseInsideForest:
             "get_detail": self.get_detail,
             "leaf_percentile": self.leaf_percentile,
             "low_leaf_fraction": self.low_leaf_fraction,
+            "max_cases": self.max_cases,
             "labels_": self.labels_,
             "feature_names_": self.feature_names_,
             "df_clusters_description_": self.df_clusters_description_,
@@ -685,8 +709,9 @@ class _BaseInsideForest:
             method=payload.get("method", "select_clusters"),
             divide=payload["divide"],
             get_detail=payload.get("get_detail", False),
-            leaf_percentile=payload.get("leaf_percentile", 95),
-            low_leaf_fraction=payload.get("low_leaf_fraction", 0.05),
+            leaf_percentile=payload.get("leaf_percentile", 96),
+            low_leaf_fraction=payload.get("low_leaf_fraction", 0.03),
+            max_cases=payload.get("max_cases", 750),
         )
         model.rf = payload["rf"]
         model.labels_ = payload["labels_"]
@@ -714,8 +739,9 @@ class InsideForestClassifier(_BaseInsideForest):
         method="select_clusters",
         divide=5,
         get_detail=False,
-        leaf_percentile=95,
-        low_leaf_fraction=0.05,
+        leaf_percentile=96,
+        low_leaf_fraction=0.03,
+        max_cases=750,
         auto_fast=False,
         auto_feature_reduce=False,
         explicit_k_features: Optional[int] = None,
@@ -733,6 +759,7 @@ class InsideForestClassifier(_BaseInsideForest):
             get_detail=get_detail,
             leaf_percentile=leaf_percentile,
             low_leaf_fraction=low_leaf_fraction,
+            max_cases=max_cases,
             auto_fast=auto_fast,
             auto_feature_reduce=auto_feature_reduce,
             explicit_k_features=explicit_k_features,
@@ -754,8 +781,9 @@ class InsideForestRegressor(_BaseInsideForest):
         method="select_clusters",
         divide=5,
         get_detail=False,
-        leaf_percentile=95,
-        low_leaf_fraction=0.05,
+        leaf_percentile=96,
+        low_leaf_fraction=0.03,
+        max_cases=750,
         auto_fast=False,
         auto_feature_reduce=False,
         explicit_k_features: Optional[int] = None,
@@ -773,6 +801,7 @@ class InsideForestRegressor(_BaseInsideForest):
             get_detail=get_detail,
             leaf_percentile=leaf_percentile,
             low_leaf_fraction=low_leaf_fraction,
+            max_cases=max_cases,
             auto_fast=auto_fast,
             auto_feature_reduce=auto_feature_reduce,
             explicit_k_features=explicit_k_features,
