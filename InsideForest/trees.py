@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import logging
 
-from sklearn.tree import export_text
+from sklearn.tree import _tree
 from tqdm import tqdm
 from joblib import Parallel, delayed
 
@@ -141,64 +141,65 @@ class Trees:
 
     def process_tree(n_estimador, arbol_individual):
       if self.lang == 'pyspark':
-        r = arbol_individual
+        r = pattern.sub(lambda m: feature_names[int(m.group(1))], arbol_individual)
+        estructura = r.split('\n')
+        estructura_iter = estructura[:]
+        paths = []
+        leaves = []
+        for valor in estructura:
+          if not leaf_pat.search(valor):
+            continue
+          estructura_iter, path_ = self.get_path(estructura_iter)
+          estructura_rep = [v.count('|') for v in path_[0]]
+          if len(estructura_rep) != len(set(estructura_rep)):
+            seen = set()
+            new_path = []
+            for elem in reversed(path_[0]):
+              bc = elem.count('|')
+              if bc not in seen:
+                new_path.append(elem)
+                seen.add(bc)
+            new_path.reverse()
+            path_[0] = new_path
+          paths.append(path_[0])
+          leaves.append(path_[1] if len(path_) > 1 else '')
+        valores = []
+        for texto in leaves:
+          m = val_pat.search(texto)
+          if m:
+            valores.append(float(m.group(1).replace('_', '')))
+          else:
+            mc = cls_pat.search(texto)
+            if mc:
+              try:
+                valores.append(float(mc.group(1).replace('_', '')))
+              except ValueError:
+                continue
       else:
-        r = export_text(arbol_individual)
-
-      # Replace all feature indices using numeric regex
-      r = pattern.sub(lambda m: feature_names[int(m.group(1))], r)
-
-      estructura = r.split('\n')
-      estructura_iter = estructura[:]
-      paths = []
-
-      for i, valor in enumerate(estructura):
-        if not leaf_pat.search(valor):
-          continue
-        estructura_iter, path_ = self.get_path(estructura_iter)
-        estructura_rep = [v.count('|') for v in path_[0]]
-
-        if len(estructura_rep) != len(set(estructura_rep)):
-          seen = set()
-          new_path = []
-          # Traverse path_[0] in reverse order
-          for elem in reversed(path_[0]):
-            bc = elem.count('|')
-            if bc not in seen:
-              new_path.append(elem)
-              seen.add(bc)
-
-          # new_path is reversed; restore natural order
-          new_path.reverse()
-
-          # Replace original path
-          path_[0] = new_path
-
-        paths.append([x for x in path_ if x != ''])
-
-      valores = []
-      paths_filtrados = []
-      for path in paths:
-        texto = path[1] if len(path) > 1 else ''
-        m = val_pat.search(texto)
-        if m:
-          valores.append(float(m.group(1).replace('_', '')))
-          paths_filtrados.append(path)
-        else:
-          mc = cls_pat.search(texto)
-          if mc:
-            try:
-              valores.append(float(mc.group(1).replace('_', '')))
-              paths_filtrados.append(path)
-            except ValueError:
-              continue
-      paths = paths_filtrados
+        t = arbol_individual.tree_
+        paths = []
+        valores = []
+        def recurse(node, path):
+          if t.feature[node] != _tree.TREE_UNDEFINED:
+            nombre = feature_names[t.feature[node]]
+            umbral = t.threshold[node]
+            recurse(t.children_left[node], path + [f"{nombre} <= {umbral:.6f}"])
+            recurse(t.children_right[node], path + [f"{nombre} > {umbral:.6f}"])
+          else:
+            paths.append(path)
+            val = t.value[node]
+            if hasattr(arbol_individual, 'n_classes_'):
+              class_idx = int(np.argmax(val))
+              valores.append(float(class_idx))
+            else:
+              valores.append(float(val.ravel()[0]))
+        recurse(0, [])
       if not valores:
         return pd.DataFrame(columns=['Regla', 'Importancia', 'N_regla', 'N_arbol', 'Va_Obj_minima'])
       rng = np.random.RandomState(random_state + n_estimador)
       if percentil is None:
         percent_ = np.nan
-        estructuras_maximizadoras = [[pa[0], val] for pa, val in zip(paths, valores)]
+        estructuras_maximizadoras = [[pa, val] for pa, val in zip(paths, valores)]
       else:
         percent_ = np.percentile(valores, percentil)
         high_idx = [i for i, val in enumerate(valores) if val >= percent_]
@@ -206,18 +207,13 @@ class Trees:
         sample_size = int(len(low_idx) * low_frac)
         sampled_low_idx = rng.choice(low_idx, size=sample_size, replace=False).tolist() if sample_size > 0 else []
         selected_idx = high_idx + sampled_low_idx
-        estructuras_maximizadoras = [[paths[i][0], valores[i]] for i in selected_idx]
+        estructuras_maximizadoras = [[paths[i], valores[i]] for i in selected_idx]
 
       importanc = []
-      for n_path in range(len(estructuras_maximizadoras)):
+      for n_path, (path, _) in enumerate(estructuras_maximizadoras):
         importanc += [
-          [
-            v.replace('|---', '').replace('|   ', '')[1:],
-            2 / ((v.count('|')) + 1),
-            n_path,
-            n_estimador
-          ]
-          for v in estructuras_maximizadoras[n_path][0]
+          [cond, 2 / (i + 2), n_path, n_estimador]
+          for i, cond in enumerate(path)
         ]
 
       asdf = pd.DataFrame(importanc, columns=['Regla', 'Importancia', 'N_regla', 'N_arbol'])
