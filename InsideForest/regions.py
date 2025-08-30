@@ -1020,23 +1020,23 @@ class Regions:
       cluster_id += n_reglas
     return lista_reglas
 
-  def generate_cluster_descriptions(self, df_reglas):
+  def generate_cluster_descriptions(self, df_rules):
       """
       Generate a DataFrame with textual descriptions and weights for each cluster
-      based on the rules defined in ``df_reglas``.
+      based on the rules defined in ``df_rules``.
 
       Assumes:
-        - row['linf'] and row['lsup'] are Series indexed by variable names.
-        - The weight is taken from ('metrics', 'ponderador').
-        - The 'cluster' column holds the cluster identifier.
+        - ``row['linf']`` and ``row['lsup']`` are Series indexed by variable names.
+        - The weight is taken from ``('metrics', 'ponderador')``.
+        - The ``'cluster'`` column holds the cluster identifier.
       """
       # import numpy as np
       # import pandas as pd
 
       cluster_descriptions = []
 
-      for idx, row in df_reglas.iterrows():
-          # Extraer el identificador del cluster; si viene encapsulado, extraer el valor escalar
+      for idx, row in df_rules.iterrows():
+          # Extract cluster identifier; if it is a Series, retrieve the scalar value
           cluster_id = row['cluster']
           if hasattr(cluster_id, 'values'):
               cluster_id = cluster_id.values[0]
@@ -1045,29 +1045,32 @@ class Regions:
           linf = row['linf'].dropna()
           lsup = row['lsup'].dropna()
 
-          # Build description: for each variable in linf create a string
-          descripcion_partes = [f"{linf[var]} <= {var} <= {lsup[var]}" for var in linf.index]
-          descripcion = " AND ".join(descripcion_partes)
+          # Build description: for each variable in ``linf`` create a string
+          description_parts = [
+              f"{linf[var]} <= {var} <= {lsup[var]}" for var in linf.index
+          ]
+          description = " AND ".join(description_parts)
 
-          # Extraer el ponderador desde el grupo 'metrics'
-          # This is the changed line. Accessing using the MultiIndex tuple.
+          # Extract weight from the metrics group
+          # Accessing using the MultiIndex tuple
           ponderador = row[('metrics', 'ponderador')]
           ef_sample = row[('metrics', 'ef_sample')]
           n_sample = row[('metrics', 'n_sample')]
           count = row[('metrics', 'count')]
 
           if hasattr(ponderador, '__iter__'):
-              # print('media_ponderadore')
               ponderador = np.mean(ponderador)
 
-          cluster_descriptions.append({
-              'cluster': cluster_id,
-              'cluster_description': descripcion,
-              'cluster_weight': ponderador,
-              'cluster_ef_sample': ef_sample,
-              'cluster_n_sample': n_sample,
-              'cluster_count': count
-          })
+          cluster_descriptions.append(
+              {
+                  'cluster': cluster_id,
+                  'cluster_description': description,
+                  'cluster_weight': ponderador,
+                  'cluster_ef_sample': ef_sample,
+                  'cluster_n_sample': n_sample,
+                  'cluster_count': count,
+              }
+          )
 
       df_clusters_description = pd.DataFrame(cluster_descriptions)
 
@@ -1101,7 +1104,7 @@ class Regions:
       df_datos_clusterizados : pd.DataFrame
           Input DataFrame with the 'cluster' column assigned.
           If keep_all_clusters=True, the additional columns are included.
-      df_clusters_descripcion : pd.DataFrame
+      df_clusters_description : pd.DataFrame
           DataFrame with description or metrics for each cluster.
       """
       clusters_datos, clusters_datos_all, ponderadores_datos_all = select_clusters(
@@ -1656,7 +1659,7 @@ class Regions:
     Returns
     -------
     If ``return_dfs`` is True a tuple ``(df_datos_clusterizados,
-    df_clusters_descripcion, labels)`` is returned. Otherwise only ``labels``
+    df_clusters_description, labels)`` is returned. Otherwise only ``labels``
     is produced.
     """
     
@@ -1673,7 +1676,7 @@ class Regions:
     df_reglas_importantes.rename(columns={'index': 'cluster'}, inplace=True)
 
     # Asignar clusters a los datos utilizando las reglas importantes
-    df_datos_clusterizados, df_clusters_descripcion = self.asignar_clusters_a_datos(df, df_reglas_importantes)
+    df_datos_clusterizados, df_clusters_description = self.asignar_clusters_a_datos(df, df_reglas_importantes)
 
     # if include_summary_cluster:
     #   df_datos_clusterizados = self.get_important_clusters(df_datos_clusterizados)
@@ -1681,14 +1684,14 @@ class Regions:
     records = df_datos_clusterizados['clusters_list'].tolist()
     probas = {
         int(a): float(b)
-        for a, b in df_clusters_descripcion[['cluster', 'cluster_ef_sample']]
+        for a, b in df_clusters_description[['cluster', 'cluster_ef_sample']]
         .drop_duplicates()
         .values
     }
 
     # Estandarizar la efectividad
-    df_clusters_descripcion['cluster_ef_sample'] /= df_clusters_descripcion['cluster_ef_sample'].max()
-    df_clusters_descripcion['cluster_ef_sample'] = abs(df_clusters_descripcion['cluster_ef_sample'])
+    df_clusters_description['cluster_ef_sample'] /= df_clusters_description['cluster_ef_sample'].max()
+    df_clusters_description['cluster_ef_sample'] = abs(df_clusters_description['cluster_ef_sample'])
 
     y = (
         df_datos_clusterizados[var_obj].tolist()
@@ -1743,7 +1746,7 @@ class Regions:
           df_datos_clusterizados = df_datos_clusterizados.drop(columns=rem_cols)
 
        df_datos_clusterizados['cluster'] = labels
-       return df_datos_clusterizados, df_clusters_descripcion, labels
+       return df_datos_clusterizados, df_clusters_description, labels
     else:
        return labels
 
