@@ -27,6 +27,7 @@ def test_get_params_returns_init_values():
     assert params["leaf_percentile"] == 96
     assert params["low_leaf_fraction"] == 0.03
     assert params["max_cases"] == 750
+    assert params["seed"] == 42
 
 
 def test_set_params_updates_attributes():
@@ -58,6 +59,10 @@ def test_set_params_updates_attributes():
     model.set_params(max_cases=100)
     assert model.max_cases == 100
 
+    model.set_params(seed=123)
+    assert model.seed == 123
+    assert model.rf.get_params()["random_state"] == 123
+
     with pytest.raises(ValueError):
         model.set_params(unknown=1)
 
@@ -81,3 +86,21 @@ def test_sampling_is_deterministic():
     model.fit(X, y)
     expected = np.random.default_rng(42).choice(1000, size=100, replace=False)
     assert np.array_equal(model._sample_indices_, expected)
+
+
+def test_fit_is_reproducible_with_seed():
+    import numpy as np
+
+    X = np.random.rand(1000, 5)
+    y = np.random.randint(0, 2, size=1000)
+    params = dict(rf_params={"n_estimators": 5, "n_jobs": 1},
+                  max_cases=200,
+                  n_clusters=3,
+                  method="balance_lists_n_clusters",
+                  seed=7)
+    m1 = InsideForestClassifier(**params)
+    m2 = InsideForestClassifier(**params)
+    m1.fit(X, y)
+    m2.fit(X, y)
+    assert np.array_equal(m1.labels_, m2.labels_)
+    assert np.array_equal(m1._sample_indices_, m2._sample_indices_)
