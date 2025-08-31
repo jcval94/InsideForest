@@ -15,6 +15,7 @@ InsideForest.egg-info/SOURCES.txt
 InsideForest.egg-info/dependency_links.txt
 InsideForest.egg-info/top_level.txt
 experiments/__init__.py
+experiments/ab_test_rule_extraction.py
 experiments/benchmark.py
 experiments/benchmark_get_rangos.py
 experiments/rf_param_benchmark.py
