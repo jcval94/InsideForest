@@ -1,77 +1,80 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8" />
-    <title>InsideForest - Documentación</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8" />
+  <title>InsideForest - Documentación</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <nav id="sidebar">
-        <input type="text" id="search" placeholder="Buscar..." />
-        <ul id="nav-list">
-            <li><a href="index.html">Inicio</a></li>
-            <li><a href="getting-started/index.html">Guía rápida</a></li>
-            <li><a href="tutorials/index.html">Tutoriales</a></li>
-            <li><a href="guides/index.html">Guías de uso</a></li>
-            <li><a href="api/index.html">Referencia API</a></li>
-            <li><a href="faq.html">FAQ</a></li>
-            <li><a href="glossary.html">Glosario</a></li>
-            <li><a href="resources.html">Recursos</a></li>
-        </ul>
-    </nav>
-    <div class="main-content">
-        <h1>InsideForest</h1>
-        <pre><code>
-from sklearn.datasets import load_iris
+  <nav id="sidebar">
+    <input type="text" id="search" placeholder="Buscar..." />
+    <ul id="nav-list">
+      <li><a href="index.html">Inicio</a></li>
+      <li><a href="getting-started/index.html">Guía rápida</a></li>
+      <li><a href="tutorials/index.html">Tutoriales</a></li>
+      <li><a href="guides/index.html">Guías de uso</a></li>
+      <li><a href="api/index.html">Referencia API</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="glossary.html">Glosario</a></li>
+      <li><a href="resources.html">Recursos</a></li>
+    </ul>
+  </nav>
+
+  <div class="main-content">
+    <h1>InsideForest <span class="badge">v1.0</span></h1>
+    <p>Bienvenido a la documentación de InsideForest. Utiliza el índice de la izquierda para navegar por las secciones.</p>
+
+    <div class="doc-image">
+      <img src="../data/inside_f1.jpeg" alt="Ejemplo InsideForest" />
+    </div>
+
+    <h2>Uso básico</h2>
+    <pre><code>from sklearn.datasets import load_iris
 from InsideForest import InsideForestClassifier
 
 X, y = load_iris(return_X_y=True)
 clf = InsideForestClassifier().fit(X, y)
-labels = clf.predict(X)
-        </code></pre>
+labels = clf.predict(X)</code></pre>
 
-        <p>InsideForest es una biblioteca de clustering supervisado basada en bosques de decisión.
-            Descubre regiones relevantes y genera descripciones interpretables.
-            Aprende cómo funciona en <a href="guides/architecture.html">Cómo funciona</a>.</p>
+    <p>InsideForest es una biblioteca de clustering supervisado basada en bosques de decisión.
+      Descubre regiones relevantes y genera descripciones interpretables.
+      Aprende cómo funciona en <a href="guides/architecture.html">Cómo funciona</a>.
+    </p>
 
-        <h2>Primeros pasos</h2>
-        <p>Instala la librería y ejecuta una prueba básica:</p>
-        <pre><code class="language-python">pip install InsideForest
-PYTHONPATH=src pytest tests/test_basic.py::test_import_and_fit -q
-</code></pre>
-        <p>Consulta la <a href="getting-started/index.html">Guía rápida</a> para instrucciones completas.</p>
+    <h2>Primeros pasos</h2>
+    <p>Instala la librería y ejecuta una prueba básica:</p>
+    <pre><code class="language-shell">pip install InsideForest
+PYTHONPATH=src pytest tests/test_basic.py::test_import_and_fit -q</code></pre>
+    <p>Consulta la <a href="getting-started/index.html">Guía rápida</a> para instrucciones completas.</p>
 
-        <h2>Consejos de rendimiento</h2>
-        <p>Explora <a href="resources.html">Recursos</a> y
-            <a href="troubleshooting.html">Solución de problemas</a> para optimizar el uso en grandes conjuntos de datos.</p>
+    <h2>Consejos de rendimiento</h2>
+    <p>Explora <a href="resources.html">Recursos</a> y
+      <a href="troubleshooting.html">Solución de problemas</a> para optimizar el uso en grandes conjuntos de datos.</p>
 
-        <h2>Componentes principales</h2>
-        <p>Estas secciones describen los módulos clave de InsideForest:</p>
-        <ul>
-            <li><a href="api/index.html#Trees">Trees</a></li>
-            <li><a href="api/index.html#Regions">Regions</a></li>
-            <li><a href="api/index.html#Labels">Labels</a></li>
-            <li><a href="api/index.html#InsideForestClassifier">InsideForestClassifier</a></li>
-        </ul>
+    <h2>Componentes principales</h2>
+    <p>Estas secciones describen los módulos clave de InsideForest:</p>
+    <ul>
+      <li><a href="api/index.html#Trees">Trees</a></li>
+      <li><a href="api/index.html#Regions">Regions</a></li>
+      <li><a href="api/index.html#Labels">Labels</a></li>
+      <li><a href="api/index.html#InsideForestClassifier">InsideForestClassifier</a></li>
+    </ul>
 
-        <h2>Experimentos &amp; Benchmarks</h2>
-        <p>Comparaciones de rendimiento y resultados están disponibles en el
-            <a href="paper.html">paper del proyecto</a>.</p>
+    <h2>Experimentos &amp; Benchmarks</h2>
+    <p>Comparaciones de rendimiento y resultados están disponibles en el
+      <a href="paper.html">paper del proyecto</a>.</p>
 
-        <h2>Acerca de</h2>
-        <p>InsideForest es desarrollado de manera abierta por su comunidad de colaboradores.</p>
+    <h2>Acerca de</h2>
+    <p>InsideForest es desarrollado de manera abierta por su comunidad de colaboradores.</p>
 
-        <h2>Contribuir</h2>
-        <p>¡Las mejoras son bienvenidas! Instala las dependencias de desarrollo y ejecuta las pruebas:</p>
-        <pre><code class="language-python">pip install -e ".[dev]"
-PYTHONPATH=src pytest -q
-</code></pre>
-=======
-        <h1>InsideForest <span class="badge">v1.0</span></h1>
-        <p>Bienvenido a la documentación de InsideForest. Utiliza el índice de la izquierda para navegar por las secciones.</p>
+    <h2>Contribuir</h2>
+    <p>¡Las mejoras son bienvenidas! Instala las dependencias de desarrollo y ejecuta las pruebas:</p>
+    <pre><code class="language-shell">pip install -e ".[dev]"
+PYTHONPATH=src pytest -q</code></pre>
+  </div>
 
-    </div>
-    <script src="sidebar.js"></script>
+  <script src="sidebar.js"></script>
 </body>
 </html>
+
