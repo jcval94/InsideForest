@@ -7,19 +7,7 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <nav id="sidebar">
-    <input type="text" id="search" placeholder="Buscar..." />
-    <ul id="nav-list">
-      <li><a href="index.html">Inicio</a></li>
-      <li><a href="getting-started/index.html">Guía rápida</a></li>
-      <li><a href="tutorials/index.html">Tutoriales</a></li>
-      <li><a href="guides/index.html">Guías de uso</a></li>
-      <li><a href="api/index.html">Referencia API</a></li>
-      <li><a href="faq.html">FAQ</a></li>
-      <li><a href="glossary.html">Glosario</a></li>
-      <li><a href="resources.html">Recursos</a></li>
-    </ul>
-  </nav>
+  <nav id="sidebar"></nav>
 
   <div class="main-content">
     <h1>InsideForest <span class="badge">v1.0</span></h1>
@@ -27,6 +15,10 @@
 
     <div class="doc-image">
       <img src="../data/inside_f1.jpeg" alt="Ejemplo InsideForest" />
+    </div>
+
+    <div class="doc-image">
+      <img src="../data/iris_plot.png" alt="Distribución Iris" />
     </div>
 
     <h2>Uso básico</h2>
@@ -62,7 +54,7 @@ PYTHONPATH=src pytest tests/test_basic.py::test_import_and_fit -q</code></pre>
     </ul>
 
     <h2>Experimentos &amp; Benchmarks</h2>
-    <p>Comparaciones de rendimiento y resultados están disponibles en el
+    <p>Consulta los <a href="benchmarks.html">resultados comparativos</a> y el
       <a href="paper.html">paper del proyecto</a>.</p>
 
     <h2>Acerca de</h2>
