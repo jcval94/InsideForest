@@ -15,7 +15,7 @@
   background-color: var(--background-color);
   color: var(--text-color);
   max-width: 900px;
-  margin: 0 auto;
+  margin-left: 270px;
   padding: 2rem;
 }
 
@@ -71,4 +71,48 @@
   max-height: 400px;
   overflow-y: auto;
   margin-bottom: 1.5rem;
+}
+
+/* Layout for documentation with sidebar */
+body {
+  margin: 0;
+}
+
+#sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 250px;
+  height: 100vh;
+  background-color: var(--background-color);
+  border-right: 1px solid var(--border-color);
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+#sidebar input {
+  width: 100%;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+
+#sidebar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+#sidebar li {
+  margin-bottom: 0.5rem;
+}
+
+#sidebar a {
+  text-decoration: none;
+  color: var(--primary-color);
+}
+
+#sidebar a:hover {
+  color: var(--accent-color);
 }
