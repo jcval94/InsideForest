@@ -1,5 +1,5 @@
 title: InsideForest Documentation
-description: InsideForest: supervised clustering with interpretable regions.
+description: "InsideForest: supervised clustering with interpretable regions."
 remote_theme: just-the-docs/just-the-docs
 search_enabled: true
 sitemap: true
