@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+<meta charset='UTF-8' />
+<title>InsideForest - Documentación</title>
+<link rel='stylesheet' href='../style.css' />
+</head>
+<body>
+<div class="main-content">
+<h1>Guía: Interpretación de resultados</h1>
+
+<p>InsideForest busca ofrecer interpretaciones claras para cada segmento encontrado.</p>
+
+<h2>Importancia de variables</h2>
+
+<pre><code>
+importances = clf.feature_importances_
+for feat, imp in zip(X.columns, importances):
+    print(feat, round(imp, 3))
+</code></pre>
+
+<h2>Descripciones de segmentos</h2>
+
+<pre><code>
+descriptions = clf.describe_segments(top_k=3)
+for desc in descriptions:
+    print(desc[&quot;description&quot;])
+</code></pre>
+
+<p>Cada descripción resume las condiciones que definen un grupo de instancias y puede utilizarse para generar reportes.</p>
+
+<h2>Visualizaciones</h2>
+
+<p>Puedes exportar los resultados a formatos como CSV o JSON y usar librerías de visualización (ej. <code>plotly</code>) para explorar interactivamente las regiones.</p>
+</div>
+</body>
+</html>

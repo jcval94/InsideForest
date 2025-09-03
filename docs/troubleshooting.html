@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+<meta charset='UTF-8' />
+<title>InsideForest - Documentación</title>
+<link rel='stylesheet' href='style.css' />
+</head>
+<body>
+<div class="main-content">
+<h1>Solución de problemas</h1>
+
+<h2>Error de instalación</h2>
+<p>Asegúrate de tener una versión reciente de <code>pip</code> y <code>setuptools</code>:</p>
+
+<pre><code>
+pip install --upgrade pip setuptools
+</code></pre>
+
+<h2>Modelos lentos</h2>
+<ul>
+<li>Activa <code>auto_fast=True</code>.</li>
+<li>Reduce el número de características o registros.</li>
+<li>Usa paralelismo con <code>n_jobs</code>.</li>
+</ul>
+
+<h2>Problemas durante el entrenamiento</h2>
+<p>Verifica que no existan valores nulos y que las etiquetas estén bien formadas. Si el problema persiste, abre un issue en el repositorio.</p>
+</div>
+</body>
+</html>

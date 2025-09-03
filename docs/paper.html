@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+<meta charset='UTF-8' />
+<title>InsideForest - Paper técnico</title>
+<link rel='stylesheet' href='style.css' />
+</head>
+<body>
+<div class="main-content">
+<h1>Paper técnico de InsideForest</h1>
+<p>Este documento resume el paper <em>InsideForest: un enfoque interpretativo para el clustering supervisado</em>, donde se describen los fundamentos teóricos y la arquitectura de la librería.</p>
+
+<h2>Resumen</h2>
+<p>InsideForest combina bosques aleatorios con técnicas de <strong>supervised clustering</strong> para generar segmentos explicables. Cada región resultante se describe mediante reglas basadas en intervalos y se acompaña de métricas como soporte, pureza y lift.</p>
+
+<h2>Ejemplo de código</h2>
+<pre><code class="language-python">
+from insideforest import InsideForestClassifier
+from sklearn.datasets import load_iris
+
+X, y = load_iris(return_X_y=True)
+clf = InsideForestClassifier()
+clf.fit(X, y)
+segments = clf.get_segments()
+print(segments[:3])
+</code></pre>
+
+<p>El documento completo, con demostraciones formales y resultados experimentales, está disponible en el archivo <code><a href="../README.paper.md">README.paper.md</a></code> del repositorio.</p>
+</div>
+</body>
+</html>

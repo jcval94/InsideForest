@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+<meta charset='UTF-8' />
+<title>InsideForest - Documentación</title>
+<link rel='stylesheet' href='../style.css' />
+</head>
+<body>
+<div class="main-content">
+<h1>Referencia de API</h1>
+
+<p>Esta sección resume las clases y funciones más importantes de InsideForest. Para generar una documentación más detallada se recomienda utilizar herramientas como <code>pdoc</code> o <code>sphinx-apidoc</code>.</p>
+
+<h2>Clases principales</h2>
+
+<h3>InsideForestClassifier</h3>
+
+<pre><code>
+class InsideForestClassifier(BaseEstimator):
+    def __init__(self, n_clusters=5, n_estimators=100, random_state=None):
+        ...
+    def fit(self, X, y):
+        ...
+    def predict(self, X):
+        ...
+</code></pre>
+
+<h3>InsideForestRegressor</h3>
+
+<pre><code>
+class InsideForestRegressor(BaseEstimator):
+    ...
+</code></pre>
+
+<h2>Submódulos</h2>
+
+<ul>
+<li><code>trees</code></li>
+<li><code>regions</code></li>
+<li><code>descrip</code></li>
+<li><code>labels</code></li>
+<li><code>cluster_selector</code></li>
+</ul>
+
+<p>Consulta el código fuente en el repositorio para obtener información completa sobre parámetros y valores de retorno.</p>
+</div>
+</body>
+</html>

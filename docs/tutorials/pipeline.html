@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+<meta charset='UTF-8' />
+<title>InsideForest - Documentación</title>
+<link rel='stylesheet' href='../style.css' />
+</head>
+<body>
+<div class="main-content">
+<h1>Tutorial: Integración con pipelines de scikit-learn</h1>
+
+<p>InsideForest puede integrarse en un <code>Pipeline</code> de <code>sklearn</code> para combinar preprocesamiento, selección de características y entrenamiento.</p>
+
+<pre><code>
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import GridSearchCV
+from insideforest import InsideForestClassifier
+
+pipe = Pipeline([
+    (&quot;scaler&quot;, StandardScaler()),
+    (&quot;model&quot;, InsideForestClassifier())
+])
+
+param_grid = {
+    &quot;model__n_clusters&quot;: [5, 10],
+    &quot;model__n_estimators&quot;: [100, 200]
+}
+
+grid = GridSearchCV(pipe, param_grid, cv=3)
+grid.fit(X, y)
+
+print(&quot;Mejores parámetros:&quot;, grid.best_params_)
+</code></pre>
+
+<p>Este enfoque facilita el ajuste fino de hiperparámetros y la reproducibilidad de experimentos.</p>
+</div>
+</body>
+</html>

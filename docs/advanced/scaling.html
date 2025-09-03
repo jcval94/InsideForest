@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+<meta charset='UTF-8' />
+<title>InsideForest - Documentación</title>
+<link rel='stylesheet' href='../style.css' />
+</head>
+<body>
+<div class="main-content">
+<h1>Receta avanzada: Uso en conjuntos de datos masivos</h1>
+
+<p>Para escalar InsideForest a millones de registros se recomiendan las siguientes estrategias:</p>
+
+<p>1. <strong>&lt;code&gt;auto_fast=True&lt;/code&gt;</strong>: reduce automáticamente el número de ramas exploradas.</p>
+<p>2. <strong>Submuestreo</strong>: utiliza una muestra representativa para entrenar el bosque y luego aplica el modelo al conjunto completo.</p>
+<p>3. <strong>Paralelismo</strong>: ajusta <code>n_jobs</code> para aprovechar múltiples núcleos.</p>
+<p>4. <strong>Reducción de características</strong>: habilita <code>auto_feature_reduce</code> o aplica técnicas como PCA antes del entrenamiento.</p>
+
+<pre><code>
+clf = InsideForestClassifier(auto_fast=True, n_jobs=-1, auto_feature_reduce=20)
+clf.fit(X_big, y_big)
+</code></pre>
+
+<p>Estas recomendaciones ayudan a mantener tiempos de entrenamiento razonables sin sacrificar demasiada información.</p>
+</div>
+</body>
+</html>
