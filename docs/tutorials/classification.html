@@ -1,65 +1,12 @@
-<!DOCTYPE html>
-<html lang='es'>
-<head>
-<meta charset='UTF-8' />
-<title>InsideForest - Documentación</title>
-<link rel='stylesheet' href='../style.css' />
-</head>
-<body>
-  <nav id="sidebar"></nav>
+---
+layout: default
+title: Classification
+parent: Tutorials
+nav_order: 1
+---
 
-<div class="main-content">
-<h1>Tutorial: Clasificación supervisada básica</h1>
-
-<p>En este tutorial aprenderás a entrenar un <code>InsideForestClassifier</code> y a interpretar los segmentos resultantes.</p>
-
-<h2>1. Preparar los datos</h2>
-
-<p>Usaremos el dataset de vinos de <code>sklearn</code>, que incluye 13 características químicas por muestra.</p>
-
-<pre><code>
-from sklearn.datasets import load_wine
-from sklearn.model_selection import train_test_split
-import pandas as pd
-
-X, y = load_wine(return_X_y=True, as_frame=True)
-X_tr, X_te, y_tr, y_te = train_test_split(X, y, random_state=0)
-</code></pre>
-
-<h2>2. Entrenar el modelo</h2>
-
-<pre><code>
-from insideforest import InsideForestClassifier
-
-clf = InsideForestClassifier(n_clusters=5, auto_fast=True)
-clf.fit(X_tr, y_tr)
-</code></pre>
-
-<h2>3. Interpretar segmentos</h2>
-
-<p>El modelo genera segmentos que resumen las reglas de decisión más relevantes.</p>
-
-<pre><code>
-segments = clf.get_segments()
-print(pd.DataFrame(segments).head())
-</code></pre>
-
-<p>Cada fila representa una región en el espacio de características y puede describirse como una regla legible.</p>
-
-<h2>4. Evaluación</h2>
-
-<pre><code>
-print(&quot;Precisión:&quot;, clf.score(X_te, y_te))
-</code></pre>
-
-<h2>5. Variaciones sugeridas</h2>
-
-<ul>
-<li>Cambiar <code>n_clusters</code> para ajustar el número de segmentos.</li>
-<li>Usar <code>auto_feature_reduce=True</code> para datasets con muchas variables.</li>
-<li>Habilitar <code>rf_params</code> personalizados para controlar el bosque subyacente.</li>
-</ul>
-</div>
-  <script src="../sidebar.js"></script>
-</body>
-</html>
+<link rel="stylesheet" href="../style.css">
+<script src="../lang.js"></script>
+<div class="lang-switch"><a href="classification_es.html">ES</a></div>
+<h1>Classification</h1>
+<p>Tutorial for classification.</p>

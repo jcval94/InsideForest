@@ -1,37 +1,12 @@
-<!DOCTYPE html>
-<html lang='es'>
-<head>
-<meta charset='UTF-8' />
-<title>InsideForest - Documentación</title>
-<link rel='stylesheet' href='../style.css' />
-</head>
-<body>
-  <nav id="sidebar"></nav>
+---
+layout: default
+title: Architecture
+parent: Guides
+nav_order: 3
+---
 
-<div class="main-content">
-<h1>Guía: Arquitectura interna</h1>
-
-<p>InsideForest se compone de varios módulos que interactúan para ofrecer interpretabilidad desde la fase de entrenamiento.</p>
-
-<h2>Módulos principales</h2>
-
-<p>| Módulo | Descripción |</p>
-<p>|--------|-------------|</p>
-<p>| <code>trees</code> | Construye y analiza los árboles de decisión subyacentes. |</p>
-<p>| <code>regions</code> | Define y prioriza intersecciones de ramas para formar segmentos. |</p>
-<p>| <code>descrip</code> | Genera descripciones legibles de cada región. |</p>
-<p>| <code>cluster_selector</code> | Selecciona clústeres significativos empleando criterios supervisados. |</p>
-
-<h2>Flujo de datos</h2>
-
-<p>1. <strong>Entrenamiento</strong>: se ajusta un bosque de árboles de decisión sobre los datos etiquetados.</p>
-<p>2. <strong>Extracción de ramas</strong>: cada árbol se recorre para identificar reglas de decisión.</p>
-<p>3. <strong>Combinación</strong>: las ramas se combinan para formar regiones con características similares.</p>
-<p>4. <strong>Selección</strong>: se priorizan las regiones más informativas con respecto a las etiquetas.</p>
-<p>5. <strong>Descripción</strong>: se sintetizan reglas en lenguaje natural o representaciones tabulares.</p>
-
-<p>Este diseño modular facilita extender o reemplazar componentes sin alterar el resto del sistema.</p>
-</div>
-  <script src="../sidebar.js"></script>
-</body>
-</html>
+<link rel="stylesheet" href="../style.css">
+<script src="../lang.js"></script>
+<div class="lang-switch"><a href="architecture_es.html">ES</a></div>
+<h1>Architecture</h1>
+<p>Guide for architecture.</p>
