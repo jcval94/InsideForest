@@ -73,6 +73,14 @@
   margin-bottom: 1.5rem;
 }
 
+.badge {
+  background: var(--accent-color);
+  color: #fff;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
 /* Layout for documentation with sidebar */
 body {
   margin: 0;
