@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+<meta charset='UTF-8' />
+<title>InsideForest - Documentación</title>
+<link rel='stylesheet' href='../style.css' />
+</head>
+<body>
+<div class="main-content">
+<h1>Guía de inicio rápido</h1>
+
+<p>Esta guía te acompañará en los primeros pasos con InsideForest, desde la instalación hasta la ejecución del primer ejemplo.</p>
+
+<h2>1. Instalación</h2>
+
+<p>InsideForest requiere <strong>Python 3.8+</strong>. La forma recomendada de instalar es mediante <code>pip</code> desde PyPI:</p>
+
+<pre><code>
+pip install insideforest
+</code></pre>
+
+<p>Para probar la versión en desarrollo directamente desde el repositorio:</p>
+
+<pre><code>
+pip install git+https://github.com/tu-organizacion/InsideForest.git
+</code></pre>
+
+<h2>2. Hola Mundo</h2>
+
+<p>El siguiente ejemplo muestra cómo entrenar un clasificador simple usando el conocido dataset de Iris.</p>
+
+<pre><code>
+from insideforest import InsideForestClassifier
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+
+X, y = load_iris(return_X_y=True)
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.3, random_state=0)
+
+clf = InsideForestClassifier()
+clf.fit(X_tr, y_tr)
+
+print(&quot;Precision:&quot;, clf.score(X_te, y_te))
+</code></pre>
+
+<h2>3. Flujo básico de trabajo</h2>
+
+<p>1. <strong>Entrenar</strong> un modelo con datos etiquetados.</p>
+<p>2. <strong>Extraer ramas</strong> que dividen el espacio de características.</p>
+<p>3. <strong>Priorizar regiones</strong> y agrupar instancias similares.</p>
+<p>4. <strong>Describir</strong> cada segmento con reglas interpretables.</p>
+
+<p>Este flujo garantiza que los resultados sean transparentes y fáciles de explicar.</p>
+
+<h2>4. Próximos pasos</h2>
+
+<ul>
+<li>Revisa los <a href="../tutorials/classification.html">tutoriales paso a paso</a>.</li>
+<li>Explora las <a href="../guides/architecture.html">guías de uso</a>.</li>
+<li>Consulta la <a href="../api/index.html">referencia de API</a>.</li>
+</ul>
+</div>
+</body>
+</html>

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+<meta charset='UTF-8' />
+<title>InsideForest - Documentación</title>
+<link rel='stylesheet' href='../style.css' />
+</head>
+<body>
+<div class="main-content">
+<h1>Receta avanzada: Ajuste fino de hiperparámetros</h1>
+
+<p>Optimizar los parámetros de InsideForest permite mejorar la calidad de los segmentos y la precisión del modelo.</p>
+
+<pre><code>
+from sklearn.model_selection import GridSearchCV
+from insideforest import InsideForestClassifier
+
+param_grid = {
+    &quot;n_clusters&quot;: [5, 10, 15],
+    &quot;n_estimators&quot;: [100, 200],
+    &quot;auto_fast&quot;: [True, False]
+}
+
+grid = GridSearchCV(InsideForestClassifier(), param_grid, cv=3)
+grid.fit(X, y)
+
+print(&quot;Mejor configuración:&quot;, grid.best_params_)
+</code></pre>
+
+<p>Considera utilizar <code>RandomizedSearchCV</code> para espacios de búsqueda más amplios.</p>
+</div>
+</body>
+</html>

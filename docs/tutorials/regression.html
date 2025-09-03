@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+<meta charset='UTF-8' />
+<title>InsideForest - Documentación</title>
+<link rel='stylesheet' href='../style.css' />
+</head>
+<body>
+<div class="main-content">
+<h1>Tutorial: Regresión supervisada</h1>
+
+<p>InsideForest también permite resolver problemas de regresión mediante <code>InsideForestRegressor</code>.</p>
+
+<h2>1. Dataset de ejemplo</h2>
+
+<p>Usaremos el dataset de diabetes de <code>sklearn</code>, que contiene 10 variables numéricas por paciente.</p>
+
+<pre><code>
+from sklearn.datasets import load_diabetes
+
+X, y = load_diabetes(return_X_y=True)
+</code></pre>
+
+<h2>2. Entrenar el modelo</h2>
+
+<pre><code>
+from insideforest import InsideForestRegressor
+
+reg = InsideForestRegressor(n_estimators=200)
+reg.fit(X, y)
+</code></pre>
+
+<h2>3. Predicción</h2>
+
+<pre><code>
+preds = reg.predict(X[:5])
+print(preds)
+</code></pre>
+
+<h2>4. Evaluación rápida</h2>
+
+<pre><code>
+from sklearn.metrics import r2_score
+print(&quot;R2:&quot;, r2_score(y[:5], preds))
+</code></pre>
+
+<h2>5. Consejos</h2>
+
+<ul>
+<li>Para datasets grandes considera <code>auto_fast=True</code>.</li>
+<li>Ajusta <code>n_estimators</code> para equilibrar precisión y tiempo de entrenamiento.</li>
+</ul>
+</div>
+</body>
+</html>

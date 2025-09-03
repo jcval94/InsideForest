@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+<meta charset='UTF-8' />
+<title>InsideForest - Documentación</title>
+<link rel='stylesheet' href='../style.css' />
+</head>
+<body>
+<div class="main-content">
+<h1>Ejemplo: Segmentación de clientes</h1>
+
+<p>Este caso de uso muestra cómo aplicar InsideForest para segmentar clientes de una tienda en línea en función de su comportamiento.</p>
+
+<h2>1. Datos</h2>
+
+<p>Supongamos que contamos con datos de compras, visitas y categoría de usuario.</p>
+
+<h2>2. Entrenamiento</h2>
+
+<pre><code>
+from insideforest import InsideForestClassifier
+
+clf = InsideForestClassifier(n_clusters=6)
+clf.fit(X_clientes, y_clientes)
+</code></pre>
+
+<h2>3. Descripción de segmentos</h2>
+
+<pre><code>
+for seg in clf.describe_segments(top_k=5):
+    print(seg[&quot;description&quot;], &quot;-&gt;&quot;, seg[&quot;support&quot;])
+</code></pre>
+
+<h2>4. Interpretación</h2>
+
+<p>Las reglas generadas ayudan a entender qué características definen a los grupos de clientes más rentables o con mayor riesgo de abandono.</p>
+</div>
+</body>
+</html>

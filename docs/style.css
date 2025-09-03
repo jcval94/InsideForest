@@ -1,0 +1,74 @@
+/* Scope all custom styles to the main content area so that the
+   default layout from the just-the-docs theme is not disrupted. */
+:root {
+  --primary-color: #1e6091;
+  --accent-color: #ff6b6b;
+  --text-color: #2b2d42;
+  --background-color: #f8fafc;
+  --code-bg: #e2e8f0;
+  --border-color: #cbd5e1;
+}
+
+.main-content {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.6;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.main-content h1,
+.main-content h2,
+.main-content h3 {
+  color: var(--primary-color);
+}
+
+.main-content a {
+  color: var(--accent-color);
+}
+
+.main-content a:hover {
+  color: var(--primary-color);
+}
+
+.main-content code {
+  font-family: "Source Code Pro", Menlo, monospace;
+  background: var(--code-bg);
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+}
+
+.main-content pre code {
+  background: none;
+  padding: 0;
+  display: block;
+}
+
+.main-content pre {
+  background: var(--code-bg);
+  padding: 1rem;
+  overflow-x: auto;
+  border-left: 4px solid var(--primary-color);
+  border-radius: 4px;
+}
+
+.main-content .doc-image {
+  text-align: center;
+  margin: 2rem 0;
+}
+
+.main-content .doc-image img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.main-content .scroll-table {
+  max-height: 400px;
+  overflow-y: auto;
+  margin-bottom: 1.5rem;
+}

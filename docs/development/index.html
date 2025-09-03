@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+<meta charset='UTF-8' />
+<title>InsideForest - Documentación</title>
+<link rel='stylesheet' href='../style.css' />
+</head>
+<body>
+<div class="main-content">
+<h1>Sección de desarrollo</h1>
+
+<p>Esta sección describe cómo instalar InsideForest en modo editable, ejecutar los tests y contribuir con nuevas funcionalidades.</p>
+
+<h2>Instalación local</h2>
+
+<pre><code>
+git clone https://github.com/tu-organizacion/InsideForest.git
+cd InsideForest
+pip install -e .
+</code></pre>
+
+<h2>Ejecutar tests y estilo</h2>
+
+<pre><code>
+pre-commit run --all-files
+pytest
+</code></pre>
+
+<h2>Estructura del repositorio</h2>
+
+<ul>
+<li><code>src/</code>: código fuente principal.</li>
+<li><code>tests/</code>: pruebas automatizadas.</li>
+<li><code>data/</code>: datasets de ejemplo.</li>
+</ul>
+
+<p>Sigue las convenciones de estilo definidas por <code>black</code> y <code>flake8</code> (si están configuradas en el proyecto) y procura añadir pruebas para cada nueva funcionalidad.</p>
+</div>
+</body>
+</html>
