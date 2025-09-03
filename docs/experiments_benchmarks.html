@@ -9,4 +9,14 @@ nav_exclude: true
 <script src="lang.js"></script>
 <div class="lang-switch"><a href="experiments_benchmarks_es.html">ES</a></div>
 <h1>Experiments and Benchmarks</h1>
-<p>Summary of experiments and benchmarks.</p>
+<p>Summary of datasets and metrics.</p>
+<ul>
+  <li>UCI Adult – accuracy, F1.</li>
+  <li>Boston Housing – RMSE.</li>
+</ul>
+<h2>Example Plot</h2>
+<pre><code class="language-python">import matplotlib.pyplot as plt
+datasets = ["Adult", "Boston"]
+scores = [0.85, 3.2]
+plt.bar(datasets, scores)
+plt.show()</code></pre>

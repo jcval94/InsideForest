@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Etiquetas
+title: Labels
 parent: InsideForest
 nav_order: 4
 nav_exclude: true
@@ -9,5 +9,20 @@ nav_exclude: true
 <link rel="stylesheet" href="../style.css">
 <script src="../lang.js"></script>
 <div class="lang-switch"><a href="labels.html">EN</a></div>
-<h1>Etiquetas</h1>
-<p>Referencia API para Etiquetas.</p>
+<h1>Labels</h1>
+<h2>Firma</h2>
+<pre><code class="language-python">class Labels:
+    def __init__(self): ...
+</code></pre>
+<h2>Métodos</h2>
+<ul>
+  <li><code>round_values(values)</code>: redondeo según la varianza.</li>
+  <li><code>get_intervals(interval_df)</code>: describe intervalos.</li>
+</ul>
+<h2>Ejemplo</h2>
+<pre><code class="language-python">import matplotlib.pyplot as plt
+from InsideForest import Labels
+lab = Labels()
+intervalos = lab.get_intervals(df)
+plt.plot(intervalos)
+plt.show()</code></pre>

@@ -10,4 +10,12 @@ nav_exclude: true
 <script src="lang.js"></script>
 <div class="lang-switch"><a href="reproducibility.html">EN</a></div>
 <h1>Reproducibilidad</h1>
-<p>Guías para experimentos reproducibles.</p>
+<ul>
+  <li>Fija <code>random_state</code> para resultados deterministas.</li>
+  <li>Registra las versiones de paquetes incluyendo <code>insideforest</code>.</li>
+  <li>Semilla los RNG de Python y NumPy.</li>
+</ul>
+<pre><code class="language-python">import random, numpy as np
+from InsideForest import InsideForestClassifier
+random.seed(0); np.random.seed(0)
+clf = InsideForestClassifier(random_state=0)</code></pre>

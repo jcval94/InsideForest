@@ -9,4 +9,21 @@ nav_order: 5
 <script src="lang.js"></script>
 <div class="lang-switch"><a href="quick_api_es.html">ES</a></div>
 <h1>Quick API</h1>
-<p>Examples of quick API usage.</p>
+<h2>Classifier</h2>
+<pre><code class="language-python">import matplotlib.pyplot as plt
+from InsideForest import InsideForestClassifier
+clf = InsideForestClassifier(random_state=0).fit(X, y)
+y_pred = clf.predict(X)
+plt.scatter(y, y_pred)
+plt.show()
+clf.save("clf.joblib")
+clf2 = InsideForestClassifier.load("clf.joblib")</code></pre>
+<h2>Regressor</h2>
+<pre><code class="language-python">import matplotlib.pyplot as plt
+from InsideForest import InsideForestRegressor
+regr = InsideForestRegressor(random_state=0).fit(X, y)
+y_pred = regr.predict(X)
+plt.scatter(y, y_pred)
+plt.show()
+regr.save("reg.joblib")
+regr2 = InsideForestRegressor.load("reg.joblib")</code></pre>

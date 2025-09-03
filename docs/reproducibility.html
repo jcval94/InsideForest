@@ -9,4 +9,12 @@ nav_order: 4
 <script src="lang.js"></script>
 <div class="lang-switch"><a href="reproducibility_es.html">ES</a></div>
 <h1>Reproducibility</h1>
-<p>Guidelines for reproducible experiments.</p>
+<ul>
+  <li>Set <code>random_state</code> for deterministic results.</li>
+  <li>Record package versions including <code>insideforest</code>.</li>
+  <li>Seed Python and NumPy RNGs.</li>
+</ul>
+<pre><code class="language-python">import random, numpy as np
+from InsideForest import InsideForestClassifier
+random.seed(0); np.random.seed(0)
+clf = InsideForestClassifier(random_state=0)</code></pre>

@@ -8,5 +8,20 @@ nav_order: 6
 <link rel="stylesheet" href="../style.css">
 <script src="../lang.js"></script>
 <div class="lang-switch"><a href="clusterselector_es.html">ES</a></div>
-<h1>ClusterSelector</h1>
-<p>API reference for ClusterSelector.</p>
+<h1>MenuClusterSelector</h1>
+<h2>Signature</h2>
+<pre><code class="language-python">class MenuClusterSelector(...):
+    def __init__(self, w_nmi=1.0, w_v=1.0, lam_k=0.1, target_K=None, smoothing=1.0, max_passes=5, tol=1e-6, seed=42): ...
+</code></pre>
+<h2>Methods</h2>
+<ul>
+  <li><code>fit(records, y)</code>: estimate value distributions.</li>
+  <li><code>predict(records, n_clusters=None)</code>: assign values maximizing the objective.</li>
+</ul>
+<h2>Example</h2>
+<pre><code class="language-python">import matplotlib.pyplot as plt
+from InsideForest import MenuClusterSelector
+sel = MenuClusterSelector().fit(X, y)
+labels = sel.predict(X)
+plt.scatter(X[:,0], X[:,1], c=labels)
+plt.show()</code></pre>
