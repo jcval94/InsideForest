@@ -2,11 +2,24 @@
 layout: default
 title: Metadata
 parent: InsideForest
-nav_order: 8
+nav_order: 7
 ---
 
 <link rel="stylesheet" href="../style.css">
 <script src="../lang.js"></script>
 <div class="lang-switch"><a href="metadata_es.html">ES</a></div>
-<h1>Metadata</h1>
-<p>API reference for Metadata.</p>
+<h1>MetaExtractor</h1>
+<h2>Signature</h2>
+<pre><code class="language-python">class MetaExtractor(metadata_df, var_obj, user_synonyms=None): ...
+</code></pre>
+<h2>Methods</h2>
+<ul>
+  <li><code>extract(df_QW, profile=Profile.ESSENTIAL)</code>: subset metadata for rule tokens.</li>
+</ul>
+<h2>Example</h2>
+<pre><code class="language-python">import matplotlib.pyplot as plt
+from InsideForest import MetaExtractor, Profile
+mx = MetaExtractor(metadata_df, var_obj='target')
+mini = mx.extract(df_QW, profile=Profile.ESSENTIAL)
+plt.bar(mini.columns, mini.nunique())
+plt.show()</code></pre>

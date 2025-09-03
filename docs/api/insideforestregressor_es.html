@@ -10,4 +10,21 @@ nav_exclude: true
 <script src="../lang.js"></script>
 <div class="lang-switch"><a href="insideforestregressor.html">EN</a></div>
 <h1>InsideForestRegressor</h1>
-<p>Referencia API para InsideForestRegressor.</p>
+<h2>Firma</h2>
+<pre><code class="language-python">class InsideForestRegressor(...):
+    def __init__(self, n_estimators=200, max_depth=None, random_state=None, ...): ...
+</code></pre>
+<h2>Métodos</h2>
+<ul>
+  <li><code>fit(X, y)</code>: entrena y extrae regiones.</li>
+  <li><code>predict(X)</code>: predice valores.</li>
+  <li><code>score(X, y)</code>: evaluación.</li>
+  <li><code>save(path)</code> / <code>load(path)</code>: persistencia.</li>
+</ul>
+<h2>Ejemplo</h2>
+<pre><code class="language-python">import matplotlib.pyplot as plt
+from InsideForest import InsideForestRegressor
+reg = InsideForestRegressor(random_state=0).fit(X, y)
+yhat = reg.predict(X)
+plt.scatter(y, yhat)
+plt.show()</code></pre>

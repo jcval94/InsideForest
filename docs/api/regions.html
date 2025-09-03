@@ -9,4 +9,19 @@ nav_order: 3
 <script src="../lang.js"></script>
 <div class="lang-switch"><a href="regions_es.html">ES</a></div>
 <h1>Regions</h1>
-<p>API reference for Regions.</p>
+<h2>Signature</h2>
+<pre><code class="language-python">class Regions:
+    def __init__(self): ...
+</code></pre>
+<h2>Methods</h2>
+<ul>
+  <li><code>search_original_tree(df_clusterizado, separacion_dim)</code>: match clustered data to original splits.</li>
+  <li><code>mean_distance_ndim(df_sep_dm_agg)</code>: compute average bounds per dimension.</li>
+</ul>
+<h2>Example</h2>
+<pre><code class="language-python">import matplotlib.pyplot as plt
+from InsideForest import Regions
+reg = Regions()
+bounds = reg.mean_distance_ndim(df_sep_dm_agg)
+plt.bar(range(len(bounds)), bounds)
+plt.show()</code></pre>

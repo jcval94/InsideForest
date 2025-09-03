@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Regiones
+title: Regions
 parent: InsideForest
 nav_order: 3
 nav_exclude: true
@@ -9,5 +9,20 @@ nav_exclude: true
 <link rel="stylesheet" href="../style.css">
 <script src="../lang.js"></script>
 <div class="lang-switch"><a href="regions.html">EN</a></div>
-<h1>Regiones</h1>
-<p>Referencia API para Regiones.</p>
+<h1>Regions</h1>
+<h2>Firma</h2>
+<pre><code class="language-python">class Regions:
+    def __init__(self): ...
+</code></pre>
+<h2>Métodos</h2>
+<ul>
+  <li><code>search_original_tree(df_clusterizado, separacion_dim)</code>: empareja datos clusterizados con sus divisiones originales.</li>
+  <li><code>mean_distance_ndim(df_sep_dm_agg)</code>: calcula promedios por dimensión.</li>
+</ul>
+<h2>Ejemplo</h2>
+<pre><code class="language-python">import matplotlib.pyplot as plt
+from InsideForest import Regions
+reg = Regions()
+bounds = reg.mean_distance_ndim(df_sep_dm_agg)
+plt.bar(range(len(bounds)), bounds)
+plt.show()</code></pre>

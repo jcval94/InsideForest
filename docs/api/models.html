@@ -2,11 +2,27 @@
 layout: default
 title: Models
 parent: InsideForest
-nav_order: 5
+nav_order: 6
 ---
 
 <link rel="stylesheet" href="../style.css">
 <script src="../lang.js"></script>
 <div class="lang-switch"><a href="models_es.html">ES</a></div>
 <h1>Models</h1>
-<p>API reference for Models.</p>
+<h2>Signature</h2>
+<pre><code class="language-python">class Models:
+    ...
+</code></pre>
+<h2>Methods</h2>
+<ul>
+  <li><code>get_knn_rows(df, target_col)</code>: split rows based on KNN errors.</li>
+  <li><code>get_cvRF(X_train, y_train, param_grid)</code>: grid-search a RandomForest.</li>
+</ul>
+<h2>Example</h2>
+<pre><code class="language-python">import matplotlib.pyplot as plt
+from InsideForest import Models
+md = Models()
+scores = [0.8, 0.85]
+plt.plot(scores)
+plt.show()
+# md.get_cvRF(X_train, y_train, {"n_estimators": [100]})</code></pre>

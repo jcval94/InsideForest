@@ -9,4 +9,19 @@ nav_order: 4
 <script src="../lang.js"></script>
 <div class="lang-switch"><a href="labels_es.html">ES</a></div>
 <h1>Labels</h1>
-<p>API reference for Labels.</p>
+<h2>Signature</h2>
+<pre><code class="language-python">class Labels:
+    def __init__(self): ...
+</code></pre>
+<h2>Methods</h2>
+<ul>
+  <li><code>round_values(values)</code>: variance-aware rounding.</li>
+  <li><code>get_intervals(interval_df)</code>: describe intervals.</li>
+</ul>
+<h2>Example</h2>
+<pre><code class="language-python">import matplotlib.pyplot as plt
+from InsideForest import Labels
+lab = Labels()
+intervals = lab.get_intervals(df)
+plt.plot(intervals)
+plt.show()</code></pre>
