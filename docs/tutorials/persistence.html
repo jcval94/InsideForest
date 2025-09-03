@@ -1,33 +1,12 @@
-<!DOCTYPE html>
-<html lang='es'>
-<head>
-<meta charset='UTF-8' />
-<title>InsideForest - Documentación</title>
-<link rel='stylesheet' href='../style.css' />
-</head>
-<body>
-  <nav id="sidebar"></nav>
+---
+layout: default
+title: Persistence
+parent: Tutorials
+nav_order: 4
+---
 
-<div class="main-content">
-<h1>Tutorial: Guardado y carga de modelos</h1>
-
-<p>Es frecuente querer almacenar un modelo entrenado para reutilizarlo más adelante. InsideForest es compatible con <code>joblib</code>.</p>
-
-<pre><code>
-import joblib
-from insideforest import InsideForestClassifier
-
-clf = InsideForestClassifier()
-clf.fit(X_tr, y_tr)
-
-joblib.dump(clf, &quot;modelo_iforest.pkl&quot;)
-
-loaded = joblib.load(&quot;modelo_iforest.pkl&quot;)
-print(&quot;Modelo cargado, precisión:&quot;, loaded.score(X_te, y_te))
-</code></pre>
-
-<p>Guarda los artefactos generados por <code>InsideForest</code> junto a metadatos de la versión utilizada para asegurar reproducibilidad.</p>
-</div>
-  <script src="../sidebar.js"></script>
-</body>
-</html>
+<link rel="stylesheet" href="../style.css">
+<script src="../lang.js"></script>
+<div class="lang-switch"><a href="persistence_es.html">ES</a></div>
+<h1>Persistence</h1>
+<p>Tutorial for persistence.</p>
