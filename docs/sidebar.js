@@ -1,11 +1,3 @@
-function filterNav() {
-  const query = document.getElementById('search').value.toLowerCase();
-  document.querySelectorAll('#nav-list li').forEach(li => {
-    const text = li.textContent.toLowerCase();
-    li.style.display = text.includes(query) ? '' : 'none';
-  });
-}
-
 document.addEventListener('DOMContentLoaded', () => {
   const sidebar = document.getElementById('sidebar');
   if (!sidebar) return;
@@ -19,7 +11,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   sidebar.innerHTML = `
-    <input type="text" id="search" placeholder="Buscar..." />
     <ul id="nav-list">
       <li class="collapsible">
         <a href="#">InsideForest</a>
@@ -44,8 +35,4 @@ document.addEventListener('DOMContentLoaded', () => {
     nested.classList.toggle('open');
   });
 
-  const search = document.getElementById('search');
-  if (search) {
-    search.addEventListener('input', filterNav);
-  }
 });

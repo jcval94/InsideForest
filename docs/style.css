@@ -99,14 +99,6 @@ body {
   overflow-y: auto;
 }
 
-#sidebar input {
-  width: 100%;
-  padding: 0.5rem;
-  margin-bottom: 1rem;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-}
-
 #sidebar ul {
   list-style: none;
   padding: 0;
@@ -145,4 +137,26 @@ body {
 
 #sidebar .nested.open {
   display: block;
+}
+
+/* Search box in main content */
+#search-container {
+  margin: 1rem 0;
+}
+
+#search-container input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+
+#search-results {
+  list-style: none;
+  padding: 0;
+  margin-top: 0.5rem;
+}
+
+#search-results li {
+  margin-bottom: 0.5rem;
 }

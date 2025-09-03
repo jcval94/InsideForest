@@ -11,6 +11,10 @@
 
   <div class="main-content">
     <h1>InsideForest <span class="badge">v1.0</span></h1>
+    <div id="search-container">
+      <input type="text" id="page-search" placeholder="Buscar en la biblioteca..." />
+      <ul id="search-results"></ul>
+    </div>
     <p>Bienvenido a la documentación de InsideForest. Utiliza el índice de la izquierda para navegar por las secciones.</p>
 
     <div class="doc-image">
@@ -67,6 +71,7 @@ PYTHONPATH=src pytest -q</code></pre>
   </div>
 
   <script src="sidebar.js"></script>
+  <script src="search.js"></script>
 </body>
 </html>
 
