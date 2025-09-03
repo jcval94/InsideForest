@@ -1,0 +1,6 @@
+{% if page.description or site.description %}
+<meta name="description" content="{{ page.description | default: site.description }}">
+{% endif %}
+{% if page.keywords or site.keywords %}
+<meta name="keywords" content="{{ page.keywords | default: site.keywords }}">
+{% endif %}
