@@ -131,6 +131,7 @@ from pyspark.sql import SparkSession
 from sklearn.datasets import load_iris
 from pyspark.ml.feature import VectorAssembler, StringIndexer
 from pyspark.ml.classification import RandomForestClassifier
+import pandas as pd
 
 spark = SparkSession.builder.appName('Iris').getOrCreate()
 
@@ -138,6 +139,16 @@ spark = SparkSession.builder.appName('Iris').getOrCreate()
 iris = load_iris()
 df = pd.DataFrame(iris.data, columns=iris.feature_names)
 df['species'] = iris.target
+
+# Convert to Spark DataFrame and assemble features/labels
+df = spark.createDataFrame(df)
+indexer = StringIndexer(inputCol="species", outputCol="label")
+assembler = VectorAssembler(inputCols=iris.feature_names, outputCol="features")
+df = assembler.transform(indexer.fit(df).transform(df))
+
+# Train the RandomForest model
+rf = RandomForestClassifier(labelCol="label", featuresCol="features")
+model = rf.fit(df)
 ```
 
 ```python
