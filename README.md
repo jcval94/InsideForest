@@ -27,6 +27,22 @@ Building and analyzing a random forest with InsideForest uncovers hidden trends 
 pip install InsideForest
 ```
 
+### From source
+
+Clone the repository and install it manually:
+
+```bash
+git clone https://github.com/jcval94/InsideForest.git
+cd InsideForest
+pip install -e .  # or python setup.py install
+```
+
+For development dependencies, use the provided `requirements-dev.txt`:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
 ## Main dependencies
 - scikit-learn
 - numpy
