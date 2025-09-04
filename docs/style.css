@@ -1,3 +1,17 @@
 .lang-switch {
   text-align: right;
 }
+
+/* Copy button for code blocks */
+pre {
+  position: relative;
+}
+
+.copy-button {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 2px 6px;
+  font-size: 0.8em;
+  cursor: pointer;
+}
