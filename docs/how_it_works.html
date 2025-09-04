@@ -12,3 +12,13 @@ nav_order: 0
 <h1>How It Works</h1>
 <pre>Forest → Rules → Regions → Labels</pre>
 <p>A random forest generates rules, rules define regions, and regions receive labels.</p>
+<p>InsideForest builds on these steps to make tree-based models interpretable and
+easy to analyze. The typical workflow is summarized below:</p>
+<ol>
+  <li>Train a decision forest or <code>RandomForest</code> model.</li>
+  <li>Use <code>Trees.get_branches</code> to extract each tree's branches.</li>
+  <li>Apply <code>Regions.prio_ranges</code> to prioritize areas of interest.</li>
+  <li>Link each observation with <code>Regions.labels</code>.</li>
+  <li>Optionally interpret results with <code>generate_descriptions</code> and <code>categorize_conditions</code>.</li>
+  <li>Finally, use helpers such as <code>Models</code> and <code>Labels</code> for further analysis.</li>
+</ol>
