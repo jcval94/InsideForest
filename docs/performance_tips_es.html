@@ -15,3 +15,22 @@ nav_exclude: true
   <li><code>n_jobs</code>: usa paralelismo para extraer árboles pesados.</li>
   <li>Reduce memoria disminuyendo <code>max_depth</code> o muestreando datos.</li>
 </ul>
+
+<h2>Opciones FAST</h2>
+<h3><code>auto_fast</code></h3>
+<p>Selecciona automáticamente parámetros de entrenamiento más rápidos según el tamaño del conjunto de datos.</p>
+<pre><code class="language-python">clf = InsideForestClassifier(auto_fast=True).fit(X, y)</code></pre>
+
+<h3><code>auto_feature_reduce</code></h3>
+<p>Reduce la cantidad de características antes del entrenamiento. Útil cuando hay muchas columnas.</p>
+<pre><code class="language-python">clf = InsideForestClassifier(auto_feature_reduce=True).fit(X, y)</code></pre>
+
+<h3><code>explicit_k_features</code></h3>
+<p>Fija el número de características conservadas cuando <code>auto_feature_reduce</code> está activado.</p>
+<pre><code class="language-python">clf = InsideForestClassifier(auto_feature_reduce=True,
+                             explicit_k_features=20).fit(X, y)</code></pre>
+
+<h3><code>fast_overrides</code></h3>
+<p>Ajusta parte del preset automático FAST.</p>
+<pre><code class="language-python">clf = InsideForestClassifier(auto_fast=True,
+                             fast_overrides={"divide": 3}).fit(X, y)</code></pre>

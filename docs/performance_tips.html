@@ -14,3 +14,22 @@ nav_order: 9
   <li><code>n_jobs</code>: use parallelism for heavy tree extraction.</li>
   <li>Reduce memory by lowering <code>max_depth</code> or sampling data.</li>
 </ul>
+
+<h2>FAST options</h2>
+<h3><code>auto_fast</code></h3>
+<p>Automatically chooses faster training parameters based on dataset size.</p>
+<pre><code class="language-python">clf = InsideForestClassifier(auto_fast=True).fit(X, y)</code></pre>
+
+<h3><code>auto_feature_reduce</code></h3>
+<p>Reduces the number of features before training. Useful when there are many columns.</p>
+<pre><code class="language-python">clf = InsideForestClassifier(auto_feature_reduce=True).fit(X, y)</code></pre>
+
+<h3><code>explicit_k_features</code></h3>
+<p>Locks the number of retained features when <code>auto_feature_reduce</code> is enabled.</p>
+<pre><code class="language-python">clf = InsideForestClassifier(auto_feature_reduce=True,
+                             explicit_k_features=20).fit(X, y)</code></pre>
+
+<h3><code>fast_overrides</code></h3>
+<p>Overrides parts of the automatic FAST preset.</p>
+<pre><code class="language-python">clf = InsideForestClassifier(auto_fast=True,
+                             fast_overrides={"divide": 3}).fit(X, y)</code></pre>
