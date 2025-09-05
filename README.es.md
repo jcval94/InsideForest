@@ -71,9 +71,6 @@ in_f = InsideForestClassifier(
 
 in_f.fit(X_train, y_train)
 pred_labels = in_f.predict(X_rest)  # etiquetas de cluster para los datos restantes
-etiquetas_entrenamiento = in_f.labels_  # etiquetas para el subconjunto de entrenamiento
-```
-
 ### Presets FAST y reducción de características
 
 InsideForest puede elegir automáticamente parámetros de entrenamiento más

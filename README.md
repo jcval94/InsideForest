@@ -87,9 +87,6 @@ in_f = InsideForestClassifier(
 
 in_f.fit(X_train, y_train)
 pred_labels = in_f.predict(X_rest)  # cluster labels for the remaining data
-training_labels = in_f.labels_  # labels for the training subset
-```
-
 ### FAST presets and feature reduction
 
 InsideForest can automatically pick faster training parameters and reduce

@@ -15,6 +15,7 @@ def test_get_params_returns_init_values():
         method="balance_lists_n_clusters",
         divide=3,
         get_detail=True,
+        balance_clusters=True,
     )
     params = model.get_params()
     assert params["rf_params"]["n_estimators"] == 5
@@ -27,6 +28,7 @@ def test_get_params_returns_init_values():
     assert params["leaf_percentile"] == 96
     assert params["low_leaf_fraction"] == 0.03
     assert params["max_cases"] == 750
+    assert params["balance_clusters"] is True
     assert params["seed"] == 42
 
 
@@ -62,6 +64,9 @@ def test_set_params_updates_attributes():
     model.set_params(seed=123)
     assert model.seed == 123
     assert model.rf.get_params()["random_state"] == 123
+
+    model.set_params(balance_clusters=True)
+    assert model.balance_clusters is True
 
     with pytest.raises(ValueError):
         model.set_params(unknown=1)

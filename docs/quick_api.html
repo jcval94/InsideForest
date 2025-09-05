@@ -27,3 +27,8 @@ plt.scatter(y, y_pred)
 plt.show()
 regr.save("reg.joblib")
 regr2 = InsideForestRegressor.load("reg.joblib")</code></pre>
+
+<h2>Balanced clusters</h2>
+<p>Enable <code>balance_clusters=True</code> to automatically weight classes and switch to the
+<code>"menu"</code> cluster selector for multi-class data:</p>
+<pre><code class="language-python">clf = InsideForestClassifier(balance_clusters=True).fit(X, y)</code></pre>

@@ -134,6 +134,12 @@ class _BaseInsideForest:
         max_cases : int, default 750
             Maximum number of cases to analyze. If the input dataset contains
             more rows, a random subset of at most ``max_cases`` rows is used.
+        balance_clusters : bool, default False
+            When ``True`` and fitting a classification task with more than two
+            classes, the underlying random forest is trained with
+            ``class_weight='balanced'`` and the cluster consolidation ``method``
+            defaults to ``"menu"`` to encourage a more even distribution of
+            clusters across classes.
     seed : int, default 42
         Random seed controlling subsampling, the underlying random forest and
         the stochastic components of :meth:`Regions.labels`.
@@ -153,6 +159,7 @@ class _BaseInsideForest:
         leaf_percentile=96,
         low_leaf_fraction=0.03,
         max_cases=750,
+        balance_clusters=False,
         auto_fast=False,
         auto_feature_reduce=False,
         explicit_k_features: Optional[int] = None,
@@ -175,6 +182,7 @@ class _BaseInsideForest:
         self.leaf_percentile = leaf_percentile
         self.low_leaf_fraction = low_leaf_fraction
         self.max_cases = max_cases
+        self.balance_clusters = balance_clusters
 
         # FAST knobs
         self.auto_fast = auto_fast
@@ -233,6 +241,7 @@ class _BaseInsideForest:
             "leaf_percentile": self.leaf_percentile,
             "low_leaf_fraction": self.low_leaf_fraction,
             "max_cases": self.max_cases,
+            "balance_clusters": self.balance_clusters,
             "auto_fast": self.auto_fast,
             "auto_feature_reduce": self.auto_feature_reduce,
             "explicit_k_features": self.explicit_k_features,
@@ -287,6 +296,7 @@ class _BaseInsideForest:
                 "leaf_percentile",
                 "low_leaf_fraction",
                 "max_cases",
+                "balance_clusters",
                 "auto_fast",
                 "auto_feature_reduce",
                 "explicit_k_features",
@@ -472,6 +482,19 @@ class _BaseInsideForest:
         # Allow passing a custom random forest estimator
         if rf is not None:
             self.rf = rf
+
+        # Optional balancing of class distribution and cluster method
+        if self.balance_clusters and y is not None:
+            try:
+                ytype = type_of_target(y)
+            except Exception:
+                ytype = None
+            if ytype in {"multiclass", "binary"}:
+                if "class_weight" not in self.rf_params:
+                    self.rf_params["class_weight"] = "balanced"
+                    self.rf.set_params(class_weight="balanced")
+                if self.method in (None, "select_clusters"):
+                    self.method = "menu"
 
         # Train RandomForest only if it has not been fitted already
         try:
@@ -766,6 +789,7 @@ class InsideForestClassifier(_BaseInsideForest):
         leaf_percentile=96,
         low_leaf_fraction=0.03,
         max_cases=750,
+        balance_clusters=False,
         auto_fast=False,
         auto_feature_reduce=False,
         explicit_k_features: Optional[int] = None,
@@ -785,6 +809,7 @@ class InsideForestClassifier(_BaseInsideForest):
             leaf_percentile=leaf_percentile,
             low_leaf_fraction=low_leaf_fraction,
             max_cases=max_cases,
+            balance_clusters=balance_clusters,
             auto_fast=auto_fast,
             auto_feature_reduce=auto_feature_reduce,
             explicit_k_features=explicit_k_features,
@@ -810,6 +835,7 @@ class InsideForestRegressor(_BaseInsideForest):
         leaf_percentile=96,
         low_leaf_fraction=0.03,
         max_cases=750,
+        balance_clusters=False,
         auto_fast=False,
         auto_feature_reduce=False,
         explicit_k_features: Optional[int] = None,
@@ -829,6 +855,7 @@ class InsideForestRegressor(_BaseInsideForest):
             leaf_percentile=leaf_percentile,
             low_leaf_fraction=low_leaf_fraction,
             max_cases=max_cases,
+            balance_clusters=balance_clusters,
             auto_fast=auto_fast,
             auto_feature_reduce=auto_feature_reduce,
             explicit_k_features=explicit_k_features,

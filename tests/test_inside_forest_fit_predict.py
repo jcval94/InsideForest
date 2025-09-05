@@ -210,3 +210,18 @@ def test_fit_respects_get_detail_flag():
     )
     model_detail.fit(X=X, y=y)
     assert model_detail.df_clusters_description_ is not None
+
+
+def test_balance_clusters_applies_balanced_settings():
+    import numpy as np
+
+    X = np.random.rand(60, 4)
+    y = np.concatenate([np.zeros(20), np.ones(20), np.full(20, 2)])
+
+    model = InsideForestClassifier(
+        rf_params={"n_estimators": 5, "random_state": 0}, balance_clusters=True
+    )
+    model.fit(X=X, y=y)
+
+    assert model.rf.get_params()["class_weight"] == "balanced"
+    assert model.method == "menu"
