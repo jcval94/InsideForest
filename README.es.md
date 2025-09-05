@@ -71,19 +71,6 @@ in_f = InsideForestClassifier(
 
 in_f.fit(X_train, y_train)
 pred_labels = in_f.predict(X_rest)  # etiquetas de cluster para los datos restantes
-etiquetas_entrenamiento = in_f.labels_  # etiquetas para el subconjunto de entrenamiento
-```
-
-Activa un balanceo de clústeres para problemas multiclase con
-`balance_clusters=True`. Esto entrena el bosque aleatorio con
-`class_weight='balanced'` y cambia el método de consolidación a
-``"menu"`` para distribuir mejor los clústeres entre clases:
-
-```python
-in_f = InsideForestClassifier(balance_clusters=True)
-in_f.fit(X_train, y_train)
-```
-
 ### Presets FAST y reducción de características
 
 InsideForest puede elegir automáticamente parámetros de entrenamiento más
