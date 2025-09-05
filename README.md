@@ -90,6 +90,16 @@ pred_labels = in_f.predict(X_rest)  # cluster labels for the remaining data
 training_labels = in_f.labels_  # labels for the training subset
 ```
 
+Enable balanced clustering for multi-class problems by setting
+`balance_clusters=True`. This trains the underlying random forest with
+`class_weight='balanced'` and switches the consolidation method to
+``"menu"`` to better distribute clusters across classes:
+
+```python
+in_f = InsideForestClassifier(balance_clusters=True)
+in_f.fit(X_train, y_train)
+```
+
 ### FAST presets and feature reduction
 
 InsideForest can automatically pick faster training parameters and reduce
