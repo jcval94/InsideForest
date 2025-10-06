@@ -1,17 +1,198 @@
-.lang-switch {
-  text-align: right;
+:root {
+  --sidebar-width: 260px;
+  --border-color: #e1e4e8;
+  --link-color: #005cc5;
+  --background: #f6f8fa;
+  --text-color: #1a1a1a;
 }
 
-/* Copy button for code blocks */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", "Segoe UI", Tahoma, sans-serif;
+  background: var(--background);
+  color: var(--text-color);
+  line-height: 1.6;
+}
+
+a {
+  color: var(--link-color);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.site-header {
+  background: #fff;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.site-header .container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+}
+
+.site-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.page-wrapper {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  display: flex;
+  gap: 2rem;
+}
+
+.sidebar {
+  width: var(--sidebar-width);
+  border-right: 1px solid var(--border-color);
+  padding-right: 1.5rem;
+  position: sticky;
+  top: 80px;
+  align-self: flex-start;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  background: #fff;
+}
+
+.nav-list,
+.nav-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nav-list > li {
+  margin-bottom: 0.75rem;
+}
+
+.nav-list a {
+  color: inherit;
+}
+
+.nav-list li.active > a {
+  font-weight: 600;
+  color: var(--link-color);
+}
+
+.nav-list ul {
+  margin-top: 0.5rem;
+  padding-left: 1rem;
+  border-left: 2px solid var(--border-color);
+}
+
+.nav-list ul li {
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.content {
+  flex: 1 1 0;
+  background: #fff;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+}
+
+.content h1:first-of-type {
+  margin-top: 0;
+}
+
+.lang-switch {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+.lang-switch a {
+  font-weight: 500;
+}
+
+p {
+  margin: 0 0 1rem;
+}
+
+ul,
+ol {
+  padding-left: 1.25rem;
+}
+
 pre {
   position: relative;
+  background: #0f172a;
+  color: #f1f5f9;
+  padding: 1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+code {
+  font-family: "Source Code Pro", "Menlo", monospace;
 }
 
 .copy-button {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  padding: 2px 6px;
-  font-size: 0.8em;
+  top: 8px;
+  right: 8px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8rem;
+  border: none;
+  background: rgba(148, 163, 184, 0.2);
+  color: inherit;
+  border-radius: 4px;
   cursor: pointer;
+}
+
+.copy-button:hover {
+  background: rgba(148, 163, 184, 0.35);
+}
+
+.site-footer {
+  margin-top: 2rem;
+  padding: 1.5rem 1rem 3rem;
+  border-top: 1px solid var(--border-color);
+  background: #fff;
+}
+
+.site-footer .container {
+  max-width: 1200px;
+  margin: 0 auto;
+  color: #4b5563;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 1024px) {
+  .page-wrapper {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    position: static;
+    max-height: none;
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 1rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .content {
+    padding: 1.5rem;
+  }
+
+  pre {
+    font-size: 0.9rem;
+  }
 }
