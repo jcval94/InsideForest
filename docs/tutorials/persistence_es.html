@@ -1,11 +1,31 @@
 ---
 layout: default
-title: Persistencia
-parent: Tutorials
+title: Persistencia de modelos
+parent: Tutoriales
 nav_order: 4
 nav_exclude: true
+lang: es
 ---
 
-<div class="lang-switch"><a href="persistence.html">EN</a></div>
-<h1>Persistencia</h1>
-<p>Tutorial de persistencia.</p>
+<h1>Persistencia de modelos</h1>
+<p>Guarda y reutiliza modelos InsideForest en producción.</p>
+
+<h2>Guardar</h2>
+<pre><code class="language-python">clf.save("artifacts/insideforest.joblib")
+</code></pre>
+
+<h2>Cargar</h2>
+<pre><code class="language-python">from InsideForest import InsideForestClassifier
+
+modelo = InsideForestClassifier.load("artifacts/insideforest.joblib")
+etiquetas = modelo.predict(X_nuevo)
+</code></pre>
+
+<h2>Buenas prácticas</h2>
+<ul>
+  <li>Versiona archivos con fecha y número incremental.</li>
+  <li>Adjunta metadatos usando <code>Metadata</code>.</li>
+  <li>Ejecuta pruebas automatizadas antes de desplegar.</li>
+</ul>
+
+<p>Amplía con la guía de <a href="../reproducibility_es.html">reproducibilidad</a>.</p>

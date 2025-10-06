@@ -5,6 +5,35 @@ parent: Tutorials
 nav_order: 1
 ---
 
-<div class="lang-switch"><a href="classification_es.html">ES</a></div>
-<h1>Classification</h1>
-<p>Tutorial for classification.</p>
+<h1>Classification tutorial</h1>
+<p>Classify labeled observations and generate interpretable rules.</p>
+
+<h2>Goal</h2>
+<p>Train an <code>InsideForestClassifier</code> on the Iris dataset and produce a cluster report.</p>
+
+<h2>Step 1: prepare the data</h2>
+<pre><code class="language-python">from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+
+data = load_iris()
+X_train, X_test, y_train, y_test = train_test_split(
+    data.data, data.target, train_size=0.35, stratify=data.target, random_state=15
+)
+</code></pre>
+
+<h2>Step 2: train and generate segments</h2>
+<pre><code class="language-python">from InsideForest import InsideForestClassifier
+
+clf = InsideForestClassifier(auto_fast=True, auto_feature_reduce=True)
+clf.fit(X_train, y_train)
+segments = clf.describe_clusters(X_test, y_test)
+</code></pre>
+
+<h2>Step 3: interpret results</h2>
+<ul>
+  <li>Inspect <code>segments</code> to review rules and metrics.</li>
+  <li>Use <code>clf.plot_importances()</code> to visualize key variables.</li>
+  <li>Export the model with <code>clf.save("models/iris.joblib")</code>.</li>
+</ul>
+
+<p>Continue with the <a href="regression.html">Regression</a> tutorial to learn the continuous variant.</p>

@@ -2,22 +2,24 @@
 layout: default
 title: Metadata
 parent: InsideForest
-nav_order: 7
+nav_order: 58
 ---
 
-<div class="lang-switch"><a href="metadata_es.html">ES</a></div>
-<h1>MetaExtractor</h1>
-<h2>Signature</h2>
-<pre><code class="language-python">class MetaExtractor(metadata_df, var_obj, user_synonyms=None): ...
-</code></pre>
-<h2>Methods</h2>
+<h1>Metadata</h1>
+<p>Centralizes metadata generated during training for auditability and traceability.</p>
+
+<h2>Available information</h2>
 <ul>
-  <li><code>extract(df_QW, profile=Profile.ESSENTIAL)</code>: subset metadata for rule tokens.</li>
+  <li>Feature masks used (<code>feature_mask</code>).</li>
+  <li>Automatically applied parameters (<code>fast_params</code>).</li>
+  <li>Cluster size and purity statistics.</li>
 </ul>
+
 <h2>Example</h2>
-<pre><code class="language-python">import matplotlib.pyplot as plt
-from InsideForest import MetaExtractor, Profile
-mx = MetaExtractor(metadata_df, var_obj='target')
-mini = mx.extract(df_QW, profile=Profile.ESSENTIAL)
-plt.bar(mini.columns, mini.nunique())
-plt.show()</code></pre>
+<pre><code class="language-python">from InsideForest import Metadata
+
+meta = Metadata(clf)
+report = meta.to_dict()
+</code></pre>
+
+<p>Useful for meeting regulatory requirements and documenting experiments alongside <a href="../reproducibility.html">Reproducibility</a>.</p>

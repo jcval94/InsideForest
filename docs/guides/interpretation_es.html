@@ -1,11 +1,33 @@
 ---
 layout: default
 title: Interpretación
-parent: Guides
-nav_order: 2
+parent: Guías
+nav_order: 13
 nav_exclude: true
+lang: es
 ---
 
-<div class="lang-switch"><a href="interpretation.html">EN</a></div>
 <h1>Interpretación</h1>
-<p>Guía de interpretación.</p>
+<p>Transforma los resultados de InsideForest en historias accionables.</p>
+
+<h2>Lista de verificación</h2>
+<ul>
+  <li>Resume número de clústeres, tamaño y métricas clave.</li>
+  <li>Muestra reglas principales en tablas o bullets.</li>
+  <li>Apoya con gráficos de <code>plot_multi_dims</code> o importancias.</li>
+  <li>Relaciona hallazgos con decisiones: segmentos prioritarios, acciones recomendadas.</li>
+</ul>
+
+<h2>Ejemplo</h2>
+<blockquote>
+  <p>El clúster 2 agrupa clientes con ticket alto y bajo churn; representa 14% de la base y merece campañas de fidelización.</p>
+</blockquote>
+
+<h2>Exportación</h2>
+<ul>
+  <li><code>describe_clusters</code> para tablas.</li>
+  <li><code>generate_descriptions</code> para textos automáticos.</li>
+  <li><code>Metadata</code> para registrar parámetros.</li>
+</ul>
+
+<p>Complementa con la <a href="../faq_es.html">FAQ</a> y los <a href="../experiments_benchmarks_es.html">benchmarks</a> para respaldar conclusiones.</p>

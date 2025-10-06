@@ -1,17 +1,49 @@
 ---
 layout: default
 title: Instalación
-description: Instala la librería InsideForest y sus dependencias.
-nav_order: 3
+description: Instala InsideForest y sus dependencias.
+nav_order: 2
 nav_exclude: true
+lang: es
 ---
 
-<div class="lang-switch"><a href="installation.html">EN</a></div>
 <h1>Instalación</h1>
-<p>Instala InsideForest desde PyPI o en modo desarrollo.</p>
-<h2>PyPI</h2>
+<p>InsideForest está disponible en PyPI y también puede instalarse desde el repositorio para contribuir con nuevas funciones. Se recomienda trabajar dentro de un entorno virtual.</p>
+
+<h2>Requisitos previos</h2>
+<ul>
+  <li>Python 3.9 o superior.</li>
+  <li><code>pip</code> actualizado (<code>python -m pip install --upgrade pip</code>).</li>
+  <li>Herramientas de compilación para dependencias científicas cuando sea necesario.</li>
+</ul>
+
+<h2>Instalación desde PyPI</h2>
 <pre><code class="language-bash">pip install insideforest</code></pre>
-<h2>Desarrollo</h2>
-<pre><code class="language-bash">git clone https://github.com/owner/InsideForest.git
+<p>Valida que la importación funcione:</p>
+<pre><code class="language-python">python -c "from InsideForest import InsideForestClassifier; print('InsideForest listo')"</code></pre>
+
+<h2>Instalación desde el código fuente</h2>
+<pre><code class="language-bash">git clone https://github.com/jcval94/InsideForest.git
 cd InsideForest
-pip install -e .[dev]</code></pre>
+pip install -e .</code></pre>
+<p>El modo editable permite iterar sobre el código sin reinstalar el paquete en cada cambio.</p>
+
+<h2>Dependencias para desarrollo</h2>
+<pre><code class="language-bash">pip install -e .[dev]
+# o
+pip install -r requirements-dev.txt
+</code></pre>
+<p>Incluyen linters, herramientas de documentación y dependencias de pruebas.</p>
+
+<h2>Comprueba la instalación</h2>
+<pre><code class="language-bash">PYTHONPATH=src pytest tests/test_basic.py::test_import_and_fit -q</code></pre>
+<p>Esta prueba realiza un entrenamiento mínimo para asegurarse de que la configuración está completa.</p>
+
+<h2>Resolución de problemas</h2>
+<ul>
+  <li><strong>Compilación:</strong> instala paquetes de compilación (por ejemplo, <code>build-essential</code> o <code>xcode-select --install</code>).</li>
+  <li><strong>Dependencias:</strong> crea un entorno con <code>python -m venv .venv</code> o <code>conda create -n insideforest python=3.11</code>.</li>
+  <li><strong>Entornos corporativos:</strong> si el proxy bloquea PyPI, descarga los paquetes y usa <code>pip install *.whl</code>.</li>
+</ul>
+
+<p>Después de instalar, continúa con <a href="quick_api_es.html">API Rápida</a> para ejecutar tu primer pipeline.</p>

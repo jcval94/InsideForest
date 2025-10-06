@@ -2,26 +2,47 @@
 layout: default
 title: InsideForestRegressor
 parent: InsideForest
-nav_order: 2
+nav_order: 52
 ---
 
-<div class="lang-switch"><a href="insideforestregressor_es.html">ES</a></div>
 <h1>InsideForestRegressor</h1>
+<p>Regression-oriented variant that uses forests to discover regions with similar numeric values and interpretable rules.</p>
+
 <h2>Signature</h2>
-<pre><code class="language-python">class InsideForestRegressor(...):
-    def __init__(self, n_estimators=200, max_depth=None, random_state=None, ...): ...
+<pre><code class="language-python">InsideForestRegressor(
+    rf_params=None,
+    tree_params=None,
+    auto_fast=False,
+    auto_feature_reduce=False,
+    method="select_clusters",
+    random_state=None,
+)
 </code></pre>
-<h2>Methods</h2>
+
+<h2>Usage</h2>
+<pre><code class="language-python">from InsideForest import InsideForestRegressor
+
+regr = InsideForestRegressor(
+    auto_feature_reduce=True,
+    rf_params={"random_state": 42, "n_estimators": 500},
+)
+regr.fit(X_train, y_train)
+predictions = regr.predict(X_test)
+clusters = regr.describe_clusters(X_test, y_test)
+</code></pre>
+
+<h2>When to use</h2>
 <ul>
-  <li><code>fit(X, y)</code>: train and extract regions.</li>
-  <li><code>predict(X)</code>: predict values.</li>
-  <li><code>score(X, y)</code>: evaluation.</li>
-  <li><code>save(path)</code> / <code>load(path)</code>: persistence.</li>
+  <li>You need to explain customer segments by spending, income, or risk levels.</li>
+  <li>You want human-readable rules for pricing or forecasting audits.</li>
+  <li>You aim to reduce dimensionality automatically before grouping.</li>
 </ul>
-<h2>Example</h2>
-<pre><code class="language-python">import matplotlib.pyplot as plt
-from InsideForest import InsideForestRegressor
-reg = InsideForestRegressor(random_state=0).fit(X, y)
-yhat = reg.predict(X)
-plt.scatter(y, yhat)
-plt.show()</code></pre>
+
+<h2>Attributes</h2>
+<ul>
+  <li><code>feature_importances_</code></li>
+  <li><code>feature_names_out_</code></li>
+  <li><code>menu_</code></li>
+</ul>
+
+<p>For advanced options see <a href="clusterselector.html">ClusterSelector</a> and the <a href="metadata.html">Metadata</a> utilities.</p>

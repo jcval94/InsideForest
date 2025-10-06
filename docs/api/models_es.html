@@ -2,26 +2,27 @@
 layout: default
 title: Models
 parent: InsideForest
-nav_order: 6
+nav_order: 57
 nav_exclude: true
+lang: es
 ---
 
-<div class="lang-switch"><a href="models.html">EN</a></div>
 <h1>Models</h1>
-<h2>Firma</h2>
-<pre><code class="language-python">class Models:
-    ...
-</code></pre>
-<h2>Métodos</h2>
+<p>Herramientas para comparar modelos base, visualizar importancias y analizar desempeño.</p>
+
+<h2>Funciones</h2>
 <ul>
-  <li><code>get_knn_rows(df, target_col)</code>: separa filas según errores de KNN.</li>
-  <li><code>get_cvRF(X_train, y_train, param_grid)</code>: búsqueda en grilla para RandomForest.</li>
+  <li><code>compare_models(models, X, y)</code>: compara métricas entre modelos.</li>
+  <li><code>plot_importances(model, top_n=20)</code>: grafica importancias.</li>
+  <li><code>confusion_matrix(labels, y)</code>: matriz de confusión para clústeres.</li>
 </ul>
+
 <h2>Ejemplo</h2>
-<pre><code class="language-python">import matplotlib.pyplot as plt
-from InsideForest import Models
-md = Models()
-puntajes = [0.8, 0.85]
-plt.plot(puntajes)
-plt.show()
-# md.get_cvRF(X_train, y_train, {"n_estimators": [100]})</code></pre>
+<pre><code class="language-python">models = Models()
+reporte = models.compare_models([
+    ("baseline_rf", baseline_rf),
+    ("insideforest", clf.model_),
+], X_test, y_test)
+</code></pre>
+
+<p>Usa estos resultados junto con <a href="metadata_es.html">Metadata</a> y <a href="labels_es.html">Labels</a> para preparar reportes completos.</p>

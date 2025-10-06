@@ -1,11 +1,33 @@
 ---
 layout: default
-title: Preguntas Frecuentes
-description: Preguntas frecuentes sobre el uso de InsideForest.
-nav_order: 90
+title: Preguntas frecuentes
+description: Preguntas frecuentes sobre InsideForest.
+nav_order: 95
 nav_exclude: true
+lang: es
 ---
 
-<div class="lang-switch"><a href="faq.html">EN</a></div>
-<h1>Preguntas Frecuentes</h1>
-<p>Preguntas frecuentes.</p>
+<h1>Preguntas frecuentes</h1>
+
+<h2>¿InsideForest sustituye a un clasificador?</h2>
+<p>No. InsideForest parte de un modelo existente y lo convierte en segmentos explicables. Continúa usando tu modelo principal para producción.</p>
+
+<h2>¿Necesito etiquetas?</h2>
+<p>Sí. La técnica es supervisada; requiere etiquetas para guiar la búsqueda de regiones.</p>
+
+<h2>¿Funciona con PySpark?</h2>
+<p>Sí. Emplea <code>Trees('pyspark')</code> para extraer reglas de un <code>RandomForestClassifier</code> entrenado en Spark.</p>
+
+<h2>¿Cómo comunico los resultados?</h2>
+<p>Utiliza <code>describe_clusters</code> y <code>generate_descriptions</code> para obtener tablas y textos listos para stakeholders.</p>
+
+<h2>¿Qué tamaño de datos soporta?</h2>
+<p>Se ha probado con millones de registros en CPU. Activa <code>auto_fast</code> y revisa <a href="performance_tips_es.html">consejos de rendimiento</a> para mejorar tiempos.</p>
+
+<h2>¿Dónde reporto problemas?</h2>
+<p>Abre un issue con detalles del entorno, versión y pasos mínimos de reproducción. Adjunta <code>pip freeze</code> y resultados de <code>pytest -q</code>.</p>
+
+<h2>¿Dónde hay ejemplos completos?</h2>
+<p>Revisa los notebooks en <code>experiments/</code>, los <a href="tutorials/index_es.html">tutoriales</a> y la documentación del <a href="README.es.md">README</a>.</p>
+
+<p>Si tu pregunta no aparece aquí, sugiere nuevos temas en la <a href="roadmap_es.html">hoja de ruta</a>.</p>

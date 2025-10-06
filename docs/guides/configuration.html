@@ -2,9 +2,51 @@
 layout: default
 title: Configuration
 parent: Guides
-nav_order: 1
+nav_order: 12
 ---
 
-<div class="lang-switch"><a href="configuration_es.html">ES</a></div>
 <h1>Configuration</h1>
-<p>Guide for configuration.</p>
+<p>Adjust InsideForest for different dataset sizes and business goals.</p>
+
+<h2>Automatic presets</h2>
+<ul>
+  <li><code>auto_fast</code>: limits forest depth and size for quicker exploration.</li>
+  <li><code>auto_feature_reduce</code>: removes redundant variables before clustering.</li>
+</ul>
+
+<h2>Manual parameters</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Parameter</th>
+      <th>Role</th>
+      <th>Recommendation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>n_sample_multiplier</code></td>
+      <td>Samples per tree.</td>
+      <td>Use 0.05 for quick tests, up to 0.15 for more detail.</td>
+    </tr>
+    <tr>
+      <td><code>ef_sample_multiplier</code></td>
+      <td>Exploratory sampling.</td>
+      <td>Increase to 15 for imbalanced datasets.</td>
+    </tr>
+    <tr>
+      <td><code>method</code></td>
+      <td>Cluster consolidation.</td>
+      <td><code>menu</code> for precision, <code>select_clusters</code> for speed.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Execution environments</h2>
+<ul>
+  <li><strong>Local:</strong> use <code>venv</code> or <code>conda</code> and run <code>pytest -q</code>.</li>
+  <li><strong>Server:</strong> enable logging and persistence with <code>.save()</code>.</li>
+  <li><strong>PySpark:</strong> adjust partitions with <code>spark.sql.shuffle.partitions</code>.</li>
+</ul>
+
+<p>Continue with <a href="interpretation.html">Interpretation</a> to learn how to present results.</p>

@@ -1,33 +1,45 @@
 ---
 layout: default
 title: Performance Tips
-description: Tips to improve InsideForest performance.
-nav_order: 9
+description: Guidance for scaling InsideForest to large datasets.
+nav_order: 5
 ---
 
-<div class="lang-switch"><a href="performance_tips_es.html">ES</a></div>
 <h1>Performance Tips</h1>
+<p>InsideForest includes automated heuristics, but tuning a few parameters can significantly improve runtime and memory usage. Use the following guidelines when working with large datasets.</p>
+
+<h2>Leverage auto presets</h2>
 <ul>
-  <li><code>n_estimators</code>: fewer trees speed up training.</li>
-  <li><code>n_jobs</code>: use parallelism for heavy tree extraction.</li>
-  <li>Reduce memory by lowering <code>max_depth</code> or sampling data.</li>
+  <li><strong><code>auto_fast=True</code>:</strong> enables internal shortcuts that reduce the number of evaluated regions and increases sampling efficiency.</li>
+  <li><strong><code>auto_feature_reduce=True</code>:</strong> keeps only the most discriminative features per region, lowering dimensionality before clustering.</li>
+  <li><strong><code>n_sample_multiplier</code> and <code>ef_sample_multiplier</code>:</strong> control how many samples feed the branch extraction step. Lower values decrease runtime but may miss rare patterns.</li>
 </ul>
 
-<h2>FAST options</h2>
-<h3><code>auto_fast</code></h3>
-<p>Automatically chooses faster training parameters based on dataset size.</p>
-<pre><code class="language-python">clf = InsideForestClassifier(auto_fast=True).fit(X, y)</code></pre>
+<h2>Control tree complexity</h2>
+<ul>
+  <li>Limit <code>max_depth</code> or <code>min_samples_leaf</code> in the underlying forest to avoid overly fragmented branches.</li>
+  <li>Use <code>rf_params</code> to pass custom <code>RandomForest</code> settings such as <code>n_estimators</code>, <code>max_features</code>, or bootstrapping.</li>
+  <li>Reuse an existing forest when you already have a calibrated model; this skips training time completely.</li>
+</ul>
 
-<h3><code>auto_feature_reduce</code></h3>
-<p>Reduces the number of features before training. Useful when there are many columns.</p>
-<pre><code class="language-python">clf = InsideForestClassifier(auto_feature_reduce=True).fit(X, y)</code></pre>
+<h2>Batch predictions</h2>
+<ul>
+  <li>InsideForest estimators accept NumPy arrays, pandas DataFrames, and Spark DataFrames.</li>
+  <li>For pandas inputs, prefer <code>predict</code> and <code>describe_clusters</code> in batches to avoid exhausting memory.</li>
+  <li>Use <code>predict_proba</code> on classifiers only when probability calibration is required, as it introduces extra computations.</li>
+</ul>
 
-<h3><code>explicit_k_features</code></h3>
-<p>Locks the number of retained features when <code>auto_feature_reduce</code> is enabled.</p>
-<pre><code class="language-python">clf = InsideForestClassifier(auto_feature_reduce=True,
-                             explicit_k_features=20).fit(X, y)</code></pre>
+<h2>Monitor feature importance</h2>
+<ul>
+  <li>Inspect <code>feature_importances_</code> to spot features that dominate rules. Consider removing low-signal columns to simplify the search space.</li>
+  <li>Combine <code>auto_feature_reduce</code> with domain knowledge to cap the maximum number of conditions per region.</li>
+</ul>
 
-<h3><code>fast_overrides</code></h3>
-<p>Overrides parts of the automatic FAST preset.</p>
-<pre><code class="language-python">clf = InsideForestClassifier(auto_fast=True,
-                             fast_overrides={"divide": 3}).fit(X, y)</code></pre>
+<h2>Persist intermediate artifacts</h2>
+<ul>
+  <li>Call <code>save</code> on classifiers or regressors to store the forest, region cache, and metadata. Reload them with <code>load</code> to resume analysis.</li>
+  <li>Export region descriptions to CSV or JSON using <code>generate_descriptions</code> for downstream dashboards.</li>
+</ul>
+
+<h2>Validate with experiments</h2>
+<p>Use the recommendations in <a href="experiments_benchmarks.html">Experiments &amp; Benchmarks</a> to design reproducible evaluations before moving to production.</p>

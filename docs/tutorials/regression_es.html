@@ -1,11 +1,37 @@
 ---
 layout: default
 title: Regresión
-parent: Tutorials
+parent: Tutoriales
 nav_order: 2
 nav_exclude: true
+lang: es
 ---
 
-<div class="lang-switch"><a href="regression.html">EN</a></div>
-<h1>Regresión</h1>
-<p>Tutorial de regresión.</p>
+<h1>Tutorial de regresión</h1>
+<p>Predice valores continuos y explica segmentos con InsideForest.</p>
+
+<h2>Objetivo</h2>
+<p>Modelar precios de vivienda en el dataset California Housing.</p>
+
+<h2>Paso 1: cargar datos</h2>
+<pre><code class="language-python">from sklearn.datasets import fetch_california_housing
+
+data = fetch_california_housing()
+X, y = data.data, data.target
+</code></pre>
+
+<h2>Paso 2: entrenar</h2>
+<pre><code class="language-python">from InsideForest import InsideForestRegressor
+
+regr = InsideForestRegressor(auto_feature_reduce=True, auto_fast=True)
+regr.fit(X, y)
+</code></pre>
+
+<h2>Paso 3: interpretar</h2>
+<ul>
+  <li><code>regr.describe_clusters(X, y)</code> para reglas.</li>
+  <li>Localiza segmentos con error alto y genera acciones.</li>
+  <li>Guarda el modelo con <code>regr.save("modelos/housing.joblib")</code>.</li>
+</ul>
+
+<p>Consulta también <a href="../performance_tips_es.html">Rendimiento</a> para optimizar tiempos.</p>

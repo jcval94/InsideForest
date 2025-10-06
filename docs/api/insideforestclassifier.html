@@ -2,26 +2,83 @@
 layout: default
 title: InsideForestClassifier
 parent: InsideForest
-nav_order: 1
+nav_order: 51
 ---
 
-<div class="lang-switch"><a href="insideforestclassifier_es.html">ES</a></div>
 <h1>InsideForestClassifier</h1>
+<p>High-level wrapper that trains a supervised forest, extracts regions, and generates interpretable labels for classification tasks.</p>
+
 <h2>Signature</h2>
-<pre><code class="language-python">class InsideForestClassifier(...):
-    def __init__(self, n_estimators=200, max_depth=None, random_state=None, ...): ...
+<pre><code class="language-python">InsideForestClassifier(
+    rf_params=None,
+    tree_params=None,
+    auto_fast=False,
+    auto_feature_reduce=False,
+    method="select_clusters",
+    balance_clusters=False,
+    random_state=None,
+)
 </code></pre>
-<h2>Methods</h2>
+
+<h2>Key parameters</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Parameter</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>rf_params</code></td>
+      <td>Dictionary with parameters for the underlying <code>RandomForest</code> model.</td>
+    </tr>
+    <tr>
+      <td><code>tree_params</code></td>
+      <td>Configures rule extraction (for example <code>n_sample_multiplier</code>).</td>
+    </tr>
+    <tr>
+      <td><code>auto_fast</code></td>
+      <td>Applies automatic presets to speed up training and extraction.</td>
+    </tr>
+    <tr>
+      <td><code>method</code></td>
+      <td>Strategy to consolidate clusters (<code>select_clusters</code>, <code>menu</code>, etc.).</td>
+    </tr>
+    <tr>
+      <td><code>balance_clusters</code></td>
+      <td>Balances the contribution of each class during consolidation.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Workflow</h2>
+<pre><code class="language-python">from InsideForest import InsideForestClassifier
+
+clf = InsideForestClassifier(
+    auto_fast=True,
+    auto_feature_reduce=True,
+    method="menu",
+    rf_params={"random_state": 21, "n_estimators": 400},
+)
+clf.fit(X_train, y_train)
+pred_labels = clf.predict(X_test)
+report = clf.describe_clusters(X_test, y_test)
+clf.save("models/insideforest_clf.joblib")
+</code></pre>
+
+<h2>Attributes</h2>
 <ul>
-  <li><code>fit(X, y)</code>: train and extract regions.</li>
-  <li><code>predict(X)</code>: assign classes.</li>
-  <li><code>score(X, y)</code>: evaluation.</li>
-  <li><code>save(path)</code> / <code>load(path)</code>: persistence.</li>
+  <li><code>feature_importances_</code>: feature importance scores from the base forest.</li>
+  <li><code>feature_names_out_</code>: feature names after automatic reduction.</li>
+  <li><code>menu_</code>: internal structure with candidate clusters.</li>
+  <li><code>_fast_params_used_</code>: summary of applied presets.</li>
 </ul>
-<h2>Example</h2>
-<pre><code class="language-python">import matplotlib.pyplot as plt
-from InsideForest import InsideForestClassifier
-clf = InsideForestClassifier(random_state=0).fit(X, y)
-yhat = clf.predict(X)
-plt.scatter(y, yhat)
-plt.show()</code></pre>
+
+<h2>See also</h2>
+<ul>
+  <li><a href="insideforestregressor.html">InsideForestRegressor</a></li>
+  <li><a href="trees.html">Trees</a> to customize rule extraction.</li>
+  <li><a href="clusterselector.html">ClusterSelector</a> for advanced consolidation strategies.</li>
+  <li><a href="../quick_api.html">Quick API</a> for complete examples.</li>
+</ul>

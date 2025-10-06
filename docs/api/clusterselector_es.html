@@ -2,25 +2,26 @@
 layout: default
 title: ClusterSelector
 parent: InsideForest
-nav_order: 6
+nav_order: 56
 nav_exclude: true
+lang: es
 ---
 
-<div class="lang-switch"><a href="clusterselector.html">EN</a></div>
-<h1>MenuClusterSelector</h1>
-<h2>Firma</h2>
-<pre><code class="language-python">class MenuClusterSelector(...):
-    def __init__(self, w_nmi=1.0, w_v=1.0, lam_k=0.1, target_K=None, smoothing=1.0, max_passes=5, tol=1e-6, seed=42): ...
-</code></pre>
-<h2>Métodos</h2>
+<h1>ClusterSelector</h1>
+<p>Permite elegir la estrategia de consolidación de clústeres según objetivos de negocio o métricas específicas.</p>
+
+<h2>Estrategias</h2>
 <ul>
-  <li><code>fit(records, y)</code>: estima distribuciones de valores.</li>
-  <li><code>predict(records, n_clusters=None)</code>: asigna valores maximizando el objetivo.</li>
+  <li><code>select_clusters</code>: selección directa.</li>
+  <li><code>menu</code>: optimiza un objetivo de información.</li>
+  <li><code>max_prob_clusters</code>: prioriza regiones con mayor probabilidad.</li>
+  <li><code>balance_lists_n_clusters</code>: iguala tamaños de clúster.</li>
+  <li><code>match_class_distribution</code>: mantiene la distribución original de clases.</li>
 </ul>
+
 <h2>Ejemplo</h2>
-<pre><code class="language-python">import matplotlib.pyplot as plt
-from InsideForest import MenuClusterSelector
-sel = MenuClusterSelector().fit(X, y)
-labels = sel.predict(X)
-plt.scatter(X[:,0], X[:,1], c=labels)
-plt.show()</code></pre>
+<pre><code class="language-python">selector = ClusterSelector("menu", quota=0.2)
+resultado = selector.select(menu_structure, y)
+</code></pre>
+
+<p>Se usa internamente por los envoltorios, pero puedes aplicarlo manualmente sobre <code>menu_</code> para personalizar resultados.</p>

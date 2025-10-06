@@ -2,15 +2,50 @@
 layout: default
 title: Installation
 description: Install the InsideForest library and its dependencies.
-nav_order: 3
+nav_order: 2
 ---
 
-<div class="lang-switch"><a href="installation_es.html">ES</a></div>
 <h1>Installation</h1>
-<p>Install InsideForest from PyPI or in development mode.</p>
-<h2>PyPI</h2>
+<p>InsideForest is published on PyPI and can also be installed from source for development. Use an isolated environment to keep dependencies controlled.</p>
+
+<h2>Prerequisites</h2>
+<ul>
+  <li>Python 3.9 or newer.</li>
+  <li>An up-to-date <code>pip</code>: <code>python -m pip install --upgrade pip</code>.</li>
+  <li>C/C++ build tools (for example, <code>build-essential</code> on Linux) in case <code>scikit-learn</code> needs compilation.</li>
+</ul>
+
+<h2>Install from PyPI</h2>
+<p>The quickest way to get started is to install the published package:</p>
 <pre><code class="language-bash">pip install insideforest</code></pre>
-<h2>Development</h2>
-<pre><code class="language-bash">git clone https://github.com/owner/InsideForest.git
+<p>Verify that the package imports correctly:</p>
+<pre><code class="language-python">python -c "from InsideForest import InsideForestClassifier; print('InsideForest ready')"</code></pre>
+
+<h2>Install from source</h2>
+<p>Clone the repository to access notebooks, experiments, and extra examples.</p>
+<pre><code class="language-bash">git clone https://github.com/jcval94/InsideForest.git
 cd InsideForest
-pip install -e .[dev]</code></pre>
+pip install -e .
+</code></pre>
+<p>The editable mode (<code>-e</code>) lets you modify the code and test changes without reinstalling.</p>
+
+<h2>Development extras</h2>
+<p>Install optional dependencies to run automated tests and reproducible notebooks:</p>
+<pre><code class="language-bash">pip install -e .[dev]
+# or use the dedicated file
+pip install -r requirements-dev.txt
+</code></pre>
+
+<h2>Verify your setup</h2>
+<p>Confirm that InsideForest works by running a basic test:</p>
+<pre><code class="language-bash">PYTHONPATH=src pytest tests/test_basic.py::test_import_and_fit -q</code></pre>
+<p>This command trains a small model to check that dependencies are configured properly.</p>
+
+<h2>Troubleshooting</h2>
+<ul>
+  <li><strong>Build errors:</strong> ensure the compiler toolchain is installed and that <code>numpy</code> and <code>scikit-learn</code> versions match the requirements.</li>
+  <li><strong>Dependency conflicts:</strong> create an isolated environment with <code>python -m venv .venv</code> or <code>conda create -n insideforest python=3.11</code>.</li>
+  <li><strong>GPU not required:</strong> InsideForest runs on CPU, so no special accelerators are needed.</li>
+</ul>
+
+<p>Continue with the <a href="quick_api.html">Quick API</a> to run your first supervised clustering workflow.</p>

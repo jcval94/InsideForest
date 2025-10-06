@@ -1,34 +1,63 @@
 ---
 layout: default
-title: Consejos de Rendimiento
-description: Consejos para mejorar el rendimiento de InsideForest.
-nav_order: 9
+title: Rendimiento
+description: Consejos para optimizar InsideForest en conjuntos de datos grandes.
+nav_order: 5
 nav_exclude: true
+lang: es
 ---
 
-<div class="lang-switch"><a href="performance_tips.html">EN</a></div>
-<h1>Consejos de Rendimiento</h1>
+<h1>Consejos de rendimiento</h1>
+<p>Acelera tus experimentos con estas recomendaciones para datasets amplios o con muchas variables.</p>
+
+<h2>Presets automáticos</h2>
 <ul>
-  <li><code>n_estimators</code>: menos árboles aceleran el entrenamiento.</li>
-  <li><code>n_jobs</code>: usa paralelismo para extraer árboles pesados.</li>
-  <li>Reduce memoria disminuyendo <code>max_depth</code> o muestreando datos.</li>
+  <li><code>auto_fast=True</code> ajusta la profundidad de los árboles y reduce el número de muestras analizadas.</li>
+  <li><code>auto_feature_reduce=True</code> selecciona automáticamente las variables más relevantes.</li>
+  <li>Consulta <code>_fast_params_used_</code> para registrar la configuración aplicada.</li>
 </ul>
 
-<h2>Opciones FAST</h2>
-<h3><code>auto_fast</code></h3>
-<p>Selecciona automáticamente parámetros de entrenamiento más rápidos según el tamaño del conjunto de datos.</p>
-<pre><code class="language-python">clf = InsideForestClassifier(auto_fast=True).fit(X, y)</code></pre>
+<h2>Extracción de reglas</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Parámetro</th>
+      <th>Rol</th>
+      <th>Recomendación</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>n_sample_multiplier</code></td>
+      <td>Tamaño de muestra por árbol.</td>
+      <td>Empieza en 0.05 y aumenta cuando requieras mayor granularidad.</td>
+    </tr>
+    <tr>
+      <td><code>ef_sample_multiplier</code></td>
+      <td>Muestreo para explorar ramas adicionales.</td>
+      <td>Valores entre 5 y 15 equilibran tiempo y cobertura.</td>
+    </tr>
+    <tr>
+      <td><code>max_depth</code></td>
+      <td>Profundidad máxima del bosque.</td>
+      <td>Limitarlo a 10-15 suele mejorar tiempos y evita reglas demasiado específicas.</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3><code>auto_feature_reduce</code></h3>
-<p>Reduce la cantidad de características antes del entrenamiento. Útil cuando hay muchas columnas.</p>
-<pre><code class="language-python">clf = InsideForestClassifier(auto_feature_reduce=True).fit(X, y)</code></pre>
+<h2>Selección de clústeres</h2>
+<ul>
+  <li><code>select_clusters</code>: ideal para resultados rápidos.</li>
+  <li><code>menu</code>: explora candidatos adicionales cuando buscas máxima precisión.</li>
+  <li><code>balance_lists_n_clusters</code>: útil cuando necesitas clústeres de tamaño similar.</li>
+</ul>
 
-<h3><code>explicit_k_features</code></h3>
-<p>Fija el número de características conservadas cuando <code>auto_feature_reduce</code> está activado.</p>
-<pre><code class="language-python">clf = InsideForestClassifier(auto_feature_reduce=True,
-                             explicit_k_features=20).fit(X, y)</code></pre>
+<h2>Procesamiento por lotes</h2>
+<ul>
+  <li>Evalúa datos masivos en bloques y combina los resultados con <code>predict</code>.</li>
+  <li>Guarda el progreso con <code>.save()</code> para reanudar entrenamientos costosos.</li>
+  <li>Limita salidas visuales, por ejemplo <code>plot_importances(max_features=20)</code>.</li>
+</ul>
 
-<h3><code>fast_overrides</code></h3>
-<p>Ajusta parte del preset automático FAST.</p>
-<pre><code class="language-python">clf = InsideForestClassifier(auto_fast=True,
-                             fast_overrides={"divide": 3}).fit(X, y)</code></pre>
+<h2>Monitorea recursos</h2>
+<p>Aprovecha <a href="api/models_es.html">Models</a> y <a href="api/metadata_es.html">Metadata</a> para registrar tiempos y memoria. Complementa con los casos de <a href="experiments_benchmarks_es.html">Experimentos y benchmarks</a> y sigue las pautas de <a href="reproducibility_es.html">reproducibilidad</a>.</p>

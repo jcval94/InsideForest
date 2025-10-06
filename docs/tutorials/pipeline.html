@@ -1,10 +1,35 @@
 ---
 layout: default
-title: Pipeline
+title: Pipeline automation
 parent: Tutorials
 nav_order: 3
 ---
 
-<div class="lang-switch"><a href="pipeline_es.html">ES</a></div>
-<h1>Pipeline</h1>
-<p>Tutorial for pipeline.</p>
+<h1>Automate pipelines</h1>
+<p>Integrate InsideForest into an automated flow with validation and persistence.</p>
+
+<h2>Goal</h2>
+<p>Create a reproducible pipeline that runs daily on new data.</p>
+
+<h2>Step 1: organize the project</h2>
+<pre><code class="language-bash">mkdir -p pipelines
+cp templates/daily_pipeline.py pipelines/
+</code></pre>
+
+<h2>Step 2: define the script</h2>
+<pre><code class="language-python"># pipelines/daily_pipeline.py
+from InsideForest import InsideForestClassifier
+from insideforest.utils import load_data
+
+X_train, X_new, y_train = load_data()
+clf = InsideForestClassifier(auto_fast=True, auto_feature_reduce=True)
+clf.fit(X_train, y_train)
+clf.save("artifacts/insideforest.joblib")
+</code></pre>
+
+<h2>Step 3: validate in CI</h2>
+<pre><code class="language-bash">PYTHONPATH=src pytest tests/test_basic.py -q
+python pipelines/daily_pipeline.py
+</code></pre>
+
+<p>Document the process following <a href="../reproducibility.html">Reproducibility</a> and share reports with <a href="../guides/interpretation.html">Interpretation</a>.</p>

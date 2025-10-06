@@ -1,32 +1,69 @@
 ---
 layout: default
 title: Quick API
-description: Quick reference for using InsideForest's API.
-nav_order: 5
+description: Quick start reference for InsideForest classifiers and regressors.
+nav_order: 3
 ---
 
-<div class="lang-switch"><a href="quick_api_es.html">ES</a></div>
 <h1>Quick API</h1>
-<h2>Classifier</h2>
-<pre><code class="language-python">import matplotlib.pyplot as plt
-from InsideForest import InsideForestClassifier
-clf = InsideForestClassifier(random_state=0).fit(X, y)
-y_pred = clf.predict(X)
-plt.scatter(y, y_pred)
-plt.show()
-clf.save("clf.joblib")
-clf2 = InsideForestClassifier.load("clf.joblib")</code></pre>
-<h2>Regressor</h2>
-<pre><code class="language-python">import matplotlib.pyplot as plt
-from InsideForest import InsideForestRegressor
-regr = InsideForestRegressor(random_state=0).fit(X, y)
-y_pred = regr.predict(X)
-plt.scatter(y, y_pred)
-plt.show()
-regr.save("reg.joblib")
-regr2 = InsideForestRegressor.load("reg.joblib")</code></pre>
+<p>This reference summarizes the basic flows to train, evaluate, and persist InsideForest models. All classes follow an interface similar to <code>scikit-learn</code>.</p>
 
-<h2>Balanced clusters</h2>
-<p>Enable <code>balance_clusters=True</code> to automatically weight classes and switch to the
-<code>"menu"</code> cluster selector for multi-class data:</p>
-<pre><code class="language-python">clf = InsideForestClassifier(balance_clusters=True).fit(X, y)</code></pre>
+<h2>Classifier workflow</h2>
+<pre><code class="language-python">from sklearn.datasets import load_iris
+from InsideForest import InsideForestClassifier
+
+X, y = load_iris(return_X_y=True)
+clf = InsideForestClassifier(
+    rf_params={"n_estimators": 400, "random_state": 21},
+    auto_fast=True,
+)
+clf.fit(X, y)
+cluster_labels = clf.predict(X)
+summary = clf.describe_clusters(X, y)
+</code></pre>
+<p><strong>Tips:</strong></p>
+<ul>
+  <li>Use <code>auto_fast=True</code> to apply performance presets automatically.</li>
+  <li><code>describe_clusters</code> returns readable rules and per-cluster metrics.</li>
+  <li>The <code>feature_importances_</code> and <code>_fast_params_used_</code> attributes document the final configuration.</li>
+</ul>
+
+<h2>Regressor workflow</h2>
+<pre><code class="language-python">from sklearn.datasets import fetch_california_housing
+from InsideForest import InsideForestRegressor
+
+data = fetch_california_housing()
+regr = InsideForestRegressor(auto_feature_reduce=True)
+regr.fit(data.data, data.target)
+predictions = regr.predict(data.data)
+region_rules = regr.describe_clusters(data.data, data.target)
+</code></pre>
+<p>Enable <code>auto_feature_reduce</code> to limit the number of variables that participate in clustering.</p>
+
+<h2>Cluster selection strategies</h2>
+<p>Control how clusters are consolidated by setting the <code>method</code> parameter or using the dedicated selector:</p>
+<pre><code class="language-python">from InsideForest import ClusterSelector
+
+selector = ClusterSelector("menu", quota=0.2)
+rebalanced = selector.select(clf.menu_, y)
+</code></pre>
+<ul>
+  <li><code>"select_clusters"</code> (default) applies direct rules.</li>
+  <li><code>"balance_lists_n_clusters"</code> and <code>"match_class_distribution"</code> balance proportions.</li>
+  <li><code>"max_prob_clusters"</code> favors segments with higher probabilities.</li>
+  <li><code>"menu"</code> maximizes information when multiple candidates exist.</li>
+</ul>
+
+<h2>Model persistence</h2>
+<pre><code class="language-python">clf.save("model.joblib")
+loaded = InsideForestClassifier.load("model.joblib")
+assert list(loaded.feature_names_out_) == list(clf.feature_names_out_)
+</code></pre>
+<p>Serialized models include the base forest, computed rules, and metadata so you can continue the analysis later.</p>
+
+<h2>Next steps</h2>
+<ul>
+  <li>Go deeper in <a href="how_it_works.html">How It Works</a> to understand the full pipeline.</li>
+  <li>Explore the <a href="api/index.html">API reference</a> to review every module.</li>
+  <li>Visit <a href="performance_tips.html">Performance Tips</a> when working with large datasets.</li>
+</ul>

@@ -1,11 +1,41 @@
 ---
 layout: default
 title: Clasificación
-parent: Tutorials
+parent: Tutoriales
 nav_order: 1
 nav_exclude: true
+lang: es
 ---
 
-<div class="lang-switch"><a href="classification.html">EN</a></div>
-<h1>Clasificación</h1>
-<p>Tutorial de clasificación.</p>
+<h1>Tutorial de clasificación</h1>
+<p>Aprende a entrenar <code>InsideForestClassifier</code> con un dataset etiquetado.</p>
+
+<h2>Objetivo</h2>
+<p>Usar el conjunto Iris para generar segmentos interpretables.</p>
+
+<h2>Paso 1: preparar datos</h2>
+<pre><code class="language-python">from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+
+data = load_iris()
+X_train, X_test, y_train, y_test = train_test_split(
+    data.data, data.target, train_size=0.35, stratify=data.target, random_state=15
+)
+</code></pre>
+
+<h2>Paso 2: entrenar y describir</h2>
+<pre><code class="language-python">from InsideForest import InsideForestClassifier
+
+clf = InsideForestClassifier(auto_fast=True, auto_feature_reduce=True)
+clf.fit(X_train, y_train)
+segmentos = clf.describe_clusters(X_test, y_test)
+</code></pre>
+
+<h2>Paso 3: compartir resultados</h2>
+<ul>
+  <li>Extrae reglas clave desde <code>segmentos</code>.</li>
+  <li>Visualiza importancias con <code>clf.plot_importances()</code>.</li>
+  <li>Guarda el modelo con <code>clf.save("modelos/iris.joblib")</code>.</li>
+</ul>
+
+<p>Sigue con el tutorial de <a href="regression_es.html">regresión</a> para el caso continuo.</p>

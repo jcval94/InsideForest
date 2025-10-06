@@ -2,25 +2,32 @@
 layout: default
 title: Regions
 parent: InsideForest
-nav_order: 3
+nav_order: 54
 nav_exclude: true
+lang: es
 ---
 
-<div class="lang-switch"><a href="regions.html">EN</a></div>
 <h1>Regions</h1>
-<h2>Firma</h2>
-<pre><code class="language-python">class Regions:
-    def __init__(self): ...
-</code></pre>
-<h2>Métodos</h2>
+<p>Prioriza y combina las ramas generadas por <code>Trees</code> para formar regiones consistentes que luego serán etiquetadas.</p>
+
+<h2>Funciones principales</h2>
 <ul>
-  <li><code>search_original_tree(df_clusterizado, separacion_dim)</code>: empareja datos clusterizados con sus divisiones originales.</li>
-  <li><code>mean_distance_ndim(df_sep_dm_agg)</code>: calcula promedios por dimensión.</li>
+  <li><code>prio_ranges(branches, X, y=None)</code>: calcula cobertura, pureza y prioridad.</li>
+  <li><code>labels(X, ranges, return_descriptions=False)</code>: asigna etiquetas y descripciones.</li>
+  <li><code>plot_multi_dims(range_df, data, target)</code>: visualiza regiones en 2D/3D.</li>
 </ul>
+
 <h2>Ejemplo</h2>
-<pre><code class="language-python">import matplotlib.pyplot as plt
-from InsideForest import Regions
-reg = Regions()
-bounds = reg.mean_distance_ndim(df_sep_dm_agg)
-plt.bar(range(len(bounds)), bounds)
-plt.show()</code></pre>
+<pre><code class="language-python">regions = Regions()
+rangos = regions.prio_ranges(branches, X)
+clusteres, descripciones = regions.labels(X, rangos, True)
+</code></pre>
+
+<h2>Parámetros</h2>
+<ul>
+  <li><strong>min_support</strong>: tamaño mínimo de región.</li>
+  <li><strong>max_rules</strong>: número máximo de reglas por clúster.</li>
+  <li><strong>use_probabilities</strong>: pondera cada región según la probabilidad del bosque.</li>
+</ul>
+
+<p>Su salida alimenta a <a href="labels_es.html">Labels</a> y a los envoltorios de alto nivel. Complementa con <a href="../performance_tips_es.html">consejos de rendimiento</a>.</p>
