@@ -1,9 +1,31 @@
 ---
 layout: default
 title: API Reference
-nav_exclude: true
+parent: InsideForest
+nav_order: 50
 ---
 
-<div class="lang-switch"><a href="index_es.html">ES</a></div>
 <h1>API Reference</h1>
-<p>Documentation for the InsideForest API.</p>
+<p>The InsideForest API is organized into modules that cover rule extraction, region prioritization, labeling, and supporting utilities. Use this page as a map to navigate each component.</p>
+
+<h2>High-level wrappers</h2>
+<ul>
+  <li><a href="insideforestclassifier.html">InsideForestClassifier</a></li>
+  <li><a href="insideforestregressor.html">InsideForestRegressor</a></li>
+</ul>
+
+<h2>Core components</h2>
+<ul>
+  <li><a href="trees.html">Trees</a>: extract branches from forests.</li>
+  <li><a href="regions.html">Regions</a>: prioritize and consolidate regions.</li>
+  <li><a href="labels.html">Labels</a>: metrics, reporting, and export helpers.</li>
+  <li><a href="clusterselector.html">ClusterSelector</a>: strategies to balance clusters.</li>
+</ul>
+
+<h2>Utilities</h2>
+<ul>
+  <li><a href="models.html">Models</a>: evaluate and compare models.</li>
+  <li><a href="metadata.html">Metadata</a>: audit-friendly information.</li>
+</ul>
+
+<p>To understand the full pipeline, also review <a href="../how_it_works.html">How It Works</a> and the <a href="../quick_api.html">Quick API</a>. Every page includes a Spanish version through the language selector.</p>

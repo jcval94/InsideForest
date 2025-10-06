@@ -2,25 +2,40 @@
 layout: default
 title: Trees
 parent: InsideForest
-nav_order: 5
+nav_order: 53
 ---
 
-<div class="lang-switch"><a href="trees_es.html">ES</a></div>
 <h1>Trees</h1>
+<p>The <code>Trees</code> module extracts branches and rules from a trained forest. It supports <code>scikit-learn</code> and PySpark models.</p>
+
 <h2>Signature</h2>
-<pre><code class="language-python">class Trees(lang='python', n_sample_multiplier=2, ef_sample_multiplier=3, percentil=95, low_frac=0.05):
-    ...
+<pre><code class="language-python">Trees(
+    backend="sklearn",
+    n_sample_multiplier=0.05,
+    ef_sample_multiplier=10,
+    max_depth=None,
+)
 </code></pre>
-<h2>Methods</h2>
+
+<h2>Main functions</h2>
 <ul>
-  <li><code>transform_tree_structure(tree_str)</code>: convert Spark trees to scikit-learn style.</li>
-  <li><code>get_rangos(regr, data1)</code>: extract rules and importances.</li>
+  <li><code>get_branches(X, y, model=None)</code>: returns the forest branches. When <code>model</code> is not provided, the forest is trained internally.</li>
+  <li><code>plot_importances(model)</code>: generates an importance plot for quick diagnostics.</li>
 </ul>
-<h2>Example</h2>
-<pre><code class="language-python">import matplotlib.pyplot as plt
-from InsideForest import Trees
-tr = Trees()
-importances = [0.2, 0.5]
-plt.bar(range(len(importances)), importances)
-plt.show()
-# tr.get_rangos(model, data)</code></pre>
+
+<h2>Typical usage</h2>
+<pre><code class="language-python">from InsideForest import Trees
+
+trees = Trees("sklearn", n_sample_multiplier=0.05, ef_sample_multiplier=10)
+branches = trees.get_branches(X, y, fitted_model)
+</code></pre>
+
+<h2>Key parameters</h2>
+<ul>
+  <li><strong>backend</strong>: <code>"sklearn"</code> or <code>"pyspark"</code> depending on the forest type.</li>
+  <li><strong>n_sample_multiplier</strong>: controls the sample used to evaluate rules.</li>
+  <li><strong>ef_sample_multiplier</strong>: adjusts exploratory sampling to discover additional regions.</li>
+  <li><strong>max_depth</strong>: limits depth while extracting rules.</li>
+</ul>
+
+<p>The output feeds into <a href="regions.html">Regions</a> and <a href="labels.html">Labels</a>. See <a href="../performance_tips.html">Performance Tips</a> for parameter guidance.</p>

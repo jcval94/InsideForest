@@ -5,6 +5,31 @@ parent: Tutorials
 nav_order: 2
 ---
 
-<div class="lang-switch"><a href="regression_es.html">ES</a></div>
-<h1>Regression</h1>
-<p>Tutorial for regression.</p>
+<h1>Regression tutorial</h1>
+<p>Model continuous values with InsideForest and explain each resulting region.</p>
+
+<h2>Goal</h2>
+<p>Predict housing prices using the California Housing dataset.</p>
+
+<h2>Step 1: load data</h2>
+<pre><code class="language-python">from sklearn.datasets import fetch_california_housing
+
+data = fetch_california_housing()
+X, y = data.data, data.target
+</code></pre>
+
+<h2>Step 2: train the regressor</h2>
+<pre><code class="language-python">from InsideForest import InsideForestRegressor
+
+regr = InsideForestRegressor(auto_feature_reduce=True, auto_fast=True)
+regr.fit(X, y)
+</code></pre>
+
+<h2>Step 3: analyze results</h2>
+<ul>
+  <li>Generate rules with <code>regr.describe_clusters(X, y)</code>.</li>
+  <li>Identify segments with high residuals for corrective actions.</li>
+  <li>Save the model with <code>regr.save("models/housing.joblib")</code>.</li>
+</ul>
+
+<p>Repeat the analysis with your data and compare with <a href="../performance_tips.html">Performance Tips</a>.</p>

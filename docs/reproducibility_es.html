@@ -1,19 +1,45 @@
 ---
 layout: default
 title: Reproducibilidad
-description: Guía de reproducibilidad para los experimentos de InsideForest.
-nav_order: 4
+description: Guía para replicar experimentos de InsideForest.
+nav_order: 6
 nav_exclude: true
+lang: es
 ---
 
-<div class="lang-switch"><a href="reproducibility.html">EN</a></div>
 <h1>Reproducibilidad</h1>
-<ul>
-  <li>Fija <code>random_state</code> para resultados deterministas.</li>
-  <li>Registra las versiones de paquetes incluyendo <code>insideforest</code>.</li>
-  <li>Semilla los RNG de Python y NumPy.</li>
-</ul>
-<pre><code class="language-python">import random, numpy as np
+<p>Garantiza que otros puedan replicar tus resultados controlando semillas, dependencias y artefactos.</p>
+
+<h2>Semillas consistentes</h2>
+<pre><code class="language-python">import random
+import numpy as np
 from InsideForest import InsideForestClassifier
-random.seed(0); np.random.seed(0)
-clf = InsideForestClassifier(random_state=0)</code></pre>
+
+SEMILLA = 15
+random.seed(SEMILLA)
+np.random.seed(SEMILLA)
+modelo = InsideForestClassifier(random_state=SEMILLA)
+</code></pre>
+<p>En PySpark, configura las semillas de cada estimador y limita particiones aleatorias para evitar variaciones.</p>
+
+<h2>Versiona dependencias</h2>
+<ul>
+  <li>Incluye <code>requirements-lock.txt</code> generado con <code>pip freeze</code>.</li>
+  <li>Documenta la versión exacta de InsideForest y <code>scikit-learn</code>.</li>
+  <li>Registra <code>_fast_params_used_</code> y <code>_feature_mask_</code> cuando utilices presets automáticos.</li>
+</ul>
+
+<h2>Guarda artefactos</h2>
+<ul>
+  <li>Persistir modelos con <code>.save()</code> y adjuntar los archivos <code>.joblib</code>.</li>
+  <li>Archivar reportes de <code>describe_clusters</code>, tablas y gráficos.</li>
+  <li>Publicar scripts en <code>experiments/</code> para facilitar su ejecución en CI/CD.</li>
+</ul>
+
+<h2>Pruebas automatizadas</h2>
+<pre><code class="language-bash">PYTHONPATH=src pytest tests/test_basic.py::test_import_and_fit -q
+pytest tests/test_fast_presets.py -q
+</code></pre>
+<p>Integra estas pruebas en tu pipeline y conserva los registros como evidencia.</p>
+
+<p>Complementa con los apartados de <a href="experiments_benchmarks_es.html">experimentos</a>, <a href="performance_tips_es.html">rendimiento</a> y el <a href="changelog_es.html">registro de cambios</a> para documentar decisiones.</p>

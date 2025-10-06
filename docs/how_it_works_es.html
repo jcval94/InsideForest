@@ -3,11 +3,57 @@ layout: default
 title: Cómo Funciona
 description: Explicación del enfoque de clustering supervisado de InsideForest.
 parent: InsideForest
-nav_order: 0
+nav_order: 4
 nav_exclude: true
+lang: es
 ---
 
-<div class="lang-switch"><a href="how_it_works.html">EN</a></div>
-<h1>Cómo Funciona</h1>
-<pre>Bosque → Reglas → Regiones → Etiquetas</pre>
-<p>Un bosque aleatorio genera reglas, las reglas definen regiones y las regiones reciben etiquetas.</p>
+<h1>Cómo funciona InsideForest</h1>
+<p>InsideForest parte de un bosque entrenado y lo transforma en regiones descriptivas. El flujo general sigue cuatro pasos: árboles → reglas → regiones → etiquetas.</p>
+
+<h2>1. Construye o reutiliza un bosque</h2>
+<p>Entrena un <code>RandomForest</code> con <code>scikit-learn</code> o conecta un modelo de PySpark. Los envoltorios de InsideForest aceptan parámetros típicos, y la clase <code>Trees</code> permite extraer ramas explícitamente.</p>
+<pre><code class="language-python">from InsideForest import Trees
+
+trees = Trees("sklearn", n_sample_multiplier=0.05, ef_sample_multiplier=10)
+ramas = trees.get_branches(X, y, modelo)
+</code></pre>
+
+<h2>2. Prioriza regiones candidatas</h2>
+<p><code>Regions.prio_ranges</code> fusiona reglas, calcula métricas y destaca aquellas con alta pureza y cobertura.</p>
+<pre><code class="language-python">from InsideForest import Regions
+
+regions = Regions()
+rangos = regions.prio_ranges(ramas, X)
+</code></pre>
+<p>Si activas <code>auto_feature_reduce</code>, se eliminan variables con baja contribución antes de generar las regiones.</p>
+
+<h2>3. Etiqueta observaciones</h2>
+<p><code>regions.labels</code> asigna cada observación a una región y calcula resúmenes listos para análisis.</p>
+<pre><code class="language-python">clusteres, descripciones = regions.labels(X, rangos, return_descriptions=True)
+</code></pre>
+<p>Utiliza los métodos de consolidación <code>select_clusters</code>, <code>menu</code> o <code>match_class_distribution</code> para controlar el balance entre clases.</p>
+
+<h2>4. Interpreta y comparte</h2>
+<p>El módulo <a href="api/labels_es.html">Labels</a> produce métricas por segmento y <a href="api/models_es.html">Models</a> ofrece utilidades para comparar modelos y exportar reglas.</p>
+<ul>
+  <li><code>generate_descriptions</code> redacta resúmenes ejecutivos.</li>
+  <li><code>categorize_conditions</code> agrupa restricciones por tipo.</li>
+  <li><code>plot_multi_dims</code> genera visualizaciones de 2D y 3D.</li>
+</ul>
+
+<h2>Flujo completo</h2>
+<pre><code class="language-python">from InsideForest import InsideForestClassifier
+
+clf = InsideForestClassifier(auto_fast=True, auto_feature_reduce=True, method="menu")
+clf.fit(X_train, y_train)
+etiquetas = clf.predict(X_test)
+resumenes = clf.describe_clusters(X_test, y_test)
+</code></pre>
+
+<h2>Más recursos</h2>
+<ul>
+  <li><a href="performance_tips_es.html">Rendimiento</a> para ajustar hiperparámetros.</li>
+  <li><a href="experiments_benchmarks_es.html">Experimentos y benchmarks</a> para resultados cuantitativos.</li>
+  <li><a href="reproducibility_es.html">Reproducibilidad</a> para garantizar experimentos repetibles.</li>
+</ul>

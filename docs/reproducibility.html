@@ -1,18 +1,40 @@
 ---
 layout: default
 title: Reproducibility
-description: Reproducibility guidelines for InsideForest experiments.
-nav_order: 4
+description: Practices to ensure consistent InsideForest experiments.
+nav_order: 6
 ---
 
-<div class="lang-switch"><a href="reproducibility_es.html">ES</a></div>
 <h1>Reproducibility</h1>
+<p>InsideForest relies on randomness during tree training and region sampling. Follow these guidelines to produce repeatable experiments.</p>
+
+<h2>Fix random seeds</h2>
 <ul>
-  <li>Set <code>random_state</code> for deterministic results.</li>
-  <li>Record package versions including <code>insideforest</code>.</li>
-  <li>Seed Python and NumPy RNGs.</li>
+  <li>Set <code>random_state</code> in the underlying forest via <code>rf_params</code>.</li>
+  <li>When using NumPy or pandas pipelines, seed them explicitly: <code>np.random.seed(42)</code>.</li>
+  <li>Use <code>PYTHONHASHSEED=0</code> when running scripts to keep hashing consistent.</li>
 </ul>
-<pre><code class="language-python">import random, numpy as np
-from InsideForest import InsideForestClassifier
-random.seed(0); np.random.seed(0)
-clf = InsideForestClassifier(random_state=0)</code></pre>
+
+<h2>Log environment details</h2>
+<ul>
+  <li>Capture the output of <code>pip freeze</code> or <code>conda env export</code> in each experiment folder.</li>
+  <li>Document the dataset version, preprocessing steps, and any filtering applied before training.</li>
+  <li>Record hardware characteristics (CPU cores, RAM) when benchmarking performance.</li>
+</ul>
+
+<h2>Persist models and metadata</h2>
+<ul>
+  <li>Use <code>save</code> / <code>load</code> methods from classifiers or regressors to archive fitted models.</li>
+  <li>Store the outputs of <code>describe_clusters</code> and <code>generate_descriptions</code> alongside evaluation metrics.</li>
+  <li>Use version control (Git) to track notebooks and configuration files.</li>
+</ul>
+
+<h2>Automate checks</h2>
+<ul>
+  <li>Create smoke tests that run <code>fit</code> and <code>predict</code> on a reduced dataset.</li>
+  <li>Include assertions for metric thresholds to catch regressions early.</li>
+  <li>Schedule periodic runs with tools such as GitHub Actions to validate dependencies.</li>
+</ul>
+
+<h2>Share results</h2>
+<p>Combine these practices with the logging templates from <a href="experiments_benchmarks.html">Experiments &amp; Benchmarks</a> so collaborators can reproduce findings with minimal setup.</p>

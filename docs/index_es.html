@@ -1,12 +1,75 @@
 ---
 layout: default
-title: InsideForest ES
-description: InsideForest: clustering supervisado con regiones interpretables.
+title: InsideForest
+description: InsideForest ofrece clustering supervisado con regiones interpretables.
 nav_order: 1
 has_children: true
 nav_exclude: true
+lang: es
 ---
 
-<div class="lang-switch"><a href="index.html">EN</a></div>
 <h1>InsideForest</h1>
-<p>Clustering supervisado con regiones interpretables.</p>
+<p><strong>InsideForest</strong> transforma los bosques aleatorios en exploradores de regiones. El clustering supervisado guía la segmentación y produce descripciones basadas en reglas fáciles de comunicar.</p>
+
+<div class="doc-hero">
+  <p class="lead">InsideForest permite descubrir regiones valiosas sin depender de ingeniería manual de características. Aprovecha el clúster supervisado para revelar patrones que los bosques tradicionales no muestran.</p>
+</div>
+
+<h2>Pruébalo en un notebook</h2>
+<p>Entrena un clasificador, etiqueta nuevas observaciones y obtén importancias de variables en cuestión de minutos.</p>
+<pre><code class="language-python">from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from InsideForest import InsideForestClassifier
+
+X, y = load_iris(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, train_size=0.35, stratify=y, random_state=15
+)
+
+clf = InsideForestClassifier(auto_fast=True, auto_feature_reduce=True)
+clf.fit(X_train, y_train)
+labels = clf.predict(X_test)
+importances = clf.feature_importances_
+</code></pre>
+<p>Visita <a href="quick_api_es.html">API Rápida</a> para más ejemplos de clasificación y regresión.</p>
+
+<h2>¿Por qué InsideForest?</h2>
+<ul>
+  <li><strong>Segmentación guiada:</strong> combina bosques aleatorios con heurísticas que priorizan regiones de alto valor.</li>
+  <li><strong>Interpretabilidad:</strong> genera reglas con límites claros que describen cada clúster.</li>
+  <li><strong>Integración flexible:</strong> compatible con <code>scikit-learn</code>, PySpark y bosques personalizados.</li>
+  <li><strong>Análisis listo para producción:</strong> métricas, visualizaciones y exportaciones listas para compartir.</li>
+</ul>
+
+<h2>Primeros pasos</h2>
+<p>Utiliza estos recursos para construir tu flujo de trabajo:</p>
+<ul>
+  <li><a href="installation_es.html">Instalación</a>: instrucciones para PyPI y modo desarrollo.</li>
+  <li><a href="how_it_works_es.html">Cómo funciona</a>: guía por árboles, regiones y etiquetas.</li>
+  <li><a href="performance_tips_es.html">Rendimiento</a>: optimiza parámetros en conjuntos de datos grandes.</li>
+  <li><a href="reproducibility_es.html">Reproducibilidad</a>: controla semillas y versiones para repetir resultados.</li>
+</ul>
+
+<h2>Explora la API</h2>
+<p>Consulta la documentación detallada de cada módulo:</p>
+<ul>
+  <li><a href="api/insideforestclassifier_es.html">InsideForestClassifier</a> y <a href="api/insideforestregressor_es.html">InsideForestRegressor</a>.</li>
+  <li><a href="api/trees_es.html">Trees</a>, <a href="api/regions_es.html">Regions</a> y <a href="api/labels_es.html">Labels</a>.</li>
+  <li><a href="api/models_es.html">Models</a> y <a href="api/metadata_es.html">Metadata</a>.</li>
+  <li><a href="api/clusterselector_es.html">ClusterSelector</a> y estrategias de consolidación.</li>
+</ul>
+
+<h2>Guías y tutoriales</h2>
+<p>Aprende con casos reales y recomendaciones prácticas:</p>
+<ul>
+  <li><a href="guides/architecture_es.html">Arquitectura</a>: estructura interna del proyecto.</li>
+  <li><a href="guides/configuration_es.html">Configuración</a>: personaliza parámetros automáticos.</li>
+  <li><a href="guides/interpretation_es.html">Interpretación</a>: comunica hallazgos a equipos de negocio.</li>
+  <li><a href="tutorials/index_es.html">Tutoriales</a>: recorridos paso a paso.</li>
+</ul>
+
+<h2>Actualizaciones</h2>
+<p>Consulta el <a href="changelog_es.html">registro de cambios</a>, conoce la <a href="roadmap_es.html">hoja de ruta</a> y aclara dudas en las <a href="faq_es.html">preguntas frecuentes</a>. Antes de contribuir, revisa las recomendaciones de <a href="reproducibility_es.html">reproducibilidad</a>.</p>
+
+<h2>Comunidad</h2>
+<p>InsideForest es desarrollado por José Carlos Del Valle. Conecta en <a href="https://www.linkedin.com/in/jose-carlos-del-valle/" target="_blank" rel="noopener">LinkedIn</a> o visita su <a href="https://jcval94.github.io/Portfolio/" target="_blank" rel="noopener">portafolio</a>. Comparte ideas y necesidades en la <a href="roadmap_es.html">hoja de ruta</a>.</p>

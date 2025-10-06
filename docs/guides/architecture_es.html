@@ -1,11 +1,37 @@
 ---
 layout: default
 title: Arquitectura
-parent: Guides
-nav_order: 3
+parent: Guías
+nav_order: 11
 nav_exclude: true
+lang: es
 ---
 
-<div class="lang-switch"><a href="architecture.html">EN</a></div>
 <h1>Arquitectura</h1>
-<p>Guía de arquitectura.</p>
+<p>InsideForest separa responsabilidades en capas para mantener los modelos interpretables y escalables.</p>
+
+<h2>Capas</h2>
+<ol>
+  <li><strong>Capa de bosque:</strong> manejada por <code>Trees</code>, compatible con <code>scikit-learn</code> y PySpark.</li>
+  <li><strong>Capa de regiones:</strong> <code>Regions</code> calcula métricas y genera rangos prioritarios.</li>
+  <li><strong>Capa de etiquetas:</strong> <code>ClusterSelector</code> y <code>Labels</code> consolidan y describen segmentos.</li>
+  <li><strong>Capa de utilidades:</strong> <code>Models</code> y <code>Metadata</code> ofrecen auditoría y reportes.</li>
+</ol>
+
+<h2>Flujo</h2>
+<ol>
+  <li>Entrena o conecta un bosque existente.</li>
+  <li><code>Trees</code> extrae reglas.</li>
+  <li><code>Regions</code> prioriza y estructura las regiones.</li>
+  <li><code>ClusterSelector</code> consolida según la estrategia deseada.</li>
+  <li><code>Labels</code>, <code>Models</code> y <code>Metadata</code> generan reportes.</li>
+</ol>
+
+<h2>Extensión</h2>
+<ul>
+  <li>Añade backends personalizados implementando la interfaz de <code>Trees</code>.</li>
+  <li>Crea estrategias nuevas derivando de <code>ClusterSelector</code>.</li>
+  <li>Amplía reportes extendiendo <code>Labels</code> o <code>Metadata</code>.</li>
+</ul>
+
+<p>Sigue con <a href="configuration_es.html">Configuración</a> para aprender a ajustar parámetros.</p>

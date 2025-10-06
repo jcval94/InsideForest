@@ -2,25 +2,25 @@
 layout: default
 title: Labels
 parent: InsideForest
-nav_order: 4
+nav_order: 55
 nav_exclude: true
+lang: es
 ---
 
-<div class="lang-switch"><a href="labels.html">EN</a></div>
 <h1>Labels</h1>
-<h2>Firma</h2>
-<pre><code class="language-python">class Labels:
-    def __init__(self): ...
-</code></pre>
-<h2>Métodos</h2>
+<p>Convierte las regiones priorizadas en reportes y métricas listos para compartir.</p>
+
+<h2>Funciones</h2>
 <ul>
-  <li><code>round_values(values)</code>: redondeo según la varianza.</li>
-  <li><code>get_intervals(interval_df)</code>: describe intervalos.</li>
+  <li><code>generate_descriptions(region_df, feature_names)</code>: textos descriptivos por clúster.</li>
+  <li><code>categorize_conditions(descriptions)</code>: agrupa condiciones por tipo.</li>
+  <li><code>summaries(clusterized)</code>: métricas de cobertura y pureza.</li>
 </ul>
+
 <h2>Ejemplo</h2>
-<pre><code class="language-python">import matplotlib.pyplot as plt
-from InsideForest import Labels
-lab = Labels()
-intervalos = lab.get_intervals(df)
-plt.plot(intervalos)
-plt.show()</code></pre>
+<pre><code class="language-python">labels = Labels()
+resumen = labels.summaries(clusteres)
+descripciones = labels.generate_descriptions(descriptivo, feature_names)
+</code></pre>
+
+<p>Integra estos resultados en dashboards o reportes y combínalos con <a href="../reproducibility_es.html">reproducibilidad</a> para documentar versiones.</p>

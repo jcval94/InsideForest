@@ -2,9 +2,30 @@
 layout: default
 title: FAQ
 description: Frequently asked questions about InsideForest usage.
-nav_order: 90
+nav_order: 95
 ---
 
-<div class="lang-switch"><a href="faq_es.html">ES</a></div>
-<h1>FAQ</h1>
-<p>Frequently asked questions.</p>
+<h1>Frequently Asked Questions</h1>
+
+<h2>Does InsideForest replace my production model?</h2>
+<p>No. InsideForest starts from an already trained forest and transforms it into interpretable segments. Use it alongside production models to explain predictions.</p>
+
+<h2>Do I need labeled data?</h2>
+<p>Yes. InsideForest performs supervised clustering: it requires labels to guide the region search. Labels may come from experts, historical decisions, or other models.</p>
+
+<h2>Can it work with PySpark?</h2>
+<p>Yes. Use <code>Trees('pyspark')</code> to extract branches from a Spark <code>RandomForestClassifier</code> and continue with <code>Regions</code> and <code>Labels</code> just like in <code>scikit-learn</code>.</p>
+
+<h2>How do I interpret the rules?</h2>
+<p><code>describe_clusters</code> and <code>generate_descriptions</code> return tables with readable conditions (for example, <em>age &gt; 30</em> and <em>income &lt; 50K</em>). Export them to CSV or Markdown for reports.</p>
+
+<h2>How large can my dataset be?</h2>
+<p>InsideForest has been tested with millions of rows on CPU. Enable <code>auto_fast</code> and follow <a href="performance_tips.html">Performance Tips</a> to optimize resources.</p>
+
+<h2>How do I report issues?</h2>
+<p>Open a GitHub issue describing the environment (version, operating system, reproduction steps). Include <code>pip freeze</code> output and the result of <code>pytest -q</code>.</p>
+
+<h2>Where can I find full examples?</h2>
+<p>Explore the notebooks in the <code>experiments/</code> directory and the published <a href="tutorials/index.html">tutorials</a>. You can also review the repository <a href="../README.md">README</a>.</p>
+
+<p>Have another question? Join the discussion in the repository issues and contribute to the <a href="roadmap.html">roadmap</a>.</p>

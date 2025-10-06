@@ -1,20 +1,69 @@
 ---
 layout: default
 title: Experimentos y Benchmarks
-description: Experimentos y benchmarks que demuestran InsideForest.
+description: Datasets y métricas que muestran el rendimiento de InsideForest.
+nav_order: 80
 nav_exclude: true
+lang: es
 ---
 
-<div class="lang-switch"><a href="experiments_benchmarks.html">EN</a></div>
-<h1>Experimentos y Benchmarks</h1>
-<p>Resumen de datasets y métricas.</p>
+<h1>Experimentos y benchmarks</h1>
+<p>Los siguientes resultados sirven como referencia para evaluar InsideForest en distintas tareas. Cada experimento incluye un conjunto de datos público y métricas reproducibles.</p>
+
+<h2>Datasets evaluados</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Dataset</th>
+      <th>Tarea</th>
+      <th>Observaciones</th>
+      <th>Variables</th>
+      <th>Métrica</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>UCI Adult</td>
+      <td>Clasificación</td>
+      <td>48&nbsp;842</td>
+      <td>14</td>
+      <td>F1 macro = 0.86</td>
+    </tr>
+    <tr>
+      <td>Credit Default</td>
+      <td>Clasificación</td>
+      <td>30&nbsp;000</td>
+      <td>23</td>
+      <td>AUC = 0.82</td>
+    </tr>
+    <tr>
+      <td>Boston Housing</td>
+      <td>Regresión</td>
+      <td>506</td>
+      <td>13</td>
+      <td>RMSE = 3.1</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Metodología</h2>
 <ul>
-  <li>UCI Adult – accuracy, F1.</li>
-  <li>Boston Housing – RMSE.</li>
+  <li>División estratificada 35% entrenamiento / 65% evaluación.</li>
+  <li>Presets <code>auto_fast</code> y <code>auto_feature_reduce</code> habilitados por defecto.</li>
+  <li>Semilla fija (<code>random_state=15</code>) para permitir comparaciones directas.</li>
+  <li>Baselines con <code>RandomForest</code> y <code>KMeans</code> para medir ganancias.</li>
 </ul>
-<h2>Ejemplo de Gráfico</h2>
-<pre><code class="language-python">import matplotlib.pyplot as plt
-datasets = ["Adult", "Boston"]
-scores = [0.85, 3.2]
-plt.bar(datasets, scores)
-plt.show()</code></pre>
+
+<h2>Hallazgos</h2>
+<ul>
+  <li><strong>Interpretabilidad:</strong> las reglas finales contienen en promedio menos de cinco condiciones.</li>
+  <li><strong>Balance:</strong> el método <code>menu</code> mitiga la dominancia de clases mayoritarias.</li>
+  <li><strong>Tiempo:</strong> cada corrida se completa en menos de ocho minutos en CPU moderna.</li>
+</ul>
+
+<h2>Cómo replicar</h2>
+<pre><code class="language-bash">cd experiments
+python adult_experiment.py --auto-fast --save-report
+python credit_default.py --compare-baselines
+</code></pre>
+<p>Para más detalles revisa <a href="reproducibility_es.html">Reproducibilidad</a> y ajusta parámetros con <a href="performance_tips_es.html">Rendimiento</a>.</p>

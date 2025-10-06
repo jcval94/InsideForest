@@ -1,11 +1,54 @@
 ---
 layout: default
 title: Configuración
-parent: Guides
-nav_order: 1
+parent: Guías
+nav_order: 12
 nav_exclude: true
+lang: es
 ---
 
-<div class="lang-switch"><a href="configuration.html">EN</a></div>
 <h1>Configuración</h1>
-<p>Guía de configuración.</p>
+<p>Ajusta los parámetros de InsideForest según el tamaño de los datos y los objetivos del proyecto.</p>
+
+<h2>Presets automáticos</h2>
+<ul>
+  <li><code>auto_fast</code>: reduce profundidad y tamaño del bosque.</li>
+  <li><code>auto_feature_reduce</code>: selecciona variables relevantes.</li>
+</ul>
+
+<h2>Parámetros manuales</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Parámetro</th>
+      <th>Rol</th>
+      <th>Consejo</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>n_sample_multiplier</code></td>
+      <td>Muestras por árbol.</td>
+      <td>0.05 para prototipos, 0.1–0.15 para análisis detallado.</td>
+    </tr>
+    <tr>
+      <td><code>ef_sample_multiplier</code></td>
+      <td>Muestreo exploratorio.</td>
+      <td>Aumenta para datasets desbalanceados.</td>
+    </tr>
+    <tr>
+      <td><code>method</code></td>
+      <td>Consolidación de clústeres.</td>
+      <td><code>menu</code> maximiza precisión; <code>select_clusters</code> es más rápido.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Entornos</h2>
+<ul>
+  <li><strong>Local:</strong> crea un entorno virtual y ejecuta <code>pytest -q</code>.</li>
+  <li><strong>Servidor:</strong> registra parámetros con <code>Metadata</code> y guarda modelos.</li>
+  <li><strong>PySpark:</strong> sincroniza <code>spark.sql.shuffle.partitions</code> con el tamaño de datos.</li>
+</ul>
+
+<p>Sigue con <a href="interpretation_es.html">Interpretación</a> para presentar resultados.</p>

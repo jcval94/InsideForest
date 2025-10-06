@@ -2,25 +2,27 @@
 layout: default
 title: Models
 parent: InsideForest
-nav_order: 6
+nav_order: 57
 ---
 
-<div class="lang-switch"><a href="models_es.html">ES</a></div>
 <h1>Models</h1>
-<h2>Signature</h2>
-<pre><code class="language-python">class Models:
-    ...
-</code></pre>
-<h2>Methods</h2>
+<p>Utilities to evaluate and compare models associated with InsideForest.</p>
+
+<h2>Key functions</h2>
 <ul>
-  <li><code>get_knn_rows(df, target_col)</code>: split rows based on KNN errors.</li>
-  <li><code>get_cvRF(X_train, y_train, param_grid)</code>: grid-search a RandomForest.</li>
+  <li><code>compare_models(models, X, y)</code>: compare metrics across different base models.</li>
+  <li><code>plot_importances(model, top_n=20)</code>: visualize cumulative importances.</li>
+  <li><code>confusion_matrix(labels, y)</code>: generate confusion matrices for clusters.</li>
 </ul>
+
 <h2>Example</h2>
-<pre><code class="language-python">import matplotlib.pyplot as plt
-from InsideForest import Models
-md = Models()
-scores = [0.8, 0.85]
-plt.plot(scores)
-plt.show()
-# md.get_cvRF(X_train, y_train, {"n_estimators": [100]})</code></pre>
+<pre><code class="language-python">from InsideForest import Models
+
+models = Models()
+summary = models.compare_models([
+    ("baseline_rf", baseline_rf),
+    ("insideforest", clf.model_),
+], X_test, y_test)
+</code></pre>
+
+<p>Use these outputs alongside <a href="metadata.html">Metadata</a> and the reports from <a href="labels.html">Labels</a>.</p>
