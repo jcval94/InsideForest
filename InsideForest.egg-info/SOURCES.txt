@@ -2,10 +2,12 @@ LICENSE
 README.md
 setup.py
 InsideForest/__init__.py
+InsideForest/ab_testing.py
 InsideForest/cluster_selector.py
 InsideForest/descrip.py
 InsideForest/inside_forest.py
 InsideForest/labels.py
+InsideForest/legacy_select_clusters.py
 InsideForest/metadata.py
 InsideForest/models.py
 InsideForest/regions.py
@@ -19,6 +21,8 @@ experiments/ab_test_rule_extraction.py
 experiments/benchmark.py
 experiments/benchmark_get_rangos.py
 experiments/rf_param_benchmark.py
+experiments/run_select_clusters_benchmark.py
+experiments/select_clusters_ab_benchmark.py
 experiments/select_clusters_hyperparam.py
 experiments/summary_benchmark.py
 tests/test_chimera_values_selector.py
