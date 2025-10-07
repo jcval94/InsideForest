@@ -52,6 +52,9 @@ def select_clusters(
     clusters_datos_all = [[] for _ in range(n_datos)] if keep_all_clusters else None
     ponderadores_datos_all = [[] for _ in range(n_datos)] if keep_all_clusters else None
 
+    col_to_idx = {col: idx for idx, col in enumerate(df_datos.columns)}
+    X_values = df_datos.to_numpy()
+
     reglas_info = []
     for _, row in df_reglas.iterrows():
         if row[('metrics', 'ponderador')] == 0:
@@ -59,6 +62,23 @@ def select_clusters(
         linf = row['linf'].dropna()
         lsup = row['lsup'].dropna()
         variables = linf.index.tolist()
+
+        try:
+            idx = np.array([col_to_idx[var] for var in variables], dtype=int)
+        except KeyError as err:
+            missing_cols = [var for var in variables if var not in col_to_idx]
+            raise KeyError(f"Columns not found in df_datos: {missing_cols}") from err
+
+        linf_vals = (
+            np.asarray([linf[var] for var in variables], dtype=float)
+            if variables
+            else np.array([], dtype=float)
+        )
+        lsup_vals = (
+            np.asarray([lsup[var] for var in variables], dtype=float)
+            if variables
+            else np.array([], dtype=float)
+        )
 
         p_val = row[('metrics', 'ponderador')]
         ponderador = p_val.mean() if hasattr(p_val, '__iter__') else p_val
@@ -72,30 +92,25 @@ def select_clusters(
         reglas_info.append(
             {
                 'variables': variables,
-                'linf': linf.to_dict(),
-                'lsup': lsup.to_dict(),
+                'idx': idx,
+                'linf': linf_vals,
+                'lsup': lsup_vals,
                 'ponderador': ponderador,
                 'cluster': cluster_raw,
             }
         )
 
     for regla in reglas_info:
-        variables = regla['variables']
-        linf = regla['linf']
-        lsup = regla['lsup']
+        idx = regla['idx']
+        linf_vals = regla['linf']
+        lsup_vals = regla['lsup']
         ponderador = regla['ponderador']
         cluster = regla['cluster']
 
-        missing_cols = [col for col in variables if col not in df_datos.columns]
-        if missing_cols:
-            raise KeyError(f"Columns not found in df_datos: {missing_cols}")
-        X_datos = df_datos[variables]
-        condiciones = [
-            (X_datos[var].to_numpy() >= linf[var]) & (X_datos[var].to_numpy() <= lsup[var])
-            for var in variables
-        ]
-        if condiciones:
-            cumple_regla = np.logical_and.reduce(condiciones)
+        if idx.size:
+            X_sub = X_values[:, idx]
+            condiciones = np.logical_and(X_sub >= linf_vals, X_sub <= lsup_vals)
+            cumple_regla = condiciones.all(axis=1)
         else:
             cumple_regla = np.zeros(n_datos, dtype=bool)
 
