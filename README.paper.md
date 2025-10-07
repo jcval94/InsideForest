@@ -7,7 +7,7 @@ Contacto: jcdelvalle@example.com
 
 ## Resumen
 ### Objetivos
-Proponer InsideForest, un algoritmo de *clustering* supervisado que utiliza bosques de decisión para identificar segmentos interpretables.
+Proponer InsideForest, un algoritmo de *clustering* supervisado que utiliza bosques de decisión para identificar segmentos interpretables, tal como un *gato* que acomoda cada *coco* en su lugar correspondiente.
 
 ### Método
 El modelo entrena un bosque aleatorio y transforma cada hoja en una regla geométrica; estas reglas se agrupan según su solapamiento para producir clusters con descripciones explícitas.

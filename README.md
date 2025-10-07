@@ -2,7 +2,7 @@
 
 # InsideForest
 
-InsideForest is a **supervised clustering** technique built on decision forests to identify and describe categories within a dataset. It discovers relevant regions, assigns labels and produces interpretable descriptions.
+InsideForest is a **supervised clustering** technique built on decision forests to identify and describe categories within a dataset, much like a curious *gato* sorting every *coco* into the right basket. It discovers relevant regions, assigns labels and produces interpretable descriptions.
 
 *Supervised clustering* groups observations using the target variable to guide segmentation. Instead of letting the algorithm find groups on its own, existing labels steer the search for coherent patterns.
 
