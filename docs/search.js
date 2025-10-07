@@ -1,14 +1,51 @@
 (function () {
+  const LANG_KEY = 'docs-lang';
+  const resolveLang = () => {
+    const stored = localStorage.getItem(LANG_KEY);
+    if (stored === 'ES' || stored === 'EN') {
+      return stored;
+    }
+    const htmlLang = (document.documentElement.lang || 'en').toLowerCase();
+    return htmlLang.startsWith('es') ? 'ES' : 'EN';
+  };
+
   const input = document.getElementById('doc-search-input');
   const resultsContainer = document.getElementById('doc-search-results');
+  const hint = document.getElementById('doc-search-hint');
   if (!input || !resultsContainer) {
     return;
   }
 
+  let rawIndex = [];
   let index = [];
   let loaded = false;
   let pendingQuery = '';
+  let activeLang = resolveLang();
   const indexUrl = window.__DOC_SEARCH_INDEX__ || 'search-data.json';
+
+  const updateSearchUi = () => {
+    const isSpanish = activeLang === 'ES';
+    input.placeholder = isSpanish ? 'Buscar en la documentación' : 'Search the documentation';
+    if (hint) {
+      hint.textContent = isSpanish ? 'Escribe para filtrar temas en español.' : 'Type to filter topics in English.';
+    }
+  };
+
+  const filterIndexByLanguage = () => {
+    const isSpanish = activeLang === 'ES';
+    index = rawIndex.filter((entry) => (isSpanish ? entry.isSpanish : !entry.isSpanish));
+  };
+
+  const setLanguage = (lang) => {
+    activeLang = lang === 'ES' ? 'ES' : 'EN';
+    updateSearchUi();
+    filterIndexByLanguage();
+    if (pendingQuery && loaded) {
+      search(pendingQuery);
+    }
+  };
+
+  updateSearchUi();
 
   const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -55,7 +92,8 @@
 
   const renderResults = (matches, tokens) => {
     if (!matches.length) {
-      resultsContainer.innerHTML = '<div class="search-result">No results found / Sin resultados.</div>';
+      const message = activeLang === 'ES' ? 'Sin resultados.' : 'No results found.';
+      resultsContainer.innerHTML = `<div class="search-result">${message}</div>`;
       resultsContainer.classList.add('active');
       return;
     }
@@ -143,11 +181,13 @@
         return response.json();
       })
       .then((data) => {
-        index = data.map((entry) => ({
+        rawIndex = data.map((entry) => ({
           ...entry,
           titleLower: entry.title.toLowerCase(),
           contentLower: entry.content.toLowerCase(),
+          isSpanish: /_es\.html$/.test(entry.url),
         }));
+        filterIndexByLanguage();
         if (pendingQuery) {
           search(pendingQuery);
         }
@@ -169,6 +209,13 @@
     }
     search(query);
   });
+
+  document.addEventListener('docs:language-applied', (event) => {
+    const nextLang = event.detail && event.detail.lang === 'ES' ? 'ES' : event.detail && event.detail.lang === 'EN' ? 'EN' : resolveLang();
+    setLanguage(nextLang);
+  });
+
+  setLanguage(activeLang);
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && document.activeElement === input) {
