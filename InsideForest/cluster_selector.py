@@ -52,77 +52,130 @@ def select_clusters(
     clusters_datos_all = [[] for _ in range(n_datos)] if keep_all_clusters else None
     ponderadores_datos_all = [[] for _ in range(n_datos)] if keep_all_clusters else None
 
-    col_to_idx = {col: idx for idx, col in enumerate(df_datos.columns)}
-    X_values = df_datos.to_numpy()
+    if df_reglas.empty:
+        indices_sin_cluster = np.arange(n_datos, dtype=int)
+        if fallback_cluster is not None and indices_sin_cluster.size:
+            clusters_datos[indices_sin_cluster] = fallback_cluster
+            if keep_all_clusters:
+                for i in indices_sin_cluster:
+                    clusters_datos_all[i].append(fallback_cluster)
+                    ponderadores_datos_all[i].append(0.0)
+        elif indices_sin_cluster.size:
+            warnings.warn(
+                f"{len(indices_sin_cluster)} records did not match any rule.",
+                UserWarning,
+            )
+        return clusters_datos, clusters_datos_all, ponderadores_datos_all
 
-    reglas_info = []
-    for _, row in df_reglas.iterrows():
-        if row[('metrics', 'ponderador')] == 0:
+    columnas_datos = list(df_datos.columns)
+    col_to_idx = {col: idx for idx, col in enumerate(columnas_datos)}
+    X_values = df_datos.to_numpy(dtype=float, copy=False)
+
+    ponderadores_raw = df_reglas[('metrics', 'ponderador')]
+
+    def _scalar_ponderador(valor: Any) -> float:
+        if isinstance(valor, (list, tuple, np.ndarray, pd.Series)):
+            arr = np.asarray(valor, dtype=float)
+            if arr.size == 0:
+                return 0.0
+            return float(arr.mean())
+        return float(valor)
+
+    ponderadores = ponderadores_raw.apply(_scalar_ponderador).to_numpy(dtype=float)
+    reglas_validas_mask = ponderadores != 0
+
+    if not np.any(reglas_validas_mask):
+        indices_sin_cluster = np.arange(n_datos, dtype=int)
+        if fallback_cluster is not None and indices_sin_cluster.size:
+            clusters_datos[indices_sin_cluster] = fallback_cluster
+            if keep_all_clusters:
+                for i in indices_sin_cluster:
+                    clusters_datos_all[i].append(fallback_cluster)
+                    ponderadores_datos_all[i].append(0.0)
+        elif indices_sin_cluster.size:
+            warnings.warn(
+                f"{len(indices_sin_cluster)} records did not match any rule.",
+                UserWarning,
+            )
+        return clusters_datos, clusters_datos_all, ponderadores_datos_all
+
+    df_reglas_validas = df_reglas.loc[reglas_validas_mask]
+    ponderadores = ponderadores[reglas_validas_mask]
+
+    cluster_vals = df_reglas_validas['cluster'].to_numpy()
+
+    def _scalar_cluster(valor: Any) -> float:
+        if isinstance(valor, pd.Series):
+            if len(valor.values) == 1:
+                valor = valor.values[0]
+        if isinstance(valor, (list, tuple, np.ndarray)):
+            arr = np.asarray(valor, dtype=float)
+            if arr.size == 0:
+                return -1.0
+            valor = arr.flat[0]
+        return float(valor)
+
+    clusters_reglas = np.array([_scalar_cluster(v) for v in cluster_vals], dtype=float)
+
+    linf_df = df_reglas_validas['linf'] if 'linf' in df_reglas_validas.columns.get_level_values(0) else pd.DataFrame(index=df_reglas_validas.index)
+    lsup_df = df_reglas_validas['lsup'] if 'lsup' in df_reglas_validas.columns.get_level_values(0) else pd.DataFrame(index=df_reglas_validas.index)
+
+    columnas_reglas = set(linf_df.columns).union(set(lsup_df.columns))
+    columnas_reglas = {col for col in columnas_reglas if col is not None}
+    missing_cols = sorted(col for col in columnas_reglas if col not in col_to_idx)
+    if missing_cols:
+        raise KeyError(f"Columns not found in df_datos: {missing_cols}")
+
+    linf_df = linf_df.reindex(columns=columnas_datos, fill_value=np.nan)
+    lsup_df = lsup_df.reindex(columns=columnas_datos, fill_value=np.nan)
+
+    linf_array = linf_df.to_numpy(dtype=float, copy=True)
+    lsup_array = lsup_df.to_numpy(dtype=float, copy=True)
+
+    reglas_tienen_vars = (~np.isnan(linf_array) | ~np.isnan(lsup_array)).any(axis=1)
+
+    linf_array = np.where(np.isnan(linf_array), -np.inf, linf_array)
+    lsup_array = np.where(np.isnan(lsup_array), np.inf, lsup_array)
+
+    n_reglas_validas = linf_array.shape[0]
+    cumple_reglas = np.ones((n_reglas_validas, n_datos), dtype=bool)
+
+    for idx_col, col in enumerate(columnas_datos):
+        lower_bounds = linf_array[:, idx_col]
+        upper_bounds = lsup_array[:, idx_col]
+
+        if np.all(lower_bounds == -np.inf) and np.all(upper_bounds == np.inf):
             continue
-        linf = row['linf'].dropna()
-        lsup = row['lsup'].dropna()
-        variables = linf.index.tolist()
 
-        try:
-            idx = np.array([col_to_idx[var] for var in variables], dtype=int)
-        except KeyError as err:
-            missing_cols = [var for var in variables if var not in col_to_idx]
-            raise KeyError(f"Columns not found in df_datos: {missing_cols}") from err
+        col_values = X_values[:, idx_col][None, :]
+        within_lower = col_values >= lower_bounds[:, None]
+        within_upper = col_values <= upper_bounds[:, None]
+        cumple_reglas &= within_lower & within_upper
 
-        linf_vals = (
-            np.asarray([linf[var] for var in variables], dtype=float)
-            if variables
-            else np.array([], dtype=float)
-        )
-        lsup_vals = (
-            np.asarray([lsup[var] for var in variables], dtype=float)
-            if variables
-            else np.array([], dtype=float)
-        )
+    if reglas_tienen_vars.size:
+        cumple_reglas[~reglas_tienen_vars, :] = False
 
-        p_val = row[('metrics', 'ponderador')]
-        ponderador = p_val.mean() if hasattr(p_val, '__iter__') else p_val
+    if n_reglas_validas == 0:
+        cumple_reglas = np.zeros((0, n_datos), dtype=bool)
 
-        cluster_raw = row['cluster']
-        if hasattr(cluster_raw, 'values') and len(cluster_raw.values) == 1:
-            cluster_raw = float(cluster_raw.values[0])
-        else:
-            cluster_raw = float(cluster_raw)
+    if cumple_reglas.size:
+        ponderadores_expandidos = np.where(cumple_reglas, ponderadores[:, None], -np.inf)
+        mejor_regla_idx = np.argmax(ponderadores_expandidos, axis=0)
+        mejor_ponderador = ponderadores_expandidos[mejor_regla_idx, np.arange(n_datos)]
+        actualizar = mejor_ponderador > ponderador_datos
+        clusters_datos[actualizar] = clusters_reglas[mejor_regla_idx[actualizar]]
+        ponderador_datos[actualizar] = mejor_ponderador[actualizar]
+    else:
+        mejor_ponderador = np.full(n_datos, -np.inf, dtype=float)
 
-        reglas_info.append(
-            {
-                'variables': variables,
-                'idx': idx,
-                'linf': linf_vals,
-                'lsup': lsup_vals,
-                'ponderador': ponderador,
-                'cluster': cluster_raw,
-            }
-        )
+    if keep_all_clusters:
+        cumple_por_dato = cumple_reglas.T if cumple_reglas.size else np.zeros((n_datos, 0), dtype=bool)
+        for i, coincidencias in enumerate(cumple_por_dato):
+            if coincidencias.any():
+                indices = np.nonzero(coincidencias)[0]
+                clusters_datos_all[i].extend(float(clusters_reglas[j]) for j in indices)
+                ponderadores_datos_all[i].extend(float(ponderadores[j]) for j in indices)
 
-    for regla in reglas_info:
-        idx = regla['idx']
-        linf_vals = regla['linf']
-        lsup_vals = regla['lsup']
-        ponderador = regla['ponderador']
-        cluster = regla['cluster']
-
-        if idx.size:
-            X_sub = X_values[:, idx]
-            condiciones = np.logical_and(X_sub >= linf_vals, X_sub <= lsup_vals)
-            cumple_regla = condiciones.all(axis=1)
-        else:
-            cumple_regla = np.zeros(n_datos, dtype=bool)
-
-        if keep_all_clusters:
-            indices_cumple = np.where(cumple_regla)[0]
-            for i in indices_cumple:
-                clusters_datos_all[i].append(cluster)
-                ponderadores_datos_all[i].append(ponderador)
-
-        actualizar = cumple_regla & (ponderador > ponderador_datos)
-        clusters_datos[actualizar] = cluster
-        ponderador_datos[actualizar] = ponderador
 
     # Detect records without assigned cluster after evaluating all rules
     indices_sin_cluster = np.where(clusters_datos == -1)[0]
