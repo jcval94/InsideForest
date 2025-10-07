@@ -88,25 +88,45 @@ def pairwise_iou_sparse(lows: np.ndarray, highs: np.ndarray) -> sparse.coo_matri
 
     for i in range(n):
         idxs = tree.query_ball_point(centers[i], r=semi[i] + max_semi)
-        for j in idxs:
-            if j <= i:
-                continue
-            inter_low = np.maximum(lows[i], lows[j])
-            inter_high = np.minimum(highs[i], highs[j])
-            inter_dims = np.clip(inter_high - inter_low, 0, None)
-            inter_vol = inter_dims.prod()
-            union = vol[i] + vol[j] - inter_vol
-            if union == 0:
-                if np.all(lows[i] == lows[j]) and np.all(highs[i] == highs[j]):
-                    iou = 1.0
-                else:
-                    iou = 0.0
-            else:
-                iou = inter_vol / union
-            if iou > 0.0:
-                rows.extend([i, j])
-                cols.extend([j, i])
-                data.extend([iou, iou])
+        if not idxs:
+            continue
+        idxs = np.asarray(idxs, dtype=np.intp)
+        idxs = idxs[idxs > i]
+        if idxs.size == 0:
+            continue
+
+        inter_low = np.maximum(lows[i], lows[idxs])
+        inter_high = np.minimum(highs[i], highs[idxs])
+        inter_dims = np.clip(inter_high - inter_low, 0, None)
+        inter_vol = inter_dims.prod(axis=1)
+        union = vol[i] + vol[idxs] - inter_vol
+
+        positive_union = union > 0
+        iou = np.zeros_like(union)
+        if np.any(positive_union):
+            iou[positive_union] = inter_vol[positive_union] / union[positive_union]
+
+        zero_union = ~positive_union
+        if np.any(zero_union):
+            same = (
+                np.all(lows[i] == lows[idxs[zero_union]], axis=1)
+                & np.all(highs[i] == highs[idxs[zero_union]], axis=1)
+            )
+            iou[zero_union] = same.astype(iou.dtype)
+
+        mask = iou > 0.0
+        if not np.any(mask):
+            continue
+
+        pos_idxs = idxs[mask]
+        pos_iou = iou[mask]
+
+        rows.extend(np.full(pos_idxs.size, i, dtype=np.intp).tolist())
+        cols.extend(pos_idxs.tolist())
+        data.extend(pos_iou.tolist())
+        rows.extend(pos_idxs.tolist())
+        cols.extend(np.full(pos_idxs.size, i, dtype=np.intp).tolist())
+        data.extend(pos_iou.tolist())
 
     return sparse.coo_matrix((data, (rows, cols)), shape=(n, n))
 

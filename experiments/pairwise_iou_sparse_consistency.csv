@@ -1,0 +1,5 @@
+n_regions,dims,max_abs_diff,identical_within_tol
+25,3,0.0,True
+50,3,0.0,True
+100,3,0.0,True
+200,3,0.0,True
