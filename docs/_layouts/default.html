@@ -16,6 +16,12 @@
     <header class="site-header">
       <div class="container">
         <a class="site-title" href="{{ '/' | relative_url }}">{{ site.title | default: 'Documentation' }}</a>
+        <div class="search-panel">
+          <label class="visually-hidden" for="doc-search-input">Search the documentation</label>
+          <input id="doc-search-input" class="search-input" type="search" placeholder="Search / Buscar" autocomplete="off" spellcheck="false" aria-describedby="doc-search-hint" />
+          <p id="doc-search-hint" class="search-hint">Type to filter topics in English or Spanish.</p>
+          <div id="doc-search-results" class="search-results" role="listbox" aria-label="Search results" aria-live="polite"></div>
+        </div>
       </div>
     </header>
     <div class="page-wrapper">
@@ -53,5 +59,7 @@
       </div>
     </footer>
     <script src="{{ '/lang.js' | relative_url }}" defer></script>
+    <script>window.__DOC_SEARCH_INDEX__ = "{{ '/search-data.json' | relative_url }}";</script>
+    <script src="{{ '/search.js' | relative_url }}" defer></script>
   </body>
 </html>
