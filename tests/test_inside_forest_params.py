@@ -10,6 +10,7 @@ def test_get_params_returns_init_values():
     model = InsideForestClassifier(
         rf_params={"n_estimators": 5},
         tree_params={"lang": "python"},
+        no_trees_search=10,
         n_clusters=2,
         include_summary_cluster=True,
         method="balance_lists_n_clusters",
@@ -20,6 +21,7 @@ def test_get_params_returns_init_values():
     params = model.get_params()
     assert params["rf_params"]["n_estimators"] == 5
     assert params["tree_params"]["lang"] == "python"
+    assert params["no_trees_search"] == 10
     assert params["n_clusters"] == 2
     assert params["include_summary_cluster"] is True
     assert params["method"] == "balance_lists_n_clusters"
@@ -30,6 +32,21 @@ def test_get_params_returns_init_values():
     assert params["max_cases"] == 750
     assert params["balance_clusters"] is True
     assert params["seed"] == 42
+    assert model.trees.no_trees_search == 10
+
+
+def test_no_trees_search_defaults_to_300():
+    model = InsideForestClassifier()
+    assert model.no_trees_search == 300
+    assert model.tree_params["no_trees_search"] == 300
+    assert model.trees.no_trees_search == 300
+
+
+def test_no_trees_search_can_be_disabled():
+    model = InsideForestClassifier(no_trees_search=None)
+    assert model.no_trees_search is None
+    assert "no_trees_search" not in model.tree_params
+    assert model.trees.no_trees_search is None
 
 
 def test_set_params_updates_attributes():
@@ -60,6 +77,16 @@ def test_set_params_updates_attributes():
     assert model.low_leaf_fraction == 0.1
     model.set_params(max_cases=100)
     assert model.max_cases == 100
+
+    model.set_params(no_trees_search=15)
+    assert model.no_trees_search == 15
+    assert model.tree_params["no_trees_search"] == 15
+    assert model.trees.no_trees_search == 15
+
+    model.set_params(tree_params__no_trees_search=20)
+    assert model.no_trees_search == 20
+    assert model.tree_params["no_trees_search"] == 20
+    assert model.trees.no_trees_search == 20
 
     model.set_params(seed=123)
     assert model.seed == 123

@@ -11,13 +11,21 @@ logger = logging.getLogger(__name__)
 
 class Trees:
 
-  def __init__(self, lang='python',n_sample_multiplier=2, ef_sample_multiplier=3,
-               percentil=95, low_frac=0.05):
+  def __init__(
+      self,
+      lang='python',
+      n_sample_multiplier=2,
+      ef_sample_multiplier=3,
+      percentil=95,
+      low_frac=0.05,
+      no_trees_search=None,
+  ):
     self.lang = lang
     self.n_sample_multiplier = n_sample_multiplier
     self.ef_sample_multiplier = ef_sample_multiplier
     self.percentil = percentil
     self.low_frac = low_frac
+    self.no_trees_search = no_trees_search
 
 
   def transform_tree_structure(self, tree_str):
@@ -509,7 +517,10 @@ class Trees:
         ``toDebugString`` (PySpark) interfaces.
     no_trees_search : int | None, optional
         Maximum number of trees to analyse when summarising the forest.
-        If ``None`` all trees are used.
+        When ``None`` the value provided during :class:`Trees` instantiation
+        is used. When :class:`InsideForest` manages the instance this defaults
+        to ``300``; if the stored value is also ``None`` all trees are
+        analysed.
     verbose : int, default 0
         Verbosity level; ``1`` enables progress bars and logging.
 
@@ -520,7 +531,7 @@ class Trees:
         (rules) extracted from the forest.
     """
     if var_obj not in df.columns:
-       raise KeyError(f"Target column '{var_obj}' does not exist in the DataFrame")
+        raise KeyError(f"Target column '{var_obj}' does not exist in the DataFrame")
 
     # Separate X and ignore target column
     df_copy = df.copy()
@@ -529,8 +540,11 @@ class Trees:
         df_copy[col] = df_copy[col].cat.add_categories([0])
     X = df_copy.drop(columns=[var_obj]).fillna(0)
 
+    if no_trees_search is None:
+        no_trees_search = self.no_trees_search
+
     if verbose==1:
-       logger.info("Calling get_rangos to extract tree limits")
+        logger.info("Calling get_rangos to extract tree limits")
     try:
        df_full_arboles = self.get_rangos(regr, X, verbose)
     except Exception as exc:

@@ -18,6 +18,9 @@ from .regions import Regions
 from .descrip import get_frontiers
 
 
+_DEFAULT_NO_TREES_SEARCH = object()
+
+
 # ---------- FAST helpers ----------
 def _size_bucket(n: int, d: int) -> str:
     prod = n * d
@@ -103,6 +106,9 @@ class _BaseInsideForest:
         Parameters passed directly to the random forest estimator.
     tree_params : dict, optional
         Parameters forwarded to :class:`Trees`.
+    no_trees_search : int or None, optional, default 300
+        Maximum number of trees analysed when extracting rules. When
+        provided, this value is forwarded to :meth:`Trees.get_branches`.
     var_obj : str, default "target"
         Name of the column created for the target variable when building the
         internal DataFrame used for rule extraction.
@@ -150,6 +156,7 @@ class _BaseInsideForest:
         rf_cls,
         rf_params=None,
         tree_params=None,
+        no_trees_search: Optional[int] = _DEFAULT_NO_TREES_SEARCH,
         var_obj="target",
         n_clusters=None,
         include_summary_cluster=False,
@@ -173,6 +180,13 @@ class _BaseInsideForest:
         if self._user_rf_random_state is None:
             self.rf_params["random_state"] = seed
         self.tree_params = tree_params or {}
+        if no_trees_search is _DEFAULT_NO_TREES_SEARCH:
+            if "no_trees_search" in self.tree_params:
+                self.no_trees_search = self.tree_params["no_trees_search"]
+            else:
+                self.no_trees_search = 300
+        else:
+            self.no_trees_search = no_trees_search
         self.var_obj = var_obj
         self.n_clusters = n_clusters
         self.include_summary_cluster = include_summary_cluster
@@ -200,6 +214,10 @@ class _BaseInsideForest:
         # Ensure tree parameters include the percentile settings
         self.tree_params.setdefault("percentil", leaf_percentile)
         self.tree_params.setdefault("low_frac", low_leaf_fraction)
+        if self.no_trees_search is None:
+            self.tree_params.pop("no_trees_search", None)
+        else:
+            self.tree_params["no_trees_search"] = self.no_trees_search
 
         self.rf = rf_cls(**self.rf_params)
         self.trees = Trees(**self.tree_params)
@@ -241,6 +259,7 @@ class _BaseInsideForest:
             "leaf_percentile": self.leaf_percentile,
             "low_leaf_fraction": self.low_leaf_fraction,
             "max_cases": self.max_cases,
+            "no_trees_search": self.no_trees_search,
             "balance_clusters": self.balance_clusters,
             "auto_fast": self.auto_fast,
             "auto_feature_reduce": self.auto_feature_reduce,
@@ -281,10 +300,28 @@ class _BaseInsideForest:
                 self.tree_params = value
                 self.tree_params.setdefault("percentil", self.leaf_percentile)
                 self.tree_params.setdefault("low_frac", self.low_leaf_fraction)
+                if "no_trees_search" in self.tree_params:
+                    self.no_trees_search = self.tree_params["no_trees_search"]
+                elif self.no_trees_search is not None:
+                    self.tree_params["no_trees_search"] = self.no_trees_search
+                else:
+                    self.tree_params.pop("no_trees_search", None)
                 self.trees = Trees(**self.tree_params)
             elif key.startswith("tree_params__"):
                 sub_key = key.split("__", 1)[1]
-                self.tree_params[sub_key] = value
+                if sub_key == "no_trees_search" and value is None:
+                    self.tree_params.pop(sub_key, None)
+                else:
+                    self.tree_params[sub_key] = value
+                if sub_key == "no_trees_search":
+                    self.no_trees_search = value
+                self.trees = Trees(**self.tree_params)
+            elif key == "no_trees_search":
+                self.no_trees_search = value
+                if value is None:
+                    self.tree_params.pop("no_trees_search", None)
+                else:
+                    self.tree_params["no_trees_search"] = value
                 self.trees = Trees(**self.tree_params)
             elif key in {
                 "var_obj",
@@ -472,6 +509,12 @@ class _BaseInsideForest:
             if self._user_rf_random_state is None:
                 self.rf_params["random_state"] = self.seed
             self.tree_params = combined.get("tree_params", self.tree_params)
+            if "no_trees_search" in self.tree_params:
+                self.no_trees_search = self.tree_params["no_trees_search"]
+            elif self.no_trees_search is not None:
+                self.tree_params["no_trees_search"] = self.no_trees_search
+            else:
+                self.tree_params.pop("no_trees_search", None)
             self.divide = combined.get("divide", self.divide)
             self.method = combined.get("method", self.method)
             self.get_detail = combined.get("get_detail", self.get_detail)
@@ -508,7 +551,10 @@ class _BaseInsideForest:
 
         # Extract rules and compute labels using existing utilities
         separacion_dim = self.trees.get_branches(
-            df=df, var_obj=self.var_obj, regr=self.rf
+            df=df,
+            var_obj=self.var_obj,
+            regr=self.rf,
+            no_trees_search=self.no_trees_search,
         )
         df_reres = self.regions.prio_ranges(separacion_dim=separacion_dim, df=df)
 
@@ -721,6 +767,7 @@ class _BaseInsideForest:
             "leaf_percentile": self.leaf_percentile,
             "low_leaf_fraction": self.low_leaf_fraction,
             "max_cases": self.max_cases,
+            "no_trees_search": self.no_trees_search,
             "labels_": self.labels_,
             "feature_names_": self.feature_names_,
             "df_clusters_description_": self.df_clusters_description_,
@@ -747,7 +794,7 @@ class _BaseInsideForest:
         """
 
         payload = joblib.load(filepath)
-        model = cls(
+        init_kwargs = dict(
             rf_params=payload["rf_params"],
             tree_params=payload["tree_params"],
             var_obj=payload["var_obj"],
@@ -760,6 +807,10 @@ class _BaseInsideForest:
             low_leaf_fraction=payload.get("low_leaf_fraction", 0.03),
             max_cases=payload.get("max_cases", 750),
         )
+        stored_no_trees = payload.get("no_trees_search", _DEFAULT_NO_TREES_SEARCH)
+        if stored_no_trees is not _DEFAULT_NO_TREES_SEARCH:
+            init_kwargs["no_trees_search"] = stored_no_trees
+        model = cls(**init_kwargs)
         model.rf = payload["rf"]
         model.labels_ = payload["labels_"]
         model.feature_names_ = payload["feature_names_"]
@@ -780,6 +831,7 @@ class InsideForestClassifier(_BaseInsideForest):
         self,
         rf_params=None,
         tree_params=None,
+        no_trees_search: Optional[int] = _DEFAULT_NO_TREES_SEARCH,
         var_obj="target",
         n_clusters=None,
         include_summary_cluster=False,
@@ -800,6 +852,7 @@ class InsideForestClassifier(_BaseInsideForest):
             RandomForestClassifier,
             rf_params=rf_params,
             tree_params=tree_params,
+            no_trees_search=no_trees_search,
             var_obj=var_obj,
             n_clusters=n_clusters,
             include_summary_cluster=include_summary_cluster,
@@ -826,6 +879,7 @@ class InsideForestRegressor(_BaseInsideForest):
         self,
         rf_params=None,
         tree_params=None,
+        no_trees_search: Optional[int] = _DEFAULT_NO_TREES_SEARCH,
         var_obj="target",
         n_clusters=None,
         include_summary_cluster=False,
@@ -846,6 +900,7 @@ class InsideForestRegressor(_BaseInsideForest):
             RandomForestRegressor,
             rf_params=rf_params,
             tree_params=tree_params,
+            no_trees_search=no_trees_search,
             var_obj=var_obj,
             n_clusters=n_clusters,
             include_summary_cluster=include_summary_cluster,
