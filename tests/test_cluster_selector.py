@@ -5,6 +5,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import numpy as np
 import pandas as pd
 import pytest
+from InsideForest.ab_testing import BenchmarkConfig, benchmark_select_clusters
 from InsideForest.cluster_selector import select_clusters
 from InsideForest.legacy_select_clusters import select_clusters_legacy
 
@@ -128,3 +129,61 @@ def test_select_clusters_matches_reference_ab():
         keep_all_clusters=False,
         fallback_cluster=0.0,
     )
+
+
+def test_benchmark_select_clusters_matches_reference(tmp_path):
+    rng = np.random.default_rng(4321)
+    columnas = list("wxyz")
+    df_datos = pd.DataFrame(
+        rng.uniform(0.0, 1.0, size=(100, len(columnas))), columns=columnas
+    )
+
+    reglas_rows = []
+    clusters = []
+    for idx in range(10):
+        use_col = rng.random(len(columnas)) > 0.5
+        if not use_col.any():
+            use_col[idx % len(columnas)] = True
+
+        linf = np.full(len(columnas), np.nan)
+        lsup = np.full(len(columnas), np.nan)
+        linf_vals = rng.uniform(0.0, 0.7, size=use_col.sum())
+        lsup_vals = np.clip(linf_vals + rng.uniform(0.05, 0.4, size=use_col.sum()), 0.0, 1.0)
+
+        linf[use_col] = linf_vals
+        lsup[use_col] = lsup_vals
+
+        ponderador = float(idx + 1)
+        reglas_rows.append(list(linf) + list(lsup) + [ponderador])
+        clusters.append(float(idx % 3))
+
+    columnas_multi = [
+        ("linf", col) for col in columnas
+    ] + [
+        ("lsup", col) for col in columnas
+    ] + [
+        ("metrics", "ponderador")
+    ]
+    df_reglas = pd.DataFrame(
+        reglas_rows,
+        columns=pd.MultiIndex.from_tuples(columnas_multi),
+    )
+    df_reglas["cluster"] = clusters
+
+    config = BenchmarkConfig(runs=2, keep_all_clusters=True, fallback_cluster=None)
+    df_results = benchmark_select_clusters(df_datos, df_reglas, config=config)
+
+    assert (df_results["results_match"] == True).all()
+    assert set(df_results.columns) == {
+        "run",
+        "vectorized_seconds",
+        "legacy_seconds",
+        "speedup",
+        "results_match",
+        "faster",
+    }
+
+    output_path = tmp_path / "benchmark.csv"
+    df_results.to_csv(output_path, index=False)
+    loaded = pd.read_csv(output_path)
+    assert (loaded["results_match"] == True).all()
