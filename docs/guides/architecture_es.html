@@ -14,8 +14,8 @@ lang: es
 <ol>
   <li><strong>Capa de bosque:</strong> manejada por <code>Trees</code>, compatible con <code>scikit-learn</code> y PySpark.</li>
   <li><strong>Capa de regiones:</strong> <code>Regions</code> calcula métricas y genera rangos prioritarios.</li>
-  <li><strong>Capa de etiquetas:</strong> <code>ClusterSelector</code> y <code>Labels</code> consolidan y describen segmentos.</li>
-  <li><strong>Capa de utilidades:</strong> <code>Models</code> y <code>Metadata</code> ofrecen auditoría y reportes.</li>
+  <li><strong>Capa de etiquetas:</strong> los auxiliares de <code>cluster_selector</code> y <code>Labels</code> consolidan y describen segmentos.</li>
+  <li><strong>Capa de utilidades:</strong> <code>Models</code> y <code>MetaExtractor</code> ofrecen auditoría y reportes.</li>
 </ol>
 
 <h2>Flujo</h2>
@@ -23,15 +23,15 @@ lang: es
   <li>Entrena o conecta un bosque existente.</li>
   <li><code>Trees</code> extrae reglas.</li>
   <li><code>Regions</code> prioriza y estructura las regiones.</li>
-  <li><code>ClusterSelector</code> consolida según la estrategia deseada.</li>
-  <li><code>Labels</code>, <code>Models</code> y <code>Metadata</code> generan reportes.</li>
+  <li>Los auxiliares de <code>cluster_selector</code> consolidan según la estrategia deseada.</li>
+  <li><code>Labels</code>, <code>Models</code> y <code>MetaExtractor</code> generan reportes.</li>
 </ol>
 
 <h2>Extensión</h2>
 <ul>
   <li>Añade backends personalizados implementando la interfaz de <code>Trees</code>.</li>
-  <li>Crea estrategias nuevas derivando de <code>ClusterSelector</code>.</li>
-  <li>Amplía reportes extendiendo <code>Labels</code> o <code>Metadata</code>.</li>
+  <li>Crea estrategias nuevas extendiendo los auxiliares de <code>cluster_selector</code>.</li>
+  <li>Amplía reportes extendiendo <code>Labels</code> o creando utilidades sobre <code>MetaExtractor</code>.</li>
 </ul>
 
 <p>Sigue con <a href="configuration_es.html">Configuración</a> para aprender a ajustar parámetros.</p>

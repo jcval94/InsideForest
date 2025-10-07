@@ -7,19 +7,35 @@ nav_exclude: true
 lang: es
 ---
 
-<h1>Metadata</h1>
-<p>Proporciona un resumen estructurado de los metadatos generados durante el entrenamiento de InsideForest.</p>
+<h1>Utilidades de metadatos</h1>
+<p>El módulo <code>InsideForest.metadata</code> conecta las descripciones de clúster con el catálogo de datos de tu organización para auditar recomendaciones y planear experimentos.</p>
 
-<h2>Incluye</h2>
+<h2>Herramientas principales</h2>
 <ul>
-  <li><code>feature_mask</code>: variables retenidas tras la reducción automática.</li>
-  <li><code>fast_params</code>: presets de rendimiento aplicados.</li>
-  <li>Estadísticas de clústeres: tamaño, pureza y cobertura.</li>
+  <li><code>MetaExtractor</code>: vincula los tokens presentes en <code>cluster_description</code> con filas del catálogo y limita las columnas según el perfil seleccionado en <code>Profile</code>.</li>
+  <li><code>parse_rule_string</code>, <code>token_from_condition</code> y <code>conditions_to_tokens</code>: dividen reglas en condiciones individuales y tokens reutilizables.</li>
+  <li><code>experiments_from_df2</code> y <code>run_experiments</code>: generan hipótesis contrastando clústeres y priorizan dónde intervenir.</li>
 </ul>
 
 <h2>Ejemplo</h2>
-<pre><code class="language-python">meta = Metadata(clf)
-info = meta.to_dict()
+<pre><code class="language-python">import pandas as pd
+from InsideForest import MetaExtractor, Profile, run_experiments
+
+metadata_df = tabla_perfil.set_index("variable_id")  # incluye la fila de la variable objetivo
+mx = MetaExtractor(metadata_df, var_obj="target")
+
+catalogo = mx.extract(
+    clf.df_clusters_description_,
+    profile=Profile.BUSINESS,
+)
+
+registros = df_entrenamiento.copy()
+registros["target"] = y
+hipotesis = run_experiments(
+    mx,
+    {"iris": clf.df_clusters_description_},
+    data_dict={"iris": registros},
+)
 </code></pre>
 
-<p>Usa esta información para auditorías y documentación junto con la guía de <a href="../reproducibility_es.html">reproducibilidad</a>.</p>
+<p><strong>Nota:</strong> el catálogo de metadatos debe estar indexado por los tokens presentes en <code>cluster_description</code> y contener la fila de la variable objetivo. Las tablas detalladas <code>df_clusters_description_</code> y <code>df_datos_explain_</code> se generan cuando ajustas el estimador con <code>get_detail=True</code>. Combina estos reportes con los activos de la guía de <a href="../reproducibility_es.html">Reproducibilidad</a>.</p>
