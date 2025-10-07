@@ -14,18 +14,32 @@
   </head>
   <body>
     <header class="site-header">
-      <div class="container">
+      <div class="container header-bar">
         <a class="site-title" href="{{ '/' | relative_url }}">{{ site.title | default: 'Documentation' }}</a>
+        <div class="search-panel">
+          <label class="visually-hidden" for="doc-search-input">Search the documentation</label>
+          <input
+            id="doc-search-input"
+            class="search-input"
+            type="search"
+            placeholder="Search / Buscar"
+            autocomplete="off"
+            spellcheck="false"
+            aria-describedby="doc-search-hint"
+          />
+          <p id="doc-search-hint" class="search-hint">Type to filter topics in English or Spanish.</p>
+          <div
+            id="doc-search-results"
+            class="search-results"
+            role="listbox"
+            aria-label="Search results"
+            aria-live="polite"
+          ></div>
+        </div>
       </div>
     </header>
     <div class="page-wrapper">
       <nav class="sidebar">
-        <div class="search-panel">
-          <label class="visually-hidden" for="doc-search-input">Search the documentation</label>
-          <input id="doc-search-input" class="search-input" type="search" placeholder="Search / Buscar" autocomplete="off" spellcheck="false" aria-describedby="doc-search-hint" />
-          <p id="doc-search-hint" class="search-hint">Type to filter topics in English or Spanish.</p>
-          <div id="doc-search-results" class="search-results" role="listbox" aria-label="Search results" aria-live="polite"></div>
-        </div>
         {% assign visible_pages = site.html_pages | where_exp: 'p', 'p.nav_exclude != true' %}
         {% assign sorted_pages = visible_pages | sort: 'nav_order' %}
         <ul class="nav-list">
