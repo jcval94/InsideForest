@@ -16,29 +16,47 @@ from sklearn.preprocessing import StandardScaler
 
 logger = logging.getLogger(__name__)
 _client = None
+_client_key: Optional[str] = None
 
 
-def get_openai_client():
-    """Return a cached OpenAI client if credentials are available."""
-    global _client
-    if _client is not None:
+def get_openai_client(api_key: Optional[str] = None):
+    """Return a cached OpenAI client if credentials are available.
+
+    Parameters
+    ----------
+    api_key : str or None, optional
+        Explicit API key to use. When ``None`` the helper tries Colab userdata
+        first and then the ``OPENAI_API_KEY`` environment variable.
+    """
+
+    global _client, _client_key
+
+    resolved_key: Optional[str] = api_key
+
+    if not resolved_key:
+        try:  # Optional dependency – only available in Colab.
+            from google.colab import userdata  # type: ignore
+
+            resolved_key = userdata.get("OPENAI_API_KEY")
+        except Exception:
+            resolved_key = os.getenv("OPENAI_API_KEY")
+
+    if not resolved_key:
+        return None
+
+    if _client is not None and resolved_key == _client_key:
         return _client
+
     try:  # OpenAI SDK is optional
         from openai import OpenAI  # type: ignore
     except Exception:
         return None
     try:
-        from google.colab import userdata  # type: ignore
-
-        api_key = userdata.get("OPENAI_API_KEY")
-    except Exception:
-        api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        return None
-    try:
-        _client = OpenAI(api_key=api_key)
+        _client = OpenAI(api_key=resolved_key)
+        _client_key = resolved_key
     except Exception:
         _client = None
+        _client_key = None
     return _client
 
 
@@ -310,7 +328,11 @@ def generate_descriptions(
         generated descriptions, one per condition in ``condition_list``.
     """
 
-    client = OpenAI(api_key=OPENAI_API_KEY)
+    client = get_openai_client(OPENAI_API_KEY)
+
+    if client is None:
+        logger.warning("OpenAI client unavailable; returning empty descriptions")
+        return {"responses": []}
 
     if default_params is None:
 
