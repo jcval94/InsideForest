@@ -11,25 +11,24 @@ lang: es
 <p>Predice valores continuos y explica segmentos con InsideForest.</p>
 
 <h2>Objetivo</h2>
-<p>Modelar precios de vivienda en el dataset California Housing.</p>
+<p>Modelar la progresión de la diabetes con el dataset clásico de scikit-learn.</p>
 
 <h2>Paso 1: cargar datos</h2>
-<pre><code class="language-python">from sklearn.datasets import fetch_california_housing
+<pre><code class="language-python">from sklearn.datasets import load_diabetes
 
-data = fetch_california_housing()
-X, y = data.data, data.target
+X, y = load_diabetes(return_X_y=True)
 </code></pre>
 
 <h2>Paso 2: entrenar</h2>
 <pre><code class="language-python">from InsideForest import InsideForestRegressor
 
-regr = InsideForestRegressor(auto_feature_reduce=True, auto_fast=True)
+regr = InsideForestRegressor(auto_feature_reduce=True, auto_fast=True, get_detail=True)
 regr.fit(X, y)
 </code></pre>
 
 <h2>Paso 3: interpretar</h2>
 <ul>
-  <li><code>regr.describe_clusters(X, y)</code> para reglas.</li>
+  <li><code>regr.df_clusters_description_</code> y <code>regr.df_datos_explain_</code> para reglas y métricas.</li>
   <li>Localiza segmentos con error alto y genera acciones.</li>
   <li>Guarda el modelo con <code>regr.save("modelos/housing.joblib")</code>.</li>
 </ul>

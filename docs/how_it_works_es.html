@@ -29,10 +29,20 @@ rangos = regions.prio_ranges(ramas, X)
 <p>Si activas <code>auto_feature_reduce</code>, se eliminan variables con baja contribución antes de generar las regiones.</p>
 
 <h2>3. Etiqueta observaciones</h2>
-<p><code>regions.labels</code> asigna cada observación a una región y calcula resúmenes listos para análisis.</p>
-<pre><code class="language-python">clusteres, descripciones = regions.labels(X, rangos, return_descriptions=True)
+<p><code>regions.labels</code> asigna cada observación a una región y, con <code>return_dfs=True</code>, devuelve DataFrames descriptivos listos para análisis.</p>
+<pre><code class="language-python">df = X.copy()
+df["target"] = y
+clusteres, descripciones, etiquetas = regions.labels(
+    df=df,
+    df_reres=rangos,
+    n_clusters=None,
+    include_summary_cluster=False,
+    method="select_clusters",
+    return_dfs=True,
+    var_obj="target",
+)
 </code></pre>
-<p>Utiliza los métodos de consolidación <code>select_clusters</code>, <code>menu</code> o <code>match_class_distribution</code> para controlar el balance entre clases.</p>
+<p>Utiliza los auxiliares de <code>InsideForest.cluster_selector</code> como <code>select_clusters</code>, <code>menu</code> o <code>match_class_distribution</code> para controlar el balance entre clases.</p>
 
 <h2>4. Interpreta y comparte</h2>
 <p>El módulo <a href="api/labels_es.html">Labels</a> produce métricas por segmento y <a href="api/models_es.html">Models</a> ofrece utilidades para comparar modelos y exportar reglas.</p>
@@ -45,10 +55,10 @@ rangos = regions.prio_ranges(ramas, X)
 <h2>Flujo completo</h2>
 <pre><code class="language-python">from InsideForest import InsideForestClassifier
 
-clf = InsideForestClassifier(auto_fast=True, auto_feature_reduce=True, method="menu")
+clf = InsideForestClassifier(auto_fast=True, auto_feature_reduce=True, method="menu", get_detail=True)
 clf.fit(X_train, y_train)
 etiquetas = clf.predict(X_test)
-resumenes = clf.describe_clusters(X_test, y_test)
+resumenes = clf.df_clusters_description_
 </code></pre>
 
 <h2>Más recursos</h2>

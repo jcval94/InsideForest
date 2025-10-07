@@ -5,21 +5,35 @@ parent: InsideForest
 nav_order: 58
 ---
 
-<h1>Metadata</h1>
-<p>Centralizes metadata generated during training for auditability and traceability.</p>
+<h1>Metadata helpers</h1>
+<p>The <code>InsideForest.metadata</code> module bridges cluster descriptions with your organization’s data catalog so you can audit recommendations and design follow-up experiments.</p>
 
-<h2>Available information</h2>
+<h2>Main utilities</h2>
 <ul>
-  <li>Feature masks used (<code>feature_mask</code>).</li>
-  <li>Automatically applied parameters (<code>fast_params</code>).</li>
-  <li>Cluster size and purity statistics.</li>
+  <li><code>MetaExtractor</code>: maps the tokens found in <code>cluster_description</code> to rows in a metadata catalog and filters the columns to keep via the <code>Profile</code> enum.</li>
+  <li><code>parse_rule_string</code>, <code>token_from_condition</code> and <code>conditions_to_tokens</code>: helpers that split rule text into individual conditions and reusable tokens.</li>
+  <li><code>experiments_from_df2</code> and <code>run_experiments</code>: generate contrastive hypotheses between clusters, ranking where to intervene first.</li>
 </ul>
 
 <h2>Example</h2>
-<pre><code class="language-python">from InsideForest import Metadata
+<pre><code class="language-python">import pandas as pd
+from InsideForest import MetaExtractor, Profile, run_experiments
 
-meta = Metadata(clf)
-report = meta.to_dict()
+metadata_df = profiler_table.set_index("variable_id")  # must include the target row
+mx = MetaExtractor(metadata_df, var_obj="target")
+
+catalog = mx.extract(
+    clf.df_clusters_description_,
+    profile=Profile.INVESTIGATION,
+)
+
+records = training_df.copy()
+records["target"] = y
+hypotheses = run_experiments(
+    mx,
+    {"iris": clf.df_clusters_description_},
+    data_dict={"iris": records},
+)
 </code></pre>
 
-<p>Useful for meeting regulatory requirements and documenting experiments alongside <a href="../reproducibility.html">Reproducibility</a>.</p>
+<p><strong>Note:</strong> the metadata catalog must be indexed by the variable tokens found in <code>cluster_description</code> plus the target column. The detailed DataFrames <code>df_clusters_description_</code> and <code>df_datos_explain_</code> are populated when the estimator is fitted with <code>get_detail=True</code>. Combine the extracted catalog with reproducibility assets from the <a href="../reproducibility.html">Reproducibility</a> guide.</p>

@@ -27,10 +27,20 @@ priority_ranges = regions.prio_ranges(branches, X)
 <p>This stage can also reduce features when <code>auto_feature_reduce=True</code>, keeping only the most discriminative variables.</p>
 
 <h2>3. Label observations</h2>
-<p>The prioritized regions are used to label new or existing observations. The <code>regions.labels</code> function assigns rules, calculates metrics, and returns human-readable descriptions.</p>
-<pre><code class="language-python">clusterized, descriptive = regions.labels(X, priority_ranges, return_descriptions=True)
+<p>The prioritized regions are used to label new or existing observations. The <code>regions.labels</code> function assigns rules, calculates metrics, and—when <code>return_dfs=True</code>—returns detailed DataFrames.</p>
+<pre><code class="language-python">df = X.copy()
+df["target"] = y
+clustered, descriptive, labels = regions.labels(
+    df=df,
+    df_reres=priority_ranges,
+    n_clusters=None,
+    include_summary_cluster=False,
+    method="select_clusters",
+    return_dfs=True,
+    var_obj="target",
+)
 </code></pre>
-<p>Labels can be consolidated with strategies such as <code>select_clusters</code>, <code>menu</code>, or <code>match_class_distribution</code>.</p>
+<p>Labels can be consolidated with strategies such as <code>select_clusters</code>, <code>menu</code>, or <code>match_class_distribution</code> using the helpers from <code>InsideForest.cluster_selector</code>.</p>
 
 <h2>4. Interpret and export</h2>
 <p>The <a href="api/labels.html">Labels</a> module summarizes metrics per cluster, while <a href="api/models.html">Models</a> offers tools to compare baselines and export rules.</p>
@@ -48,10 +58,11 @@ clf = InsideForestClassifier(
     auto_fast=True,
     auto_feature_reduce=True,
     method="menu",
+    get_detail=True,
 )
 clf.fit(X_train, y_train)
 labels = clf.predict(X_test)
-descriptions = clf.describe_clusters(X_test, y_test)
+descriptions = clf.df_clusters_description_
 </code></pre>
 
 <h2>Learn more</h2>

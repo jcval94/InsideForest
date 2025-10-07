@@ -18,36 +18,38 @@ X, y = load_iris(return_X_y=True)
 clf = InsideForestClassifier(
     rf_params={"n_estimators": 400, "random_state": 21},
     auto_fast=True,
+    get_detail=True,
 )
 clf.fit(X, y)
 labels = clf.predict(X)
-resumen = clf.describe_clusters(X, y)
+resumen = clf.df_clusters_description_
 </code></pre>
-<p>Recuerda explorar <code>clf.feature_importances_</code> y <code>clf.plot_importances()</code> para comunicar qué variables generan cada segmento.</p>
+<p>Activa <code>get_detail=True</code> para conservar las tablas generadas durante el ajuste. Explora <code>clf.feature_importances_</code>, <code>clf.plot_importances()</code> y <code>clf.df_datos_explain_</code> para comunicar qué variables generan cada segmento. Los registros que no cumplen ninguna regla reciben la etiqueta <code>-1</code>; revisa la advertencia emitida por <code>predict</code> para cuantificarlos.</p>
 
 <h2>Flujo para regresión</h2>
-<pre><code class="language-python">from sklearn.datasets import fetch_california_housing
+<pre><code class="language-python">from sklearn.datasets import load_diabetes
 from InsideForest import InsideForestRegressor
 
-data = fetch_california_housing()
-regr = InsideForestRegressor(auto_feature_reduce=True)
-regr.fit(data.data, data.target)
-pred = regr.predict(data.data)
-reglas = regr.describe_clusters(data.data, data.target)
+X, y = load_diabetes(return_X_y=True)
+regr = InsideForestRegressor(auto_feature_reduce=True, get_detail=True)
+regr.fit(X, y)
+pred = regr.predict(X)
+reglas = regr.df_clusters_description_
 </code></pre>
-<p>El parámetro <code>auto_feature_reduce</code> elimina variables poco informativas antes de generar las regiones.</p>
+<p>El parámetro <code>auto_feature_reduce</code> elimina variables poco informativas antes de generar las regiones. Con <code>get_detail=True</code> obtienes <code>df_clusters_description_</code> y <code>df_datos_explain_</code> para análisis adicionales.</p>
 
 <h2>Estrategias de selección de clústeres</h2>
-<pre><code class="language-python">from InsideForest import ClusterSelector
+<pre><code class="language-python">from InsideForest import cluster_selector
 
-selector = ClusterSelector("match_class_distribution")
-ajustado = selector.select(clf.menu_, y)
+menu = cluster_selector.MenuClusterSelector(quota=0.2)
+menu.fit(clf.df_reres_, y)
+ajustado = menu.predict(clf.df_reres_)
 </code></pre>
 <ul>
   <li><code>"select_clusters"</code>: selección directa basada en reglas.</li>
-  <li><code>"balance_lists_n_clusters"</code>: reparte observaciones de forma uniforme.</li>
-  <li><code>"max_prob_clusters"</code>: prioriza segmentos con probabilidad alta.</li>
-  <li><code>"menu"</code> y <code>"match_class_distribution"</code>: preservan proporciones entre clases.</li>
+  <li><code>cluster_selector.balance_lists_n_clusters</code>: reparte observaciones de forma uniforme.</li>
+  <li><code>cluster_selector.max_prob_clusters</code>: prioriza segmentos con probabilidad alta.</li>
+  <li><code>cluster_selector.match_class_distribution</code> y <code>MenuClusterSelector</code>: preservan proporciones entre clases.</li>
 </ul>
 
 <h2>Persistencia de modelos</h2>
