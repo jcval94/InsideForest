@@ -24,14 +24,14 @@ X_train, X_test, y_train, y_test = train_test_split(
 <h2>Step 2: train and generate segments</h2>
 <pre><code class="language-python">from InsideForest import InsideForestClassifier
 
-clf = InsideForestClassifier(auto_fast=True, auto_feature_reduce=True)
+clf = InsideForestClassifier(auto_fast=True, auto_feature_reduce=True, get_detail=True)
 clf.fit(X_train, y_train)
-segments = clf.describe_clusters(X_test, y_test)
+segments = clf.df_clusters_description_
 </code></pre>
 
 <h2>Step 3: interpret results</h2>
 <ul>
-  <li>Inspect <code>segments</code> to review rules and metrics.</li>
+  <li>Inspect <code>segments</code> or <code>clf.df_datos_explain_</code> to review rules and metrics.</li>
   <li>Use <code>clf.plot_importances()</code> to visualize key variables.</li>
   <li>Export the model with <code>clf.save("models/iris.joblib")</code>.</li>
 </ul>

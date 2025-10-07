@@ -723,6 +723,7 @@ class _BaseInsideForest:
             "max_cases": self.max_cases,
             "labels_": self.labels_,
             "feature_names_": self.feature_names_,
+            "feature_names_out_": self.feature_names_out_,
             "df_clusters_description_": self.df_clusters_description_,
             "df_reres_": self.df_reres_,
             "df_datos_explain_": self.df_datos_explain_,
@@ -763,6 +764,7 @@ class _BaseInsideForest:
         model.rf = payload["rf"]
         model.labels_ = payload["labels_"]
         model.feature_names_ = payload["feature_names_"]
+        model.feature_names_out_ = payload.get("feature_names_out_")
         model.df_clusters_description_ = payload["df_clusters_description_"]
         model.df_reres_ = payload["df_reres_"]
         model.df_datos_explain_ = payload["df_datos_explain_"]

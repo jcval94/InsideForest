@@ -1,27 +1,46 @@
 ---
 layout: default
-title: ClusterSelector
+title: Auxiliares de selección
 parent: InsideForest
 nav_order: 56
 nav_exclude: true
 lang: es
 ---
 
-<h1>ClusterSelector</h1>
-<p>Permite elegir la estrategia de consolidación de clústeres según objetivos de negocio o métricas específicas.</p>
+<h1>Auxiliares de selección</h1>
+<p>El módulo <code>InsideForest.cluster_selector</code> ofrece funciones y clases para equilibrar o consolidar los clústeres generados por <code>Regions.labels</code>. Ya no existe una clase única <code>ClusterSelector</code>; emplea los auxiliares específicos según la necesidad.</p>
 
-<h2>Estrategias</h2>
+<h2>Herramientas destacadas</h2>
 <ul>
-  <li><code>select_clusters</code>: selección directa.</li>
-  <li><code>menu</code>: optimiza un objetivo de información.</li>
-  <li><code>max_prob_clusters</code>: prioriza regiones con mayor probabilidad.</li>
-  <li><code>balance_lists_n_clusters</code>: iguala tamaños de clúster.</li>
-  <li><code>match_class_distribution</code>: mantiene la distribución original de clases.</li>
+  <li><code>balance_lists_n_clusters(df_reres, seed=None)</code>: consolida etiquetas buscando tamaños similares.</li>
+  <li><code>max_prob_clusters(df_reres)</code>: asigna el clúster con mayor probabilidad para cada registro.</li>
+  <li><code>match_class_distribution(df_reres, y)</code>: ajusta asignaciones para respetar la distribución original de clases.</li>
+  <li><code>MenuClusterSelector(target_K=None, seed=None, max_passes=5)</code>: aprende un menú de candidatos y selecciona la mejor configuración con métricas de información.</li>
+  <li><code>ChimeraValuesSelector(quota=0.0, seed=None)</code>: combina siluetas y cuotas para suavizar asignaciones.</li>
 </ul>
 
 <h2>Ejemplo</h2>
-<pre><code class="language-python">selector = ClusterSelector("menu", quota=0.2)
-resultado = selector.select(menu_structure, y)
+<pre><code class="language-python">import pandas as pd
+from InsideForest import cluster_selector
+
+# Tras ejecutar InsideForestClassifier(..., get_detail=True).fit(X, y)
+df_caracteristicas = pd.DataFrame(X, columns=clf.feature_names_out_)
+df_caracteristicas["target"] = y
+clusterizado, _, _ = clf.regions.labels(
+    df=df_caracteristicas,
+    df_reres=clf.df_reres_,
+    method="select_clusters",
+    return_dfs=True,
+    var_obj="target",
+)
+
+registros = clusterizado["clusters_list"].tolist()
+menu = cluster_selector.MenuClusterSelector(target_K=2, seed=0, max_passes=1)
+menu.fit(registros[:30], y[:30])
+resultado = menu.predict(registros[:30], n_clusters=2)
+
+# También puedes usar una función directa
+balanceado = cluster_selector.balance_lists_n_clusters(registros[:30], seed=42, n_clusters=2)
 </code></pre>
 
-<p>Se usa internamente por los envoltorios, pero puedes aplicarlo manualmente sobre <code>menu_</code> para personalizar resultados.</p>
+<p>Todos los auxiliares operan sobre el DataFrame que devuelve <code>Regions.prio_ranges</code>, disponible como <code>df_reres_</code> en los envoltorios de alto nivel cuando se activa <code>get_detail=True</code>.</p>

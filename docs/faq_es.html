@@ -19,7 +19,7 @@ lang: es
 <p>Sí. Emplea <code>Trees('pyspark')</code> para extraer reglas de un <code>RandomForestClassifier</code> entrenado en Spark.</p>
 
 <h2>¿Cómo comunico los resultados?</h2>
-<p>Utiliza <code>describe_clusters</code> y <code>generate_descriptions</code> para obtener tablas y textos listos para stakeholders.</p>
+<p>Tras ajustar con <code>get_detail=True</code> revisa <code>df_clusters_description_</code> y <code>df_datos_explain_</code> para obtener tablas claras. Complementa con <code>generate_descriptions</code> cuando necesites textos automáticos.</p>
 
 <h2>¿Qué tamaño de datos soporta?</h2>
 <p>Se ha probado con millones de registros en CPU. Activa <code>auto_fast</code> y revisa <a href="performance_tips_es.html">consejos de rendimiento</a> para mejorar tiempos.</p>

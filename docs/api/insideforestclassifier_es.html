@@ -18,6 +18,8 @@ lang: es
     auto_feature_reduce=False,
     method="select_clusters",
     balance_clusters=False,
+    get_detail=False,
+    divide=5,
     random_state=None,
 )
 </code></pre>
@@ -59,11 +61,12 @@ lang: es
     auto_fast=True,
     auto_feature_reduce=True,
     method="menu",
+    get_detail=True,
     rf_params={"random_state": 21, "n_estimators": 400},
 )
 clf.fit(X_train, y_train)
 etiquetas = clf.predict(X_test)
-resumen = clf.describe_clusters(X_test, y_test)
+resumen = clf.df_clusters_description_
 clf.save("modelos/insideforest_clf.joblib")
 </code></pre>
 
@@ -71,7 +74,8 @@ clf.save("modelos/insideforest_clf.joblib")
 <ul>
   <li><code>feature_importances_</code>: importancia de variables.</li>
   <li><code>feature_names_out_</code>: nombres tras reducción automática.</li>
-  <li><code>menu_</code>: candidatos de clúster generados.</li>
+  <li><code>df_clusters_description_</code> y <code>df_datos_explain_</code>: disponibles cuando activas <code>get_detail=True</code>.</li>
+  <li><code>df_reres_</code>: reglas priorizadas almacenadas tras el ajuste.</li>
   <li><code>_fast_params_used_</code>: presets aplicados.</li>
 </ul>
 
@@ -79,6 +83,6 @@ clf.save("modelos/insideforest_clf.joblib")
 <ul>
   <li><a href="insideforestregressor_es.html">InsideForestRegressor</a></li>
   <li><a href="trees_es.html">Trees</a> para personalización avanzada.</li>
-  <li><a href="clusterselector_es.html">ClusterSelector</a> para estrategias de equilibrio.</li>
+  <li><a href="clusterselector_es.html">Auxiliares de selección</a> para estrategias de equilibrio.</li>
   <li><a href="../quick_api_es.html">API rápida</a> con ejemplos completos.</li>
 </ul>

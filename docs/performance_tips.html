@@ -25,7 +25,7 @@ nav_order: 5
 <h2>Batch predictions</h2>
 <ul>
   <li>InsideForest estimators accept NumPy arrays, pandas DataFrames, and Spark DataFrames.</li>
-  <li>For pandas inputs, prefer <code>predict</code> and <code>describe_clusters</code> in batches to avoid exhausting memory.</li>
+  <li>For pandas inputs, prefer <code>predict</code> and attribute access (<code>df_clusters_description_</code>) in batches to avoid exhausting memory.</li>
   <li>Use <code>predict_proba</code> on classifiers only when probability calibration is required, as it introduces extra computations.</li>
 </ul>
 

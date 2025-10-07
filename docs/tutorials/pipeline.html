@@ -18,13 +18,22 @@ cp templates/daily_pipeline.py pipelines/
 
 <h2>Step 2: define the script</h2>
 <pre><code class="language-python"># pipelines/daily_pipeline.py
+from pathlib import Path
+from sklearn.datasets import load_iris
 from InsideForest import InsideForestClassifier
-from insideforest.utils import load_data
+
+
+def load_data():
+    X, y = load_iris(return_X_y=True)
+    return X, X[:20], y
+
 
 X_train, X_new, y_train = load_data()
 clf = InsideForestClassifier(auto_fast=True, auto_feature_reduce=True)
 clf.fit(X_train, y_train)
+Path("artifacts").mkdir(exist_ok=True)
 clf.save("artifacts/insideforest.joblib")
+predictions = clf.predict(X_new)
 </code></pre>
 
 <h2>Step 3: validate in CI</h2>

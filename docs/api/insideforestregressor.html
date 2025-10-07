@@ -15,6 +15,8 @@ nav_order: 52
     auto_fast=False,
     auto_feature_reduce=False,
     method="select_clusters",
+    get_detail=False,
+    divide=5,
     random_state=None,
 )
 </code></pre>
@@ -24,11 +26,13 @@ nav_order: 52
 
 regr = InsideForestRegressor(
     auto_feature_reduce=True,
+    auto_fast=True,
+    get_detail=True,
     rf_params={"random_state": 42, "n_estimators": 500},
 )
 regr.fit(X_train, y_train)
 predictions = regr.predict(X_test)
-clusters = regr.describe_clusters(X_test, y_test)
+clusters = regr.df_clusters_description_
 </code></pre>
 
 <h2>When to use</h2>
@@ -42,7 +46,8 @@ clusters = regr.describe_clusters(X_test, y_test)
 <ul>
   <li><code>feature_importances_</code></li>
   <li><code>feature_names_out_</code></li>
-  <li><code>menu_</code></li>
+  <li><code>df_clusters_description_</code> and <code>df_datos_explain_</code> (with <code>get_detail=True</code>)</li>
+  <li><code>df_reres_</code></li>
 </ul>
 
-<p>For advanced options see <a href="clusterselector.html">ClusterSelector</a> and the <a href="metadata.html">Metadata</a> utilities.</p>
+<p>For advanced options see <a href="clusterselector.html">cluster selector helpers</a> and the <a href="metadata.html">Metadata</a> utilities.</p>
