@@ -17,6 +17,8 @@ lang: es
     auto_fast=False,
     auto_feature_reduce=False,
     method="select_clusters",
+    get_detail=False,
+    divide=5,
     random_state=None,
 )
 </code></pre>
@@ -24,11 +26,13 @@ lang: es
 <h2>Uso básico</h2>
 <pre><code class="language-python">regr = InsideForestRegressor(
     auto_feature_reduce=True,
+    auto_fast=True,
+    get_detail=True,
     rf_params={"random_state": 42, "n_estimators": 500},
 )
 regr.fit(X_train, y_train)
 predicciones = regr.predict(X_test)
-segmentos = regr.describe_clusters(X_test, y_test)
+segmentos = regr.df_clusters_description_
 </code></pre>
 
 <h2>Cuándo utilizarlo</h2>
@@ -42,7 +46,8 @@ segmentos = regr.describe_clusters(X_test, y_test)
 <ul>
   <li><code>feature_importances_</code></li>
   <li><code>feature_names_out_</code></li>
-  <li><code>menu_</code></li>
+  <li><code>df_clusters_description_</code> y <code>df_datos_explain_</code> (con <code>get_detail=True</code>)</li>
+  <li><code>df_reres_</code></li>
 </ul>
 
-<p>Complementa con <a href="clusterselector_es.html">ClusterSelector</a> para estrategias de consolidación y <a href="metadata_es.html">Metadata</a> para auditoría.</p>
+<p>Complementa con los <a href="clusterselector_es.html">auxiliares de selección</a> para estrategias de consolidación y <a href="metadata_es.html">Metadata</a> para auditoría.</p>
