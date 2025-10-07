@@ -1,0 +1,5 @@
+run_id,run_seed,model_seed,baseline_duration_seconds,optimized_duration_seconds,baseline_n_rows,optimized_n_rows,matches_baseline,speedup_vs_baseline,optimized_faster,n_rows_equal,all_runs_match,optimized_faster_share
+0,3757552657,435973636,4.027158006999798,3.436841152999932,5967,5967,True,1.1717614599338098,True,True,True,1.0
+1,673228719,493410014,4.109009898000295,3.8769063119998464,5518,5518,True,1.0598682473399057,True,True,True,1.0
+2,3241444873,1370499423,3.8033785500001613,3.774705455000003,5682,5682,True,1.0075961145424415,True,True,True,1.0
+aggregate,,,3.979848818333418,3.6961509733332605,5682,5682,True,1.0598682473399057,True,True,True,1.0

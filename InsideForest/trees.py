@@ -359,19 +359,44 @@ class Trees:
       X = data1.to_numpy()
       col_to_idx = {col: i for i, col in enumerate(data1.columns)}
       y = data1[var_obj].to_numpy()
+      n_samples = X.shape[0]
+
+      def _build_comparison_cache(ag_arbol):
+          """Cache unique feature comparisons for a single tree."""
+          unique_thresholds = {}
+          for feature, operador, rango in ag_arbol[['feature', 'operador', 'rangos']].itertuples(index=False):
+              if feature not in col_to_idx:
+                  continue
+              idx = col_to_idx[feature]
+              key = (idx, operador)
+              unique_thresholds.setdefault(key, set()).add(float(rango))
+
+          comparison_cache = {}
+          for (idx, operador), threshold_set in unique_thresholds.items():
+              thresholds = np.array(sorted(threshold_set), dtype=float)
+              if thresholds.size == 0:
+                  continue
+              feature_values = X[:, idx][:, None]
+              if operador == '<=':
+                  evaluations = feature_values <= thresholds
+              else:
+                  evaluations = feature_values > thresholds
+              for thr, column in zip(thresholds, evaluations.T):
+                  comparison_cache[(idx, operador, thr)] = column
+          return comparison_cache
 
       def _process_tree(arbol_num):
           ag_arbol = agrupacion[agrupacion['N_arbol'] == arbol_num]
           reglas_info = []
-
+          
           for regla_num in ag_arbol['N_regla'].unique():
               ag_regla = ag_arbol[ag_arbol['N_regla'] == regla_num]
               men_ = ag_regla[ag_regla['operador'] == '<='][['feature', 'rangos']].values
               may_ = ag_regla[ag_regla['operador'] == '>'][['feature', 'rangos']].values
 
-              le_idx = np.array([col_to_idx[c] for c in men_[:, 0]]) if len(men_) else np.array([], dtype=int)
+              le_idx = np.array([col_to_idx[c] for c in men_[:, 0]], dtype=int) if len(men_) else np.array([], dtype=int)
               le_val = men_[:, 1].astype(float) if len(men_) else np.array([], dtype=float)
-              gt_idx = np.array([col_to_idx[c] for c in may_[:, 0]]) if len(may_) else np.array([], dtype=int)
+              gt_idx = np.array([col_to_idx[c] for c in may_[:, 0]], dtype=int) if len(may_) else np.array([], dtype=int)
               gt_val = may_[:, 1].astype(float) if len(may_) else np.array([], dtype=float)
 
               reglas_info.append((ag_regla.copy(), le_idx, le_val, gt_idx, gt_val))
@@ -379,22 +404,56 @@ class Trees:
           if not reglas_info:
               return pd.DataFrame()
 
-          masks = []
-          for _, le_idx, le_val, gt_idx, gt_val in reglas_info:
-              conds = []
-              if le_idx.size:
-                  conds.append(X[:, le_idx] <= le_val)
-              if gt_idx.size:
-                  conds.append(X[:, gt_idx] > gt_val)
-              if conds:
-                  mask = np.logical_and.reduce(np.concatenate(conds, axis=1), axis=1)
-              else:
-                  mask = np.ones(X.shape[0], dtype=bool)
-              masks.append(mask)
+          comparison_cache = _build_comparison_cache(ag_arbol)
 
-          mask_matrix = np.vstack(masks)
-          n_sample = mask_matrix.sum(axis=1)
-          sums = mask_matrix @ y
+          def _fetch_comparison(idx, operador, thr):
+              key = (idx, operador, thr)
+              if key not in comparison_cache:
+                  column = X[:, idx] <= thr if operador == '<=' else X[:, idx] > thr
+                  comparison_cache[key] = column
+              return comparison_cache[key]
+
+          batch_size = 512
+          n_rules = len(reglas_info)
+          n_sample = np.zeros(n_rules, dtype=int)
+          sums = np.zeros(n_rules, dtype=float)
+          mask_buffer = np.empty(n_samples, dtype=bool)
+          max_conditions = 0
+          for _, le_idx, _, gt_idx, _ in reglas_info:
+              max_conditions = max(max_conditions, le_idx.size + gt_idx.size)
+          cond_matrix = (
+              np.empty((max_conditions, n_samples), dtype=bool)
+              if max_conditions > 0
+              else None
+          )
+
+          for start in range(0, n_rules, batch_size):
+              end = min(start + batch_size, n_rules)
+              for offset, (_, le_idx, le_val, gt_idx, gt_val) in enumerate(reglas_info[start:end]):
+                  conds = []
+                  if le_idx.size:
+                      for idx, thr in zip(le_idx, le_val):
+                          conds.append(_fetch_comparison(idx, '<=', thr))
+                  if gt_idx.size:
+                      for idx, thr in zip(gt_idx, gt_val):
+                          conds.append(_fetch_comparison(idx, '>', thr))
+
+                  if conds:
+                      if cond_matrix is not None:
+                          for idx_cond, cond in enumerate(conds):
+                              cond_matrix[idx_cond] = cond
+                          np.logical_and.reduce(
+                              cond_matrix[: len(conds)], axis=0, out=mask_buffer
+                          )
+                      else:
+                          mask_buffer.fill(True)
+                  else:
+                      mask_buffer.fill(True)
+
+                  rule_idx = start + offset
+                  n_sample[rule_idx] = mask_buffer.sum()
+                  sums[rule_idx] = mask_buffer @ y
+
           ef_sample = np.divide(sums, n_sample, out=np.zeros_like(sums, dtype=float), where=n_sample > 0)
 
           res = []
