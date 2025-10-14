@@ -13,6 +13,9 @@ nav_order: 55
   <li><code>generate_descriptions(region_df, feature_names)</code>: produces short text per cluster.</li>
   <li><code>categorize_conditions(descriptions)</code>: groups conditions by type.</li>
   <li><code>summaries(clusterized)</code>: coverage, purity, and size metrics.</li>
+  <li><code>custom_round(number)</code>: rounds magnitudes for human-readable reports.</li>
+  <li><code>get_intervals(interval_df)</code>: composes textual descriptions from branch bounds.</li>
+  <li><code>get_labels(range_dataframes, df, target_var, max_labels=9, num_branches=10)</code>: generates interval descriptions, average target values, and full populations for the most relevant branches.</li>
 </ul>
 
 <h2>Example</h2>
@@ -21,6 +24,19 @@ nav_order: 55
 labels = Labels()
 summary = labels.summaries(clusterized)
 descriptions = labels.generate_descriptions(descriptive, feature_names)
+
+branch_summaries = labels.get_labels(
+    range_dataframes=priority_ranges,
+    df=df,
+    target_var="target",
+    max_labels=5,
+)
+
+for branch in branch_summaries:
+    for description, (score, population) in branch.items():
+        mean_target, count = score
+        print(f"{description} → mean={mean_target:.3f}, size={count}")
+        print(population.head())
 </code></pre>
 
-<p>These reports can be exported to CSV or Markdown and complement the <code>df_clusters_description_</code> and <code>df_datos_explain_</code> attributes exposed by the high-level wrappers.</p>
+<p>The interval helpers reuse <code>custom_round</code> to harmonize units and highlight relevant digits. The resulting descriptions and populations can be exported to CSV or Markdown and complement the <code>df_clusters_description_</code> and <code>df_datos_explain_</code> attributes exposed by the high-level wrappers.</p>

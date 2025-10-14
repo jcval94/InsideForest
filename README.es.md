@@ -196,7 +196,19 @@ Proporciona métodos para recuperar observaciones críticas con KNN y ajustar un
 from InsideForest.labels import Labels
 
 lb = Labels()
-labels_out = lb.get_labels(rangos_priorizados, df, 'target', max_labels=5)
+resumenes_ramas = lb.get_labels(
+    rangos_priorizados,
+    df,
+    target_var="target",
+    max_labels=5,
+    num_branches=3,
+)
+
+for rama in resumenes_ramas:
+    for descripcion, (score, poblacion) in rama.items():
+        media_objetivo, conteo = score
+        print(f"{descripcion} → media={media_objetivo:.3f}, tamaño={conteo}")
+        print(poblacion.head())
 ```
 
 Genera etiquetas descriptivas para las ramas y clusters obtenidos del modelo.

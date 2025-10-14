@@ -15,12 +15,30 @@ lang: es
   <li><code>generate_descriptions(region_df, feature_names)</code>: textos descriptivos por clúster.</li>
   <li><code>categorize_conditions(descriptions)</code>: agrupa condiciones por tipo.</li>
   <li><code>summaries(clusterized)</code>: métricas de cobertura y pureza.</li>
+  <li><code>custom_round(number)</code>: redondeo contextual para reportes legibles.</li>
+  <li><code>get_intervals(interval_df)</code>: redacta intervalos a partir de los límites de cada rama.</li>
+  <li><code>get_labels(range_dataframes, df, target_var, max_labels=9, num_branches=10)</code>: obtiene descripciones, promedios del objetivo y subconjuntos completos para las ramas más representativas.</li>
 </ul>
 
 <h2>Ejemplo</h2>
-<pre><code class="language-python">labels = Labels()
+<pre><code class="language-python">from InsideForest import Labels
+
+labels = Labels()
 resumen = labels.summaries(clusteres)
 descripciones = labels.generate_descriptions(descriptivo, feature_names)
+
+resumenes_ramas = labels.get_labels(
+    range_dataframes=rangos_priorizados,
+    df=df,
+    target_var="target",
+    max_labels=5,
+)
+
+for rama in resumenes_ramas:
+    for descripcion, (score, poblacion) in rama.items():
+        media_objetivo, conteo = score
+        print(f"{descripcion} → media={media_objetivo:.3f}, tamaño={conteo}")
+        print(poblacion.head())
 </code></pre>
 
-<p>Integra estos resultados en dashboards o reportes y combínalos con los atributos <code>df_clusters_description_</code> y <code>df_datos_explain_</code> (disponibles en los envoltorios cuando activas <code>get_detail=True</code>). Consulta también <a href="../reproducibility_es.html">reproducibilidad</a> para documentar versiones.</p>
+<p>Los auxiliares de intervalos reutilizan <code>custom_round</code> para homogeneizar unidades y resaltar dígitos relevantes. Las descripciones y poblaciones resultantes se pueden exportar a CSV o Markdown y complementan los atributos <code>df_clusters_description_</code> y <code>df_datos_explain_</code> (disponibles en los envoltorios cuando activas <code>get_detail=True</code>). Consulta también <a href="../reproducibilidad_es.html">reproducibilidad</a> para documentar versiones.</p>
