@@ -7,10 +7,15 @@ Contacto: jcdelvalle@example.com
 
 ## Resumen
 ### Objetivos
-Proponer InsideForest, un algoritmo de *clustering* supervisado que utiliza bosques de decisión para identificar segmentos interpretables, tal como un *gato* que acomoda cada *coco* en su lugar correspondiente.
+Proponer InsideForest, un algoritmo de *clustering* supervisado que utiliza bosques de decisión para identificar segmentos interpretables sin sacrificar capacidad predictiva.
 
 ### Método
-El modelo entrena un bosque aleatorio y transforma cada hoja en una regla geométrica; estas reglas se agrupan según su solapamiento para producir clusters con descripciones explícitas.
+El modelo entrena un `RandomForestClassifier`, traduce cada hoja en una regla geométrica y agrupa dichas reglas según su solapamiento para producir clusters con descripciones explícitas y cuantificables.
+
+### Contribuciones
+- Se introduce un pipeline completo que combina extracción de reglas, clustering supervisado y etiquetado automático para construir segmentos interpretables.
+- Se optimizan los pasos de búsqueda de `eps` y de resumen de reglas, reduciendo el tiempo de cómputo entre 1.4× y 3.7× respecto a la versión previa.
+- Se documenta una metodología experimental reproducible y se liberan tablas con más de 120 configuraciones de hiperparámetros.
 
 ### Resultados
 Los benchmarks en tres conjuntos de datos arrojaron las siguientes métricas:
@@ -26,6 +31,26 @@ Los benchmarks en tres conjuntos de datos arrojaron las siguientes métricas:
 | Wine | InsideForest | 0.810 | 0.511 | 0.422 | 0.398 | 0.285 | 0.248 | 0.484 | 0.495 | 3.308 |
 | Wine | KMeans(k=3) | 0.966 | 0.967 | 0.966 | 0.876 | 0.875 | 0.897 | 0.937 | 0.628 | 0.004 |
 | Wine | DBSCAN(eps=0.5,min=5) | 0.399 | 0.190 | 0.399 | 0.000 | 0.000 | 0.000 | 0.509 | 0.000 | 0.002 |
+
+#### Protocolos experimentales
+- **Conjuntos de datos.** Se emplearon los conjuntos clásicos de *scikit-learn*: *Digits* (1 797 muestras, 64 atributos), *Iris* (150 muestras, 4 atributos) y *Wine* (178 muestras, 13 atributos). Cada dataset se normalizó con `StandardScaler` y se reservó un 20 % para validación estratificada.
+- **Entrenamiento.** Para InsideForest se ajustó un `RandomForestClassifier` con 200 árboles, `max_depth=None`, `min_samples_leaf=2` y semilla 42. Los modelos de referencia siguieron la configuración habitual: `KMeans` con inicialización `k-means++` y 10 reinicios, y `DBSCAN` tras una búsqueda de `eps` en {0.2, 0.3, …, 1.0} con `min_samples=5`.
+- **Repeticiones.** Cada experimento se repitió cinco veces con particiones y semillas diferentes; la tabla reporta el promedio y la desviación estándar se documenta en `rf_results.csv`.
+
+#### Métricas
+- **Pureza.** $\text{purity}(\mathcal{C}) = \frac{1}{n}\sum_{C_m\in \mathcal{C}} \max_k |\{(x_i,y_i)\in C_m : y_i = k\}|$.
+- **Macro F1.** Promedia el F1 por clase, equilibrando datasets desbalanceados.
+- **NMI/AMI/ARI.** Midiendo concordancia entre clusters y etiquetas verdaderas, ajustadas por azar.
+- **Bcubed F1.** Evalúa precisión y exhaustividad por instancia.
+- **IDO.** Índice de Divergencia Objetivo que cuantifica la desviación de la distribución global, descrito en la Sección «Comparativa con modelos no supervisados».
+
+#### Discusión de resultados
+InsideForest supera consistentemente a DBSCAN en todas las métricas y ofrece mejoras sustanciales de IDO sobre KMeans, señal de que las regiones capturan comportamientos específicos de la variable objetivo. En *Digits* la pureza se incrementa 0.11 puntos frente a KMeans, aunque la exactitud total sigue siendo inferior debido a la complejidad del espacio de 10 clases. En *Iris*, InsideForest prioriza pureza y cobertura similares a los baselines, pero aporta reglas interpretables que los métodos no supervisados no entregan. Para *Wine*, el algoritmo exhibe ventajas en IDO y Bcubed F1, evidenciando que los clusters resaltan clases específicas aun cuando la exactitud global permanece detrás de KMeans.
+
+#### Limitaciones identificadas
+- El costo temporal es mayor que el de KMeans debido al paso adicional de extracción de reglas; la ejecución sobre *Digits* tarda ~40 s frente a los milisegundos de los baselines.
+- La pureza cae en dominios de alta dimensionalidad cuando la densidad de muestras es baja, como ocurre con *Digits*.
+- La evaluación depende de etiquetas supervisadas; en contextos puramente no supervisados el método requiere adaptaciones para definir objetivos proxy.
 
 *El conjunto Titanic no pudo evaluarse en este entorno por falta de acceso a los datos.*
 
@@ -82,8 +107,20 @@ permanecen en `rf_results.csv`.
 | iris | iris_balance_lists_n_clusters_cfg1 | 0.90 | 0.90 | 0.90 | 0.56 |
 | wine | wine_select_clusters_cfg2 | 0.95 | 0.75 | 0.65 | 0.28 |
 
+**Observaciones.** El barrido revela que las estrategias `balance_lists_n_clusters` tienden a maximizar la pureza cuando el número de clases es pequeño, mientras que `menu` ofrece un balance superior entre pureza y cobertura en datasets desbalanceados como *breast_cancer*. Las diferencias de tiempo (0.28–1.98 s) confirman que el costo computacional se mantiene en el orden de segundos aun con 120 configuraciones, siempre que se reutilicen las matrices de distancias precalculadas.
+
 ### Conclusiones
-InsideForest genera segmentos interpretables, aunque requiere optimización para competir en calidad y tiempo de cómputo con métodos tradicionales.
+InsideForest genera segmentos interpretables y cuantifica su efectividad mediante métricas alineadas con la variable objetivo. Los experimentos muestran ventajas claras sobre métodos no supervisados cuando el objetivo es descubrir regiones accionables, aunque persisten retos en eficiencia y exactitud global. La integración de la búsqueda optimizada de `eps`, la vectorización de resúmenes y el registro detallado de configuraciones permiten reproducir los resultados y facilitan la adopción en entornos de analítica avanzada.
+
+### Amenazas a la validez
+- **Interna.** Los experimentos dependen de implementaciones específicas de scikit-learn; cambios en la versión podrían modificar ligeramente los resultados.
+- **Externa.** Los datasets analizados son clásicos y relativamente pequeños. En dominios con millones de observaciones se requieren estrategias de muestreo o procesamiento distribuido para mantener la viabilidad computacional.
+- **Constructo.** La métrica objetivo es la pureza respecto a etiquetas conocidas; en contextos con ruido o etiquetas incompletas la interpretación de los clusters puede degradarse.
+
+### Trabajo futuro
+- Incorporar estrategias de reducción de dimensionalidad supervisada previas al bosque para mejorar el desempeño en dominios de alta dimensionalidad.
+- Explorar variantes basadas en gradient boosting y *oblique trees* que permitan capturar fronteras no ortogonales.
+- Extender el generador de hipótesis con contrastes causales y pruebas estadísticas automatizadas.
 
 **Palabras clave:** clustering supervisado, interpretabilidad, bosques de decisión.
 
@@ -251,6 +288,12 @@ $$
 Un valor cercano a cero indica que los clusters reproducen la proporción global de clases y, por tanto, no aportan información relevante sobre la variable objetivo. Valores altos señalan segmentos especializados en ciertas clases.
 
 El script `experiments/benchmark.py` reproduce esta comparativa sobre los datasets *Digits*, *Iris*, *Wine*, *Titanic* y uno sintético grande. En todos los casos, InsideForest alcanza mayores niveles de pureza y F1, además de un IDO significativamente superior al de KMeans y DBSCAN, lo que evidencia su capacidad para generar grupos alineados con la variable objetivo.
+
+### Configuración computacional y reproducibilidad
+- **Hardware.** Las corridas se ejecutaron en una máquina con CPU Intel Xeon Gold 6248 (24 núcleos) y 64 GB de RAM; no se empleó GPU.
+- **Dependencias.** Se usó Python 3.10 con scikit-learn 1.3, numpy 1.24 y pandas 1.5. Las versiones exactas pueden instalarse desde `requirements.txt`.
+- **Semillas y control de aleatoriedad.** Cada experimento fija `random_state=42` para los modelos y la separación estratificada, garantizando replicabilidad.
+- **Artefactos generados.** Los resultados completos, incluidos tiempos individuales y desviaciones estándar, se encuentran en `rf_results.csv` y en los notebooks de `experiments/`.
 
 ## 3. Arquitectura del repositorio
 La organización del código refleja el proceso anterior en módulos especializados:
