@@ -224,7 +224,19 @@ Provides methods for retrieving critical observations with KNN and tuning a rand
 from InsideForest.labels import Labels
 
 lb = Labels()
-labels_out = lb.get_labels(priority_ranges, df, 'target', max_labels=5)
+branch_summaries = lb.get_labels(
+    priority_ranges,
+    df,
+    target_var="target",
+    max_labels=5,
+    num_branches=3,
+)
+
+for branch in branch_summaries:
+    for description, (score, population) in branch.items():
+        mean_target, count = score
+        print(f"{description} → mean={mean_target:.3f}, size={count}")
+        print(population.head())
 ```
 
 Generates descriptive labels for the branches and clusters obtained from the model.

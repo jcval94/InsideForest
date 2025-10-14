@@ -1,5 +1,8 @@
-import numpy as np
 import logging
+import math
+from numbers import Real
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +30,14 @@ class Labels:
         else:
             return ['{:.2e}'.format(val) for val in values]
 
+    @staticmethod
+    def _values_equal(value_a, value_b):
+        """Return ``True`` when two rounded values should be treated as equal."""
+
+        if isinstance(value_a, Real) and isinstance(value_b, Real):
+            return math.isclose(float(value_a), float(value_b), rel_tol=0, abs_tol=1e-9)
+        return value_a == value_b
+
     def custom_round(self, number):
         """Round a number according to its magnitude.
 
@@ -42,12 +53,29 @@ class Labels:
             scientific notation for very small magnitudes, and otherwise the
             number rounded to three decimals.
         """
-        if abs(number) > 100 or abs(number - int(number)) < 1e-10:
+        if number is None:
+            return None
+
+        if isinstance(number, bool):
             return int(number)
-        elif abs(number) < 0.01:
+
+        if not isinstance(number, Real):
+            return number
+
+        if isinstance(number, float) and math.isnan(number):
+            return number
+
+        if isinstance(number, float) and math.isinf(number):
+            return number
+
+        magnitude = abs(number)
+        if magnitude >= 100 or math.isclose(number, round(number), rel_tol=0, abs_tol=1e-10):
+            return int(round(number))
+
+        if 0 < magnitude < 0.01:
             return "{:.2e}".format(number)
-        else:
-            return round(number, 3)
+
+        return round(number, 3)
 
     def get_intervals(self, interval_df):
         """Generate textual descriptions from interval bounds.
@@ -65,20 +93,28 @@ class Labels:
             respective lower and upper limits.
         """
         interval_df = self.drop_height_columns(interval_df)
-        interval_df = interval_df.applymap(self.custom_round)
+        if getattr(interval_df.columns, "nlevels", 1) < 2:
+            raise ValueError("interval_df must have a two-level column MultiIndex")
+
+        rounded_df = interval_df.map(self.custom_round)
         interval_descriptions = []
-        for row_index in range(len(interval_df)):
+        linf_columns = [col for col in rounded_df.columns if col[0] == "linf"]
+
+        for row_index in range(len(rounded_df)):
             row_result = []
-            for col in interval_df[['linf']].columns:
-                lower_value = interval_df.iloc[row_index][('linf', col[-1])]
-                upper_value = interval_df.iloc[row_index][('lsup', col[-1])]
-                if lower_value == upper_value:
+            for _, variable in linf_columns:
+                try:
+                    lower_value = rounded_df.iloc[row_index][("linf", variable)]
+                    upper_value = rounded_df.iloc[row_index][("lsup", variable)]
+                except KeyError:
+                    continue
+                if self._values_equal(lower_value, upper_value):
                     continue
                 row_result.append(
-                    f"{col[-1]} between {lower_value} and {upper_value}"
+                    f"{variable} between {lower_value} and {upper_value}"
                 )
-            joined_descriptions = " | ".join(row_result)
-            interval_descriptions.append(joined_descriptions)
+            interval_descriptions.append(" | ".join(row_result))
+
         return interval_descriptions
 
     def drop_height_columns(self, df):
@@ -178,51 +214,73 @@ class Labels:
             target value and count of observations, while ``population`` is the
             subset of ``df`` satisfying the interval.
         """
+        if target_var not in df.columns:
+            raise KeyError(f"Target column '{target_var}' not present in DataFrame")
+
         labels_list = []
-        for branch_index in range(num_branches - 1):
-            if branch_index >= len(range_dataframes):
-                continue
+        target_array = df[target_var].to_numpy(copy=False)
+
+        branch_limit = min(max(num_branches - 1, 0), len(range_dataframes))
+        for branch_index in range(branch_limit):
             current_range_df = range_dataframes[branch_index]
-            current_range_df = current_range_df[
-                [(a, b) for a, b in current_range_df.columns if "altura" != b]
-            ]
-            interval_descriptions = self.get_intervals(
-                current_range_df.head(max_labels)
-            )
-            num_rows = len(interval_descriptions)
-            if num_rows == 0:
+            if current_range_df is None or getattr(current_range_df, "empty", False):
                 continue
+
+            cleaned_range_df = self.drop_height_columns(current_range_df)
+            if getattr(cleaned_range_df.columns, "nlevels", 1) < 2:
+                continue
+
+            limited_df = cleaned_range_df.head(max_labels)
+            interval_descriptions = self.get_intervals(limited_df)
+            valid_rows = [idx for idx, desc in enumerate(interval_descriptions) if desc]
+            if not valid_rows:
+                continue
+
             try:
-                variables = current_range_df["linf"].columns
+                variables = list(limited_df["linf"].columns)
+            except KeyError:
+                logger.exception("Missing 'linf' columns when obtaining labels")
+                continue
+
+            if not variables:
+                continue
+
+            try:
                 data_matrix = df[variables].to_numpy(copy=False)
-                lower_bounds = current_range_df["linf"].to_numpy(copy=False)[
-                    :num_rows
-                ]
-                upper_bounds = current_range_df["lsup"].to_numpy(copy=False)[
-                    :num_rows
-                ]
-                masks = np.all(
-                    (data_matrix[None, :, :] <= upper_bounds[:, None, :])
-                    & (data_matrix[None, :, :] > lower_bounds[:, None, :]),
-                    axis=2,
-                )
-                target_array = df[target_var].to_numpy(copy=False)
             except KeyError as exc:
                 logger.exception(
-                    "Missing columns when obtaining labels: %s",
+                    "Missing predictor columns when obtaining labels: %s",
                     exc,
                 )
                 continue
+
+            try:
+                lower_bounds = limited_df["linf"].iloc[valid_rows].to_numpy(copy=False)
+                upper_bounds = limited_df["lsup"].iloc[valid_rows].to_numpy(copy=False)
+            except KeyError as exc:
+                logger.exception(
+                    "Missing bound columns when obtaining labels: %s",
+                    exc,
+                )
+                continue
+
+            masks = np.all(
+                (data_matrix[None, :, :] <= upper_bounds[:, None, :])
+                & (data_matrix[None, :, :] > lower_bounds[:, None, :]),
+                axis=2,
+            )
+
             labels_dict = {}
-            for mask, description in zip(masks, interval_descriptions):
+            for mask, row_index in zip(masks, valid_rows):
                 if not mask.any():
                     continue
-                population_mask = mask & (target_array == 0)
-                if not population_mask.any():
-                    continue
-                score = (target_array[mask].mean(), int(mask.sum()))
-                population = df.loc[population_mask]
+
+                description = interval_descriptions[row_index]
+                target_slice = target_array[mask]
+                score = (float(np.nanmean(target_slice)), int(mask.sum()))
+                population = df.loc[mask]
                 labels_dict[description] = [score, population]
+
             if labels_dict:
                 labels_list.append(labels_dict)
 
