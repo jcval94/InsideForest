@@ -202,16 +202,34 @@ class Regions:
         those of ``df_clusterizado``.
     """
 
-    dims_after_clus = list(df_clusterizado['linf'].columns)
+    if not separacion_dim:
+      raise ValueError(
+          "separacion_dim is empty; cannot find a matching original tree for "
+          f"cluster dimensions {list(df_clusterizado['linf'].columns)}"
+      )
 
-    for i in range(len(separacion_dim)):
-      dims = list(set(separacion_dim[i].dimension.values))
+    dims_after_clus = list(df_clusterizado['linf'].columns)
+    match_idx = None
+
+    for i, sep_dim in enumerate(separacion_dim):
+      dims = list(set(sep_dim.dimension.values))
       if len(dims) == len(dims_after_clus):
-        if all([a == b for a, b in zip(sorted(dims),
-                                       sorted(dims_after_clus))]):
+        if all(a == b for a, b in zip(sorted(dims), sorted(dims_after_clus))):
+          match_idx = i
           break
 
-    return separacion_dim[i]
+    if match_idx is None:
+      available_dims = [
+          sorted(list(set(sep_dim.dimension.values)))
+          for sep_dim in separacion_dim
+      ]
+      raise ValueError(
+          "No matching original tree found for clustered dimensions "
+          f"{sorted(dims_after_clus)}. Available separacion_dim dimensions: "
+          f"{available_dims}"
+      )
+
+    return separacion_dim[match_idx]
     
   def mean_distance_ndim(self, df_sep_dm_agg):
     """Compute the average distance of each dimension.
@@ -1857,4 +1875,3 @@ class Regions:
           raise ValueError("Parameter 'direccion' must be 'arriba', 'abajo', 'ambos' or 'bottom'.")
 
       return top_n.sort_values(ascending=False)
-
