@@ -64,11 +64,15 @@ class MetaExtractor:
         # ---------- 2) Build data‑driven synonyms ----------
         self.synonyms: Dict[str, str] = {}
 
-        def _slug(text: str) -> str:
-            """lower + strip accents + remove punctuation/whitespace."""
+        def _slug_tokens(text: str) -> str:
+            """lower + strip accents + remove punctuation, preserving separators."""
             txt = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
             txt = txt.lower()
-            return txt.translate(str.maketrans("", "", string.punctuation)).replace(" ", "")
+            return txt.translate(str.maketrans("", "", string.punctuation))
+
+        def _slug_compacto(text: str) -> str:
+            """Compact normalized key without spaces for full-label matching."""
+            return _slug_tokens(text).replace(" ", "")
 
         # (a) variable_id itself
         for var in metadata_df.index:
@@ -82,10 +86,11 @@ class MetaExtractor:
                 label = row[col]
                 if pd.isna(label):
                     continue
-                slug = _slug(str(label))
-                self.synonyms.setdefault(slug, var)  # full slug
+                slug_compacto = _slug_compacto(str(label))
+                slug_tokens = _slug_tokens(str(label))
+                self.synonyms.setdefault(slug_compacto, var)  # full slug
                 # individual words
-                for w in slug.split():
+                for w in slug_tokens.split():
                     word_to_vars.setdefault(w, set()).add(var)
 
         # keep only unambiguous single‑var words
