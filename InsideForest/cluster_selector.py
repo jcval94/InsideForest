@@ -13,6 +13,7 @@ def select_clusters(
     df_reglas: pd.DataFrame,
     keep_all_clusters: bool = True,
     fallback_cluster: float | None = None,
+    batch_size: int | None = 2_048,
 ):
     """Determine cluster assignments for each record based on rules.
 
@@ -33,6 +34,9 @@ def select_clusters(
         Cluster to assign to records that do not match any rule. If ``None``
         (default), unassigned records remain with value ``-1`` and a warning is
         issued.
+    batch_size : int | None, optional
+        Number of rows from ``df_datos`` to process per block. Use ``None`` to
+        keep the legacy full-matrix behaviour (single block).
 
     Returns
     -------
@@ -45,6 +49,9 @@ def select_clusters(
         For each record, list of weights corresponding to
         ``clusters_datos_all`` (only if ``keep_all_clusters``).
     """
+
+    if batch_size is not None and batch_size <= 0:
+        raise ValueError("batch_size must be a positive integer or None")
 
     n_datos = df_datos.shape[0]
     clusters_datos = np.full(n_datos, -1, dtype=float)
@@ -138,43 +145,55 @@ def select_clusters(
     lsup_array = np.where(np.isnan(lsup_array), np.inf, lsup_array)
 
     n_reglas_validas = linf_array.shape[0]
-    cumple_reglas = np.ones((n_reglas_validas, n_datos), dtype=bool)
+    if n_reglas_validas > 0 and n_datos > 0:
+        chunk_size = n_datos if batch_size is None else min(batch_size, n_datos)
+        for start in range(0, n_datos, chunk_size):
+            end = min(start + chunk_size, n_datos)
+            X_chunk = X_values[start:end]
 
-    for idx_col, col in enumerate(columnas_datos):
-        lower_bounds = linf_array[:, idx_col]
-        upper_bounds = lsup_array[:, idx_col]
+            cumple_reglas_chunk = np.ones((n_reglas_validas, end - start), dtype=bool)
 
-        if np.all(lower_bounds == -np.inf) and np.all(upper_bounds == np.inf):
-            continue
+            for idx_col in range(len(columnas_datos)):
+                lower_bounds = linf_array[:, idx_col]
+                upper_bounds = lsup_array[:, idx_col]
 
-        col_values = X_values[:, idx_col][None, :]
-        within_lower = col_values >= lower_bounds[:, None]
-        within_upper = col_values <= upper_bounds[:, None]
-        cumple_reglas &= within_lower & within_upper
+                if np.all(lower_bounds == -np.inf) and np.all(upper_bounds == np.inf):
+                    continue
 
-    if reglas_tienen_vars.size:
-        cumple_reglas[~reglas_tienen_vars, :] = False
+                col_values = X_chunk[:, idx_col][None, :]
+                within_lower = col_values >= lower_bounds[:, None]
+                within_upper = col_values <= upper_bounds[:, None]
+                cumple_reglas_chunk &= within_lower & within_upper
 
-    if n_reglas_validas == 0:
-        cumple_reglas = np.zeros((0, n_datos), dtype=bool)
+            if reglas_tienen_vars.size:
+                cumple_reglas_chunk[~reglas_tienen_vars, :] = False
 
-    if cumple_reglas.size:
-        ponderadores_expandidos = np.where(cumple_reglas, ponderadores[:, None], -np.inf)
-        mejor_regla_idx = np.argmax(ponderadores_expandidos, axis=0)
-        mejor_ponderador = ponderadores_expandidos[mejor_regla_idx, np.arange(n_datos)]
-        actualizar = mejor_ponderador > ponderador_datos
-        clusters_datos[actualizar] = clusters_reglas[mejor_regla_idx[actualizar]]
-        ponderador_datos[actualizar] = mejor_ponderador[actualizar]
-    else:
-        mejor_ponderador = np.full(n_datos, -np.inf, dtype=float)
+            if cumple_reglas_chunk.size:
+                ponderadores_expandidos = np.where(
+                    cumple_reglas_chunk,
+                    ponderadores[:, None],
+                    -np.inf,
+                )
+                mejor_regla_idx = np.argmax(ponderadores_expandidos, axis=0)
+                mejor_ponderador = ponderadores_expandidos[
+                    mejor_regla_idx,
+                    np.arange(end - start),
+                ]
+                ponderador_chunk = ponderador_datos[start:end]
+                actualizar = mejor_ponderador > ponderador_chunk
+                if actualizar.any():
+                    chunk_indices = np.arange(start, end)[actualizar]
+                    clusters_datos[chunk_indices] = clusters_reglas[mejor_regla_idx[actualizar]]
+                    ponderador_datos[chunk_indices] = mejor_ponderador[actualizar]
 
-    if keep_all_clusters:
-        cumple_por_dato = cumple_reglas.T if cumple_reglas.size else np.zeros((n_datos, 0), dtype=bool)
-        for i, coincidencias in enumerate(cumple_por_dato):
-            if coincidencias.any():
-                indices = np.nonzero(coincidencias)[0]
-                clusters_datos_all[i].extend(float(clusters_reglas[j]) for j in indices)
-                ponderadores_datos_all[i].extend(float(ponderadores[j]) for j in indices)
+            if keep_all_clusters:
+                cumple_por_dato = cumple_reglas_chunk.T
+                for idx_local, coincidencias in enumerate(cumple_por_dato):
+                    if coincidencias.any():
+                        row_idx = start + idx_local
+                        indices = np.nonzero(coincidencias)[0]
+                        clusters_datos_all[row_idx].extend(float(clusters_reglas[j]) for j in indices)
+                        ponderadores_datos_all[row_idx].extend(float(ponderadores[j]) for j in indices)
 
 
     # Detect records without assigned cluster after evaluating all rules
