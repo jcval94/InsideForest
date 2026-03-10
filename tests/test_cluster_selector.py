@@ -187,3 +187,53 @@ def test_benchmark_select_clusters_matches_reference(tmp_path):
     df_results.to_csv(output_path, index=False)
     loaded = pd.read_csv(output_path)
     assert (loaded["results_match"] == True).all()
+
+
+@pytest.mark.parametrize("n_rows,n_rules,batch_size", [(30, 8, 7), (300, 40, 64)])
+def test_select_clusters_chunked_matches_full_matrix(n_rows, n_rules, batch_size):
+    rng = np.random.default_rng(9876 + n_rows + n_rules)
+    columnas = list("abcd")
+    df_datos = pd.DataFrame(
+        rng.uniform(0.0, 1.0, size=(n_rows, len(columnas))), columns=columnas
+    )
+
+    reglas_rows = []
+    clusters = []
+    for idx in range(n_rules):
+        use_col = rng.random(len(columnas)) > 0.3
+        if not use_col.any():
+            use_col[rng.integers(0, len(columnas))] = True
+
+        linf = np.full(len(columnas), np.nan)
+        lsup = np.full(len(columnas), np.nan)
+        linf_vals = rng.uniform(0.0, 0.7, size=use_col.sum())
+        lsup_vals = np.clip(linf_vals + rng.uniform(0.01, 0.3, size=use_col.sum()), 0.0, 1.0)
+
+        linf[use_col] = linf_vals
+        lsup[use_col] = lsup_vals
+
+        reglas_rows.append(list(linf) + list(lsup) + [float(idx + 1)])
+        clusters.append(float((idx % 5) + 1))
+
+    columnas_multi = [("linf", col) for col in columnas] + [("lsup", col) for col in columnas] + [("metrics", "ponderador")]
+    df_reglas = pd.DataFrame(reglas_rows, columns=pd.MultiIndex.from_tuples(columnas_multi))
+    df_reglas["cluster"] = clusters
+
+    chunked = select_clusters(
+        df_datos,
+        df_reglas,
+        keep_all_clusters=True,
+        fallback_cluster=0.0,
+        batch_size=batch_size,
+    )
+    full_matrix = select_clusters(
+        df_datos,
+        df_reglas,
+        keep_all_clusters=True,
+        fallback_cluster=0.0,
+        batch_size=None,
+    )
+
+    assert np.array_equal(chunked[0], full_matrix[0])
+    assert chunked[1] == full_matrix[1]
+    assert chunked[2] == full_matrix[2]
