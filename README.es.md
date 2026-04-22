@@ -95,6 +95,42 @@ Puedes controlar cómo se eligen las etiquetas finales mediante el parámetro
 - `"max_prob_clusters"`: prioriza los clústers con mayor probabilidad
 - `"menu"`: aplica `MenuClusterSelector` para maximizar un objetivo informativo global
 
+### Optimizar la fase no supervisada (`method="menu"`)
+
+Si tu cuello de botella está en la selección no supervisada de clústers,
+estas prácticas suelen dar mejoras rápidas de tiempo/memoria:
+
+1. **Reducir el catálogo antes de optimizar**
+   - Usa `n_clusters` en `predict` para limitar el espacio de búsqueda a un
+     conjunto de valores candidato más pequeño.
+   - Esto reduce el costo de cada iteración del esquema greedy.
+
+2. **Comprimir rarezas de reglas**
+   - Agrupa valores/reglas muy poco frecuentes en una categoría de respaldo
+     antes de ejecutar `MenuClusterSelector`.
+   - Menos cardinalidad implica menos combinaciones en la optimización.
+
+3. **Afinar el balance calidad vs. complejidad**
+   - Incrementa la penalización de complejidad (`lambda_reg`) cuando observes
+     sobrefragmentación en demasiados clústers pequeños.
+   - Ajusta los pesos de objetivo (`w_nmi`, `w_v`) según tu KPI final
+     (pureza, estabilidad o interpretabilidad).
+
+4. **Pre-filtrado de variables**
+   - Activa `auto_feature_reduce=True` o fija `explicit_k_features` para
+     alimentar menos ruido a la etapa de reglas.
+   - En datasets anchos, esto suele acelerar tanto entrenamiento como selección.
+
+5. **Controlar la granularidad de reglas**
+   - Disminuye ramas excesivas (por ejemplo bajando complejidad del bosque) si
+     detectas miles de reglas casi redundantes.
+   - Menos reglas útiles elevan la relación señal/ruido para el selector.
+
+6. **Optimización por bloques para grandes volúmenes**
+   - Si el dataset es muy grande, prueba un flujo por lotes: optimiza sobre una
+     muestra representativa y luego aplica reglas al resto.
+   - Recalibra periódicamente con una nueva muestra para evitar deriva.
+
 Después del ajuste, puedes consultar las importancias de las variables del
 bosque aleatorio y visualizarlas opcionalmente:
 
@@ -367,4 +403,3 @@ Esto produce un `DataFrame` resumen donde cada condición se etiqueta por grupo 
 ## Utilidades de optimización
 
 InsideForest ahora incluye un optimizador de Newton con región de confianza para problemas con restricciones de caja. La función auxiliar `_find_maximum` expone el parámetro `optim_method` para alternar entre el ascenso por gradiente estándar y este enfoque de región de confianza, que usa derivadas analíticas o por diferencias finitas y suele converger con menos evaluaciones respetando los límites.
-
