@@ -460,40 +460,28 @@ class Regions:
           DataFrame with infinite values replaced by the corresponding bounds
           and including the ``ponderador`` column.
       """
-      # Extraer las columnas 'linf' y 'lsup'
       df_lilu = df_sep_dm[['linf', 'lsup']].copy()
-      
-      # Calculate replacement limits for each dimension
-      lsup_limit = df[features_val].max() + 1  # Upper limit
-      linf_limit = df[features_val].min() - 1  # Lower limit
-      
-      # Ensure features_val order matches column order
-      # Get dimension names from the MultiIndex columns
-      linf_features = df_lilu['linf'].columns.tolist()
-      lsup_features = df_lilu['lsup'].columns.tolist()
-      
-      # For 'linf' columns
-      linf_repl_df = pd.DataFrame(
-          np.tile(linf_limit.values, (df_lilu['linf'].shape[0], 1)),
-          columns=df_lilu['linf'].columns,
-          index=df_lilu.index
-      )
-      
-      # For 'lsup' columns
-      lsup_repl_df = pd.DataFrame(
-          np.tile(lsup_limit.values, (df_lilu['lsup'].shape[0], 1)),
-          columns=df_lilu['lsup'].columns,
-          index=df_lilu.index
-      )
-      
-      # Create masks to identify where -inf and inf occur
-      mask_linf = np.isinf(df_lilu['linf'].values)
-      mask_lsup = np.isinf(df_lilu['lsup'].values)
-      
-      # Apply masks and replace values
-      # Use where to assign replacement values where mask is True
-      df_lilu['linf'] = np.where(mask_linf, linf_repl_df.values, df_lilu['linf'].values)
-      df_lilu['lsup'] = np.where(mask_lsup, lsup_repl_df.values, df_lilu['lsup'].values)
+
+      linf_cols = df_lilu['linf'].columns.tolist()
+      lsup_cols = df_lilu['lsup'].columns.tolist()
+      linf_values = df_lilu['linf'].to_numpy(dtype=float, copy=True)
+      lsup_values = df_lilu['lsup'].to_numpy(dtype=float, copy=True)
+
+      linf_limit = df[linf_cols].min().to_numpy(dtype=float) - 1.0
+      lsup_limit = df[lsup_cols].max().to_numpy(dtype=float) + 1.0
+
+      mask_linf = np.isinf(linf_values)
+      if mask_linf.any():
+          _, col_idx = np.where(mask_linf)
+          linf_values[mask_linf] = linf_limit[col_idx]
+
+      mask_lsup = np.isinf(lsup_values)
+      if mask_lsup.any():
+          _, col_idx = np.where(mask_lsup)
+          lsup_values[mask_lsup] = lsup_limit[col_idx]
+
+      df_lilu['linf'] = linf_values
+      df_lilu['lsup'] = lsup_values
       
       # Concatenar la columna 'ponderador' de vuelta al DataFrame
       df_replaced = pd.concat([df_lilu, df_sep_dm[['ponderador','ef_sample','n_sample']]], axis=1)

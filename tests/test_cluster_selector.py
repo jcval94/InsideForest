@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from InsideForest.ab_testing import BenchmarkConfig, benchmark_select_clusters
-from InsideForest.cluster_selector import select_clusters
+from InsideForest.cluster_selector import MenuClusterSelector, select_clusters
 from InsideForest.legacy_select_clusters import select_clusters_legacy
 
 
@@ -187,6 +187,18 @@ def test_benchmark_select_clusters_matches_reference(tmp_path):
     df_results.to_csv(output_path, index=False)
     loaded = pd.read_csv(output_path)
     assert (loaded["results_match"] == True).all()
+
+
+def test_menu_cluster_selector_catalog_makes_progress_with_negative_scores():
+    records = [[3.0], [0.0, 2.0, 3.0], [0.0, 2.0], [0.0, 1.0, 2.0]]
+    y = [0, 1, 0, 1]
+
+    selector = MenuClusterSelector(seed=42)
+    selector.fit(records, y)
+    labels = selector.predict(records, n_clusters=2)
+
+    assert len(labels) == len(records)
+    assert all(label in row for label, row in zip(labels, records))
 
 
 @pytest.mark.parametrize("n_rows,n_rules,batch_size", [(30, 8, 7), (300, 40, 64)])

@@ -247,23 +247,20 @@ class Trees:
       return df_full_arboles.assign(feature=[], operador=[], rangos=[])
 
     # Regular expression that captures numbers with optional underscores and scientific notation
-    num = r'[-+]?(?:\d+(?:_\d+)*)?(?:\.\d+(?:_\d+)*)?(?:e[-+]?\d+)?'
-    pattern = re.compile(rf'^(\S+)\s*(<=|>=|<|>)\s*({num})$', re.I)
+    num = r'([-+]?(?:\d+(?:_\d+)*)?(?:\.\d+(?:_\d+)*)?(?:e[-+]?\d+)?)'
+    pattern = rf'^(\S+?)(<=|>=|<|>){num}$'
 
-    def parse_regla(regla):
-        match = pattern.search(regla.replace(' ', ''))
-        if match:
-            feature = match.group(1)
-            operador = match.group(2)
-            rangos = float(match.group(3).replace('_', ''))
-            return feature, operador, rangos
-        else:
-            return None, None, None
-
-    # Apply the parsing function to each 'Regla' row
-    df_full_arboles[['feature', 'operador', 'rangos']] = df_full_arboles['Regla'].apply(
-        lambda x: parse_regla(x)
-    ).apply(pd.Series)
+    parsed = (
+        df_full_arboles['Regla']
+        .str.replace(' ', '', regex=False)
+        .str.extract(pattern, flags=re.I, expand=True)
+    )
+    df_full_arboles[['feature', 'operador', 'rangos']] = parsed
+    df_full_arboles['rangos'] = (
+        df_full_arboles['rangos']
+        .str.replace('_', '', regex=False)
+        .astype(float)
+    )
 
     # Remove rows that could not be parsed
     df_full_arboles = df_full_arboles.dropna(subset=['operador', 'rangos'])
@@ -361,117 +358,47 @@ class Trees:
       y = data1[var_obj].to_numpy()
       n_samples = X.shape[0]
 
-      def _build_comparison_cache(ag_arbol):
-          """Cache unique feature comparisons for a single tree."""
-          unique_thresholds = {}
-          for feature, operador, rango in ag_arbol[['feature', 'operador', 'rangos']].itertuples(index=False):
-              if feature not in col_to_idx:
-                  continue
-              idx = col_to_idx[feature]
-              key = (idx, operador)
-              unique_thresholds.setdefault(key, set()).add(float(rango))
-
-          comparison_cache = {}
-          for (idx, operador), threshold_set in unique_thresholds.items():
-              thresholds = np.array(sorted(threshold_set), dtype=float)
-              if thresholds.size == 0:
-                  continue
-              feature_values = X[:, idx][:, None]
-              if operador == '<=':
-                  evaluations = feature_values <= thresholds
-              else:
-                  evaluations = feature_values > thresholds
-              for thr, column in zip(thresholds, evaluations.T):
-                  comparison_cache[(idx, operador, thr)] = column
-          return comparison_cache
-
-      def _process_tree(arbol_num):
-          ag_arbol = agrupacion[agrupacion['N_arbol'] == arbol_num]
-          reglas_info = []
-          
-          for regla_num in ag_arbol['N_regla'].unique():
-              ag_regla = ag_arbol[ag_arbol['N_regla'] == regla_num]
-              men_ = ag_regla[ag_regla['operador'] == '<='][['feature', 'rangos']].values
-              may_ = ag_regla[ag_regla['operador'] == '>'][['feature', 'rangos']].values
-
-              le_idx = np.array([col_to_idx[c] for c in men_[:, 0]], dtype=int) if len(men_) else np.array([], dtype=int)
-              le_val = men_[:, 1].astype(float) if len(men_) else np.array([], dtype=float)
-              gt_idx = np.array([col_to_idx[c] for c in may_[:, 0]], dtype=int) if len(may_) else np.array([], dtype=int)
-              gt_val = may_[:, 1].astype(float) if len(may_) else np.array([], dtype=float)
-
-              reglas_info.append((ag_regla.copy(), le_idx, le_val, gt_idx, gt_val))
-
-          if not reglas_info:
-              return pd.DataFrame()
-
-          comparison_cache = _build_comparison_cache(ag_arbol)
-
-          def _fetch_comparison(idx, operador, thr):
-              key = (idx, operador, thr)
-              if key not in comparison_cache:
-                  column = X[:, idx] <= thr if operador == '<=' else X[:, idx] > thr
-                  comparison_cache[key] = column
-              return comparison_cache[key]
-
-          batch_size = 512
-          n_rules = len(reglas_info)
-          n_sample = np.zeros(n_rules, dtype=int)
-          sums = np.zeros(n_rules, dtype=float)
-          mask_buffer = np.empty(n_samples, dtype=bool)
-          max_conditions = 0
-          for _, le_idx, _, gt_idx, _ in reglas_info:
-              max_conditions = max(max_conditions, le_idx.size + gt_idx.size)
-          cond_matrix = (
-              np.empty((max_conditions, n_samples), dtype=bool)
-              if max_conditions > 0
-              else None
+      top_tree_set = set(top_100_arboles)
+      grouped_by_tree = [
+          (
+              arbol_num,
+              list(ag_arbol.groupby('N_regla', sort=False)),
           )
+          for arbol_num, ag_arbol in agrupacion.groupby('N_arbol', sort=False)
+          if arbol_num in top_tree_set
+      ]
 
-          for start in range(0, n_rules, batch_size):
-              end = min(start + batch_size, n_rules)
-              for offset, (_, le_idx, le_val, gt_idx, gt_val) in enumerate(reglas_info[start:end]):
-                  conds = []
-                  if le_idx.size:
-                      for idx, thr in zip(le_idx, le_val):
-                          conds.append(_fetch_comparison(idx, '<=', thr))
-                  if gt_idx.size:
-                      for idx, thr in zip(gt_idx, gt_val):
-                          conds.append(_fetch_comparison(idx, '>', thr))
-
-                  if conds:
-                      if cond_matrix is not None:
-                          for idx_cond, cond in enumerate(conds):
-                              cond_matrix[idx_cond] = cond
-                          np.logical_and.reduce(
-                              cond_matrix[: len(conds)], axis=0, out=mask_buffer
-                          )
-                      else:
-                          mask_buffer.fill(True)
-                  else:
-                      mask_buffer.fill(True)
-
-                  rule_idx = start + offset
-                  n_sample[rule_idx] = mask_buffer.sum()
-                  sums[rule_idx] = mask_buffer @ y
-
-          ef_sample = np.divide(sums, n_sample, out=np.zeros_like(sums, dtype=float), where=n_sample > 0)
-
+      def _process_tree(tree_groups):
+          mask_buffer = np.empty(n_samples, dtype=bool)
           res = []
-          for (df_regla, _, _, _, _), ns, ef in zip(reglas_info, n_sample, ef_sample):
-              df_regla['n_sample'] = ns
-              df_regla['ef_sample'] = ef
+          for _, ag_regla in tree_groups:
+              mask_buffer.fill(True)
+              for feature, operador, rango in ag_regla[['feature', 'operador', 'rangos']].itertuples(index=False):
+                  if feature not in col_to_idx:
+                      continue
+                  idx = col_to_idx[feature]
+                  if operador == '<=':
+                      np.logical_and(mask_buffer, X[:, idx] <= float(rango), out=mask_buffer)
+                  elif operador == '>':
+                      np.logical_and(mask_buffer, X[:, idx] > float(rango), out=mask_buffer)
+
+              n_sample = int(mask_buffer.sum())
+              ef_sample = float(mask_buffer @ y / n_sample) if n_sample > 0 else 0.0
+              df_regla = ag_regla.copy()
+              df_regla['n_sample'] = n_sample
+              df_regla['ef_sample'] = ef_sample
               res.append(df_regla)
 
-          return pd.concat(res, ignore_index=True)
+          return pd.concat(res, ignore_index=True) if res else pd.DataFrame()
 
-      it = tqdm(top_100_arboles, disable=(verbose == 0), desc="Procesando ramas") if verbose else top_100_arboles
+      it = tqdm(grouped_by_tree, disable=(verbose == 0), desc="Procesando ramas") if verbose else grouped_by_tree
       try:
           if n_jobs == 1:
-              resultados = [_process_tree(a) for a in it]
+              resultados = [_process_tree(groups) for _, groups in it]
           else:
-              resultados = Parallel(n_jobs=n_jobs)(delayed(_process_tree)(a) for a in it)
+              resultados = Parallel(n_jobs=n_jobs)(delayed(_process_tree)(groups) for _, groups in it)
       except Exception:
-          resultados = [_process_tree(a) for a in top_100_arboles]
+          resultados = [_process_tree(groups) for _, groups in grouped_by_tree]
 
       resultados = [r for r in resultados if r is not None and not r.empty]
       if not resultados:

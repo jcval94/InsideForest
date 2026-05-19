@@ -440,11 +440,15 @@ class MenuClusterSelector:
         while remaining:
             cover_gain = []
             for v in range(V):
-                gain = sum(s_val[v] for i in remaining if v in allowed[i])
-                cover_gain.append((gain, v))
-            v_best = max(cover_gain)[1]
+                covered = [i for i in remaining if v in allowed[i]]
+                if not covered:
+                    continue
+                gain = float(s_val[v] * len(covered))
+                cover_gain.append((len(covered), gain, v, covered))
+            if not cover_gain:
+                break
+            _, _, v_best, covered = max(cover_gain, key=lambda item: (item[0], item[1], item[2]))
             S.add(v_best)
-            covered = [i for i in list(remaining) if v_best in allowed[i]]
             for i in covered:
                 remaining.discard(i)
 
