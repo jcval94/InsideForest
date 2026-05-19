@@ -1,5 +1,17 @@
 [
   {
+    "title": "Salidas del pipeline completo",
+    "url": "tutorials/full_pipeline_outputs_es.html",
+    "content": "Salidas del pipeline completo Tutorial en espanol para documentar las salidas intermedias de InsideForest con get_detail=True. Incluye datos preparados, labels, pred_labels, df_reres_, df_clusters_description_, df_datos_explain, frontiers, descripciones, metadata.df, mis_df2s, top_experiments, df_exper, df_meta_sub y generate_hypothesis. Muestra tablas con shape, columnas clave y head(10), incluyendo al menos 10 registros con metadatos de Titanic.",
+    "excerpt": "Tutorial en espanol para documentar DataFrames, metadatos, experimentos e hipotesis del pipeline completo de InsideForest."
+  },
+  {
+    "title": "Full Pipeline Outputs",
+    "url": "tutorials/full_pipeline_outputs.html",
+    "content": "Full Pipeline Outputs English tutorial documenting intermediate InsideForest outputs with get_detail=True. Includes prepared data, labels, pred_labels, df_reres_, df_clusters_description_, df_datos_explain, frontiers, generated descriptions, metadata.df, mis_df2s, top_experiments, df_exper, df_meta_sub and generate_hypothesis. Shows shape, key columns and head(10), including at least 10 Titanic metadata rows.",
+    "excerpt": "Tutorial documenting DataFrames, metadata, experiments, and hypotheses across the full InsideForest pipeline."
+  },
+  {
     "title": "Rendimiento",
     "url": "performance_tips_es.html",
     "content": "Consejos de rendimiento Acelera tus experimentos con estas recomendaciones para datasets amplios o con muchas variables. Presets automáticos auto_fast=True ajusta la profundidad de los árboles y reduce el número de muestras analizadas. auto_feature_reduce=True selecciona automáticamente las variables más relevantes. Consulta _fast_params_used_ para registrar la configuración aplicada. Extracción de reglas Parámetro Rol Recomendación n_sample_multiplier Tamaño de muestra por árbol. Empieza en 0.05 y aumenta cuando requieras mayor granularidad. ef_sample_multiplier Muestreo para explorar ramas adicionales. Valores entre 5 y 15 equilibran tiempo y cobertura. max_depth Profundidad máxima del bosque. Limitarlo a 10-15 suele mejorar tiempos y evita reglas demasiado específicas. Selección de clústeres select_clusters: ideal para resultados rápidos. menu: explora candidatos adicionales cuando buscas máxima precisión. balance_lists_n_clusters: útil cuando necesitas clústeres de tamaño similar. Procesamiento por lotes Evalúa datos masivos en bloques y combina los resultados con predict. Guarda el progreso con .save() para reanudar entrenamientos costosos. Limita salidas visuales, por ejemplo plot_importances(max_features=20). Monitorea recursos Aprovecha Models y las utilidades de metadatos para registrar tiempos y memoria. Complementa con los casos de Experimentos y benchmarks y sigue las pautas de reproducibilidad.",
