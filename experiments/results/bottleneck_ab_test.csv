@@ -1,0 +1,6 @@
+experiment,bottleneck,proposal,original_seconds,candidate_seconds,speedup_vs_original,output_match,implemented,decision,notes
+stage_get_fro,row-wise regex parsing,vectorized pandas str.extract parser,0.8560842000879347,0.0312650001142174,27.381551158179597,True,True,implemented,Same parsed columns; avoids per-row Series construction.
+stage_get_summary,per-tree DataFrame filtering and comparison cache overhead,group rules once and reuse one boolean mask,2.9750365000218153,1.8943916999269277,1.5704442223519937,True,True,implemented,Exact summary rows; less allocation than cached comparison matrices.
+stage_prio_ranges,tiling replacement DataFrames for infinite bounds,NumPy indexed replacement without tiled DataFrames,5.980908100027591,4.027462900150567,1.4850312090532216,True,True,implemented,Same prioritized regions; reduces allocation inside many small groups.
+stage_menu_catalog,catalog set-cover can choose values covering zero remaining rows,"rank by coverage first, then score",0.0002498000394552946,0.0009588999673724174,0.2605068807539935,,True,implemented,"Original guarded status=no_progress; candidate labels=[3.0, 2.0, 2.0, 2.0]."
+full_fit_default,combined fit pipeline,combined implemented changes,8.776981599861756,7.805574200116098,1.1244504728084206,True,True,implemented,labels_equal=True; region_groups=396

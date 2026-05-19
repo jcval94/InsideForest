@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+pytest-cache-files-*/
+.pytest-tmp-current/
+pytest_tmp_current/
+.tmp/
+.matplotlib-cache/
+matplotlib_cache/
