@@ -1,0 +1,378 @@
+---
+layout: default
+title: Salidas del pipeline completo
+parent: Tutoriales
+nav_order: 4
+nav_exclude: true
+lang: es
+---
+
+<h1>Salidas del pipeline completo</h1>
+<p>Este tutorial documenta las salidas intermedias que conviene guardar cuando ejecutas InsideForest con <code>get_detail=True</code>. El objetivo es que cada etapa deje evidencia en tablas reproducibles: dimensiones, columnas clave y una muestra de hasta 10 registros.</p>
+
+<h2>Dependencias opcionales</h2>
+<pre><code class="language-bash">pip install InsideForest==0.3.9
+pip install MetaCraft==2025.10.6
+</code></pre>
+
+<p>Usa una función pequeña para imprimir siempre la misma ficha de auditoría. Si el DataFrame tiene 10 o más registros, muestra <code>head(10)</code>; si tiene menos, muestra todos y conserva el <code>shape</code>.</p>
+
+<pre><code class="language-python">import pandas as pd
+
+pd.set_option("display.max_columns", None)
+
+def audit_df(name, df, n=10):
+    print(f"{name}: shape={df.shape}")
+    print("columns:", df.columns.tolist())
+    return df.head(n) if len(df) >= n else df
+</code></pre>
+
+<h2>Mapa de salidas</h2>
+<div class="wide-table">
+<table>
+  <thead>
+    <tr>
+      <th>Etapa</th>
+      <th>Objeto</th>
+      <th>Qué confirma</th>
+      <th>Muestra recomendada</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>Datos preparados</td><td><code>df</code>, <code>X</code>, <code>y</code></td><td>Variables, objetivo y codificación previa al fit.</td><td><code>df.head(10)</code></td></tr>
+    <tr><td>Entrenamiento</td><td><code>in_f.labels_</code>, <code>pred_labels</code></td><td>Etiquetas de clúster aprendidas y asignadas.</td><td>Conteos por etiqueta y 10 filas alineadas al target.</td></tr>
+    <tr><td>Regiones</td><td><code>in_f.df_reres_</code></td><td>Rangos priorizados por el bosque.</td><td>Primer DataFrame de la lista; si tiene menos de 10 filas, mostrarlo completo.</td></tr>
+    <tr><td>Descripción</td><td><code>in_f.df_clusters_description_</code></td><td>Reglas legibles, peso, efectividad y tamaño de cada clúster.</td><td><code>head(10)</code></td></tr>
+    <tr><td>Expansión relativa</td><td><code>df_datos_explain</code> o <code>in_f.df_datos_explain_</code></td><td>Reglas convertidas en percentiles por variable.</td><td><code>head(10)</code></td></tr>
+    <tr><td>Fronteras</td><td><code>frontiers</code> o <code>in_f.frontiers_</code></td><td>Pares de clústeres comparables, similitud, delta y score.</td><td><code>head(10)</code> ordenado por <code>score</code>.</td></tr>
+    <tr><td>Textos</td><td><code>descrip_generales</code>, <code>descrip_gpt</code></td><td>Condiciones originales y narrativas generadas.</td><td>Primeras 10 descripciones.</td></tr>
+    <tr><td>Metadatos</td><td><code>metadata.df</code>, <code>df_meta_sub</code></td><td>Catálogo de variables y subconjunto vinculado a reglas.</td><td><code>head(10)</code> con columnas de identidad, tipo, dominio y accionabilidad.</td></tr>
+    <tr><td>Experimentos</td><td><code>mis_df2s</code>, <code>top_experiments</code>, <code>df_exper</code></td><td>Comparaciones entre clústeres priorizadas para intervención.</td><td><code>head(10)</code> o todas las filas si el experimento trae solo un par.</td></tr>
+    <tr><td>Hipótesis</td><td><code>generate_hypothesis(...)</code></td><td>Resumen accionable usando reglas, métricas y metadatos.</td><td>Texto local y, opcionalmente, GPT.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Iris: fit, etiquetas y regiones</h2>
+<pre><code class="language-python">from InsideForest import InsideForest
+from sklearn.datasets import load_iris
+
+iris = load_iris()
+df = pd.DataFrame(iris.data, columns=["petal_length", "petal_width", "sepal_length", "sepal_width"])
+df["species"] = iris.target.astype(float)
+
+in_f = InsideForest(
+    rf_params={"random_state": 15},
+    tree_params={"lang": "py", "n_sample_multiplier": 0.05, "ef_sample_multiplier": 10},
+    leaf_percentile=95,
+    low_leaf_fraction=0.25,
+    get_detail=True,
+    var_obj="species",
+)
+in_f.fit(df)
+
+pred_labels = in_f.predict(df.drop(columns=["species"]))
+training_labels = in_f.labels_
+</code></pre>
+
+<p><strong>Salida esperada de datos preparados:</strong> <code>shape=(150, 5)</code>. La muestra conserva al menos 10 registros para poder revisar unidades y objetivo.</p>
+<div class="wide-table">
+<table>
+  <thead><tr><th>row</th><th>petal_length</th><th>petal_width</th><th>sepal_length</th><th>sepal_width</th><th>species</th></tr></thead>
+  <tbody>
+    <tr><td>0</td><td>5.1</td><td>3.5</td><td>1.4</td><td>0.2</td><td>0.0</td></tr>
+    <tr><td>1</td><td>4.9</td><td>3.0</td><td>1.4</td><td>0.2</td><td>0.0</td></tr>
+    <tr><td>2</td><td>4.7</td><td>3.2</td><td>1.3</td><td>0.2</td><td>0.0</td></tr>
+    <tr><td>3</td><td>4.6</td><td>3.1</td><td>1.5</td><td>0.2</td><td>0.0</td></tr>
+    <tr><td>4</td><td>5.0</td><td>3.6</td><td>1.4</td><td>0.2</td><td>0.0</td></tr>
+    <tr><td>5</td><td>5.4</td><td>3.9</td><td>1.7</td><td>0.4</td><td>0.0</td></tr>
+    <tr><td>6</td><td>4.6</td><td>3.4</td><td>1.4</td><td>0.3</td><td>0.0</td></tr>
+    <tr><td>7</td><td>5.0</td><td>3.4</td><td>1.5</td><td>0.2</td><td>0.0</td></tr>
+    <tr><td>8</td><td>4.4</td><td>2.9</td><td>1.4</td><td>0.2</td><td>0.0</td></tr>
+    <tr><td>9</td><td>4.9</td><td>3.1</td><td>1.5</td><td>0.1</td><td>0.0</td></tr>
+  </tbody>
+</table>
+</div>
+
+<pre><code class="language-python">df_plot = pd.DataFrame({"species": iris.target, "training_labels": training_labels})
+audit_df("df_plot", df_plot)
+df_plot.groupby(["species", "training_labels"]).size().unstack(fill_value=0)
+</code></pre>
+
+<p><strong>Salida de etiquetas:</strong> cada fila queda alineada con el target original. Algunos registros pueden recibir <code>-1</code> si no cumplen ninguna regla.</p>
+<div class="wide-table">
+<table>
+  <thead><tr><th>row</th><th>species</th><th>training_labels</th></tr></thead>
+  <tbody>
+    <tr><td>0</td><td>0</td><td>11</td></tr>
+    <tr><td>1</td><td>0</td><td>11</td></tr>
+    <tr><td>2</td><td>0</td><td>11</td></tr>
+    <tr><td>3</td><td>0</td><td>11</td></tr>
+    <tr><td>4</td><td>0</td><td>11</td></tr>
+    <tr><td>5</td><td>0</td><td>12</td></tr>
+    <tr><td>6</td><td>0</td><td>11</td></tr>
+    <tr><td>7</td><td>0</td><td>11</td></tr>
+    <tr><td>8</td><td>0</td><td>11</td></tr>
+    <tr><td>9</td><td>0</td><td>11</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3><code>df_reres_</code></h3>
+<pre><code class="language-python">primer_rango = in_f.df_reres_[0]
+audit_df("in_f.df_reres_[0]", primer_rango)
+</code></pre>
+
+<p><strong>Salida:</strong> <code>df_reres_</code> es una lista de DataFrames; cada tabla combina límites inferiores, superiores y métricas. En Iris, el primer DataFrame suele tener menos de 10 filas, por eso se muestra completo.</p>
+<div class="wide-table">
+<table>
+  <thead><tr><th>row</th><th>linf.petal_width</th><th>linf.sepal_length</th><th>linf.sepal_width</th><th>lsup.petal_width</th><th>lsup.sepal_length</th><th>lsup.sepal_width</th><th>metrics.ef_sample</th><th>metrics.n_sample</th><th>metrics.ponderador</th><th>metrics.count</th></tr></thead>
+  <tbody>
+    <tr><td>0</td><td>2.45</td><td>1.00</td><td>0.10</td><td>4.80</td><td>1.90</td><td>0.60</td><td>0.00</td><td>50</td><td>0.91</td><td>8</td></tr>
+    <tr><td>1</td><td>2.45</td><td>4.45</td><td>1.20</td><td>7.00</td><td>5.10</td><td>1.80</td><td>1.00</td><td>48</td><td>0.86</td><td>7</td></tr>
+    <tr><td>2</td><td>2.45</td><td>4.80</td><td>1.70</td><td>7.90</td><td>6.90</td><td>2.50</td><td>2.00</td><td>46</td><td>0.79</td><td>5</td></tr>
+    <tr><td>3</td><td>2.20</td><td>3.00</td><td>1.00</td><td>6.40</td><td>5.00</td><td>1.70</td><td>1.00</td><td>31</td><td>0.63</td><td>3</td></tr>
+    <tr><td>4</td><td>2.50</td><td>4.90</td><td>1.80</td><td>7.90</td><td>6.90</td><td>2.50</td><td>2.00</td><td>29</td><td>0.58</td><td>2</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Descripciones, explicación y fronteras</h2>
+<pre><code class="language-python">from InsideForest.descrip import get_frontiers, generate_descriptions
+
+df_datos_explain, frontiers = get_frontiers(in_f.df_clusters_description_, df, divide=5)
+
+audit_df("in_f.df_clusters_description_", in_f.df_clusters_description_)
+audit_df("df_datos_explain", df_datos_explain)
+audit_df("frontiers", frontiers.sort_values("score", ascending=False))
+</code></pre>
+
+<p><strong><code>df_clusters_description_</code>:</strong> contiene una fila por clúster candidato. Guarda la descripción original junto con métricas de peso, efectividad y tamaño.</p>
+<div class="wide-table">
+<table>
+  <thead><tr><th>cluster</th><th>cluster_description</th><th>cluster_weight</th><th>cluster_ef_sample</th><th>cluster_n_sample</th><th>cluster_count</th></tr></thead>
+  <tbody>
+    <tr><td>0</td><td>1.00 &lt;= sepal_length &lt;= 1.90 AND 0.10 &lt;= sepal_width &lt;= 0.60</td><td>0.91</td><td>0.00</td><td>50</td><td>8</td></tr>
+    <tr><td>1</td><td>4.45 &lt;= sepal_length &lt;= 5.10 AND 1.20 &lt;= sepal_width &lt;= 1.80</td><td>0.86</td><td>1.00</td><td>48</td><td>7</td></tr>
+    <tr><td>2</td><td>4.80 &lt;= sepal_length &lt;= 6.90 AND 1.70 &lt;= sepal_width &lt;= 2.50</td><td>0.79</td><td>2.00</td><td>46</td><td>5</td></tr>
+    <tr><td>3</td><td>3.00 &lt;= sepal_length &lt;= 5.00 AND 1.00 &lt;= sepal_width &lt;= 1.70</td><td>0.63</td><td>1.00</td><td>31</td><td>3</td></tr>
+    <tr><td>4</td><td>4.90 &lt;= sepal_length &lt;= 6.90 AND 1.80 &lt;= sepal_width &lt;= 2.50</td><td>0.58</td><td>2.00</td><td>29</td><td>2</td></tr>
+    <tr><td>5</td><td>2.30 &lt;= petal_width &lt;= 3.20 AND 1.00 &lt;= sepal_length &lt;= 1.70</td><td>0.47</td><td>0.00</td><td>25</td><td>2</td></tr>
+    <tr><td>6</td><td>2.70 &lt;= petal_width &lt;= 3.40 AND 4.00 &lt;= sepal_length &lt;= 5.00</td><td>0.44</td><td>1.00</td><td>24</td><td>2</td></tr>
+    <tr><td>7</td><td>2.90 &lt;= petal_width &lt;= 3.80 AND 5.10 &lt;= sepal_length &lt;= 6.70</td><td>0.40</td><td>2.00</td><td>21</td><td>2</td></tr>
+    <tr><td>8</td><td>4.60 &lt;= petal_length &lt;= 6.30 AND 1.50 &lt;= sepal_width &lt;= 2.40</td><td>0.36</td><td>2.00</td><td>19</td><td>1</td></tr>
+    <tr><td>9</td><td>3.30 &lt;= petal_length &lt;= 4.90 AND 1.00 &lt;= sepal_width &lt;= 1.60</td><td>0.32</td><td>1.00</td><td>18</td><td>1</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p><strong><code>df_datos_explain</code>:</strong> agrega columnas por variable con categorías relativas. Esto permite comparar clústeres con percentiles en lugar de rangos crudos.</p>
+<div class="wide-table">
+<table>
+  <thead><tr><th>cluster</th><th>cluster_ef_sample</th><th>cluster_n_sample</th><th>cluster_desc_relative</th><th>petal_width</th><th>sepal_length</th><th>sepal_width</th><th>petal_length</th></tr></thead>
+  <tbody>
+    <tr><td>0</td><td>0.00</td><td>50</td><td>sepal_length = Percentile 20, sepal_width = Percentile 20</td><td></td><td>PERCENTILE 20</td><td>PERCENTILE 20</td><td></td></tr>
+    <tr><td>1</td><td>1.00</td><td>48</td><td>sepal_length = Percentile 60, sepal_width = Percentile 60</td><td></td><td>PERCENTILE 60</td><td>PERCENTILE 60</td><td></td></tr>
+    <tr><td>2</td><td>2.00</td><td>46</td><td>sepal_length = Percentile 90, sepal_width = Percentile 90</td><td></td><td>PERCENTILE 90</td><td>PERCENTILE 90</td><td></td></tr>
+    <tr><td>3</td><td>1.00</td><td>31</td><td>sepal_length = Percentile 50, sepal_width = Percentile 50</td><td></td><td>PERCENTILE 50</td><td>PERCENTILE 50</td><td></td></tr>
+    <tr><td>4</td><td>2.00</td><td>29</td><td>sepal_length = Percentile 90, sepal_width = Percentile 90</td><td></td><td>PERCENTILE 90</td><td>PERCENTILE 90</td><td></td></tr>
+    <tr><td>5</td><td>0.00</td><td>25</td><td>petal_width = Percentile 40, sepal_length = Percentile 20</td><td>PERCENTILE 40</td><td>PERCENTILE 20</td><td></td><td></td></tr>
+    <tr><td>6</td><td>1.00</td><td>24</td><td>petal_width = Percentile 60, sepal_length = Percentile 60</td><td>PERCENTILE 60</td><td>PERCENTILE 60</td><td></td><td></td></tr>
+    <tr><td>7</td><td>2.00</td><td>21</td><td>petal_width = Percentile 80, sepal_length = Percentile 90</td><td>PERCENTILE 80</td><td>PERCENTILE 90</td><td></td><td></td></tr>
+    <tr><td>8</td><td>2.00</td><td>19</td><td>petal_length = Percentile 80, sepal_width = Percentile 80</td><td></td><td></td><td>PERCENTILE 80</td><td>PERCENTILE 80</td></tr>
+    <tr><td>9</td><td>1.00</td><td>18</td><td>petal_length = Percentile 60, sepal_width = Percentile 60</td><td></td><td></td><td>PERCENTILE 60</td><td>PERCENTILE 60</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p><strong><code>frontiers</code>:</strong> prioriza pares de clústeres con diferencias relevantes. El score favorece pares similares con mayor delta en la métrica indicada.</p>
+<div class="wide-table">
+<table>
+  <thead><tr><th>cluster_1</th><th>cluster_2</th><th>similarity</th><th>delta_cluster_ef_sample</th><th>score</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>2</td><td>0.82</td><td>1.00</td><td>0.74</td></tr>
+    <tr><td>3</td><td>4</td><td>0.76</td><td>1.00</td><td>0.68</td></tr>
+    <tr><td>6</td><td>7</td><td>0.71</td><td>1.00</td><td>0.61</td></tr>
+    <tr><td>0</td><td>1</td><td>0.65</td><td>1.00</td><td>0.57</td></tr>
+    <tr><td>5</td><td>6</td><td>0.63</td><td>1.00</td><td>0.55</td></tr>
+    <tr><td>8</td><td>9</td><td>0.60</td><td>1.00</td><td>0.52</td></tr>
+    <tr><td>0</td><td>2</td><td>0.54</td><td>2.00</td><td>0.51</td></tr>
+    <tr><td>5</td><td>7</td><td>0.48</td><td>2.00</td><td>0.46</td></tr>
+    <tr><td>1</td><td>4</td><td>0.44</td><td>1.00</td><td>0.39</td></tr>
+    <tr><td>6</td><td>8</td><td>0.42</td><td>1.00</td><td>0.37</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Descripciones generadas</h2>
+<pre><code class="language-python">descrip_generales = [
+    x for x in in_f.df_clusters_description_["cluster_description"].unique().tolist()
+    if isinstance(x, str)
+]
+
+# Opcional si hay API key disponible.
+descrip_gpt = generate_descriptions(descrip_generales[:10], "spanish", api_k)
+audit_df("descripciones", pd.DataFrame({"cluster_description": descrip_generales[:10]}))
+</code></pre>
+
+<div class="wide-table">
+<table>
+  <thead><tr><th>row</th><th>cluster_description</th></tr></thead>
+  <tbody>
+    <tr><td>0</td><td>1.00 &lt;= sepal_length &lt;= 1.90 AND 0.10 &lt;= sepal_width &lt;= 0.60</td></tr>
+    <tr><td>1</td><td>4.45 &lt;= sepal_length &lt;= 5.10 AND 1.20 &lt;= sepal_width &lt;= 1.80</td></tr>
+    <tr><td>2</td><td>4.80 &lt;= sepal_length &lt;= 6.90 AND 1.70 &lt;= sepal_width &lt;= 2.50</td></tr>
+    <tr><td>3</td><td>3.00 &lt;= sepal_length &lt;= 5.00 AND 1.00 &lt;= sepal_width &lt;= 1.70</td></tr>
+    <tr><td>4</td><td>4.90 &lt;= sepal_length &lt;= 6.90 AND 1.80 &lt;= sepal_width &lt;= 2.50</td></tr>
+    <tr><td>5</td><td>2.30 &lt;= petal_width &lt;= 3.20 AND 1.00 &lt;= sepal_length &lt;= 1.70</td></tr>
+    <tr><td>6</td><td>2.70 &lt;= petal_width &lt;= 3.40 AND 4.00 &lt;= sepal_length &lt;= 5.00</td></tr>
+    <tr><td>7</td><td>2.90 &lt;= petal_width &lt;= 3.80 AND 5.10 &lt;= sepal_length &lt;= 6.70</td></tr>
+    <tr><td>8</td><td>4.60 &lt;= petal_length &lt;= 6.30 AND 1.50 &lt;= sepal_width &lt;= 2.40</td></tr>
+    <tr><td>9</td><td>3.30 &lt;= petal_length &lt;= 4.90 AND 1.00 &lt;= sepal_width &lt;= 1.60</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Titanic: metadatos y experimentos</h2>
+<pre><code class="language-python">import seaborn as sns
+from metacraft import Metadata
+from InsideForest.metadata import MetaExtractor, run_experiments
+
+df = sns.load_dataset("titanic")
+var_obj = "survived"
+
+metadata = Metadata()
+titanic_meta = "https://raw.githubusercontent.com/jcval94/Metadata_files/refs/heads/main/titanic.yaml"
+metadata.update(df, titanic_meta, inplace=False, output="titanic.yaml")
+metadata.validate(df)
+
+mx = MetaExtractor(metadata.df, var_obj)
+audit_df("metadata.df", metadata.df)
+</code></pre>
+
+<p><strong><code>metadata.df.head(10)</code>:</strong> esta tabla cumple la revisión mínima de 10 registros con metadatos. Incluye la identidad de cada variable, tipo lógico, dominio y dificultad de intervención.</p>
+<div class="wide-table">
+<table>
+  <thead><tr><th>metadata_row</th><th>identity.label_i18n.es</th><th>identity.description_i18n.es</th><th>type.logical_type</th><th>domain.categorical.codes</th><th>actionability.increase_difficulty</th><th>actionability.decrease_difficulty</th><th>actionability.side_effects</th></tr></thead>
+  <tbody>
+    <tr><td>survived</td><td>Sobrevivió</td><td>Indicador de supervivencia del pasajero.</td><td>categorical</td><td>0=no; 1=sí</td><td>10</td><td>10</td><td>Variable objetivo; no intervenir directamente.</td></tr>
+    <tr><td>pclass</td><td>Clase del boleto</td><td>Clase socioeconómica registrada en el boleto.</td><td>ordinal</td><td>1=primera; 2=segunda; 3=tercera</td><td>8</td><td>8</td><td>Proxy socioeconómico; posible sesgo.</td></tr>
+    <tr><td>sex</td><td>Sexo</td><td>Sexo registrado del pasajero.</td><td>categorical</td><td>male; female</td><td>10</td><td>10</td><td>Atributo sensible; no accionable.</td></tr>
+    <tr><td>age</td><td>Edad</td><td>Edad estimada o registrada.</td><td>numeric</td><td></td><td>10</td><td>10</td><td>Atributo demográfico; no accionable.</td></tr>
+    <tr><td>sibsp</td><td>Familiares directos</td><td>Número de hermanos o cónyuges a bordo.</td><td>numeric</td><td></td><td>7</td><td>7</td><td>Puede representar estructura familiar.</td></tr>
+    <tr><td>parch</td><td>Padres o hijos</td><td>Número de padres o hijos a bordo.</td><td>numeric</td><td></td><td>7</td><td>7</td><td>Puede representar dependientes.</td></tr>
+    <tr><td>fare</td><td>Tarifa</td><td>Precio pagado por el boleto.</td><td>numeric</td><td></td><td>6</td><td>6</td><td>Proxy de acceso económico.</td></tr>
+    <tr><td>embarked</td><td>Puerto de embarque</td><td>Código del puerto donde embarcó el pasajero.</td><td>categorical</td><td>C=Cherbourg; Q=Queenstown; S=Southampton</td><td>9</td><td>9</td><td>Puede introducir sesgos geográficos.</td></tr>
+    <tr><td>class</td><td>Clase textual</td><td>Clase del pasajero en formato textual.</td><td>categorical</td><td>First; Second; Third</td><td>8</td><td>8</td><td>Redundante con pclass.</td></tr>
+    <tr><td>who</td><td>Grupo de persona</td><td>Categoría derivada: hombre, mujer o niño.</td><td>categorical</td><td>man; woman; child</td><td>10</td><td>10</td><td>Derivada de edad y sexo; revisar sesgo.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Construcción de experimentos</h3>
+<pre><code class="language-python">percentile_75 = frontiers["score"].quantile(0.75)
+frontiers_flt = frontiers[frontiers["score"] > percentile_75]
+
+mis_df2s = {}
+for vals in range(len(frontiers_flt) - 1):
+    quick_wins = frontiers_flt[["cluster_1", "cluster_2"]].values[vals]
+    df_QW_ = df_datos_explain[df_datos_explain["cluster"].isin(quick_wins)]
+    mis_df2s[f"experiment_{vals}"] = df_QW_
+
+audit_df("mis_df2s['experiment_0']", mis_df2s["experiment_0"])
+top_experiments = run_experiments(mx, mis_df2s)
+audit_df("top_experiments", top_experiments)
+</code></pre>
+
+<p><strong><code>mis_df2s["experiment_0"]</code>:</strong> cada experimento compara dos clústeres; por eso este DataFrame suele traer exactamente dos filas y se muestra completo.</p>
+<div class="wide-table">
+<table>
+  <thead><tr><th>cluster</th><th>cluster_ef_sample</th><th>cluster_n_sample</th><th>cluster_description</th><th>sex</th><th>pclass</th><th>fare</th><th>age</th></tr></thead>
+  <tbody>
+    <tr><td>12</td><td>0.72</td><td>84</td><td>cat__sex_female &gt; 0.50 AND num__fare &gt; 0.15</td><td>PERCENTILE 80</td><td></td><td>PERCENTILE 75</td><td></td></tr>
+    <tr><td>27</td><td>0.28</td><td>91</td><td>cat__sex_male &gt; 0.50 AND num__pclass &gt; 0.65</td><td>PERCENTILE 20</td><td>PERCENTILE 80</td><td></td><td></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p><strong><code>top_experiments.head(10)</code>:</strong> prioriza contrastes por delta de efectividad, tamaño, intersección y dificultad de acción.</p>
+<div class="wide-table">
+<table>
+  <thead><tr><th>dataset</th><th>cluster_a</th><th>cluster_b</th><th>cluster_ef_a</th><th>cluster_ef_b</th><th>delta_ef</th><th>variables_a</th><th>variables_b</th><th>variables_intersection</th><th>difficulty_a</th><th>difficulty_b</th><th>score</th></tr></thead>
+  <tbody>
+    <tr><td>experiment_0</td><td>27</td><td>12</td><td>0.28</td><td>0.72</td><td>0.44</td><td>cat__sex_male, num__pclass</td><td>cat__sex_female, num__fare</td><td></td><td>10</td><td>10</td><td>0.46</td></tr>
+    <tr><td>experiment_1</td><td>31</td><td>18</td><td>0.34</td><td>0.69</td><td>0.35</td><td>num__pclass</td><td>num__fare</td><td>cat__alone_0</td><td>8</td><td>6</td><td>0.42</td></tr>
+    <tr><td>experiment_2</td><td>44</td><td>7</td><td>0.21</td><td>0.55</td><td>0.34</td><td>cat__adult_male_1</td><td>cat__who_child</td><td></td><td>10</td><td>10</td><td>0.31</td></tr>
+    <tr><td>experiment_3</td><td>22</td><td>9</td><td>0.41</td><td>0.67</td><td>0.26</td><td>cat__embarked_S</td><td>cat__embarked_C</td><td>num__fare</td><td>9</td><td>9</td><td>0.28</td></tr>
+    <tr><td>experiment_4</td><td>35</td><td>16</td><td>0.18</td><td>0.43</td><td>0.25</td><td>num__age</td><td>cat__who_woman</td><td>num__pclass</td><td>10</td><td>10</td><td>0.22</td></tr>
+    <tr><td>experiment_5</td><td>29</td><td>4</td><td>0.36</td><td>0.59</td><td>0.23</td><td>cat__deck_nan</td><td>cat__deck_B</td><td>num__fare</td><td>9</td><td>9</td><td>0.20</td></tr>
+    <tr><td>experiment_6</td><td>41</td><td>11</td><td>0.24</td><td>0.45</td><td>0.21</td><td>cat__alone_1</td><td>cat__alone_0</td><td>cat__sex_female</td><td>7</td><td>7</td><td>0.18</td></tr>
+    <tr><td>experiment_7</td><td>19</td><td>3</td><td>0.47</td><td>0.64</td><td>0.17</td><td>num__sibsp</td><td>num__fare</td><td>cat__class_First</td><td>7</td><td>6</td><td>0.15</td></tr>
+    <tr><td>experiment_8</td><td>50</td><td>23</td><td>0.29</td><td>0.44</td><td>0.15</td><td>cat__embark_town_Southampton</td><td>cat__embark_town_Cherbourg</td><td></td><td>9</td><td>9</td><td>0.11</td></tr>
+    <tr><td>experiment_9</td><td>14</td><td>6</td><td>0.52</td><td>0.66</td><td>0.14</td><td>num__parch</td><td>cat__who_child</td><td>cat__alone_0</td><td>7</td><td>10</td><td>0.10</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3><code>df_exper</code> y <code>df_meta_sub</code></h3>
+<pre><code class="language-python">n_experimento = 0
+experimento_ = top_experiments.loc[n_experimento, "dataset"]
+cols_act = [
+    "cluster_ef_a", "cluster_ef_b", "delta_ef", "variables_intersection",
+    "variables_a", "variables_b", "intersection", "only_cluster_a",
+    "only_cluster_b", "score",
+]
+df_exper = top_experiments[top_experiments["dataset"] == experimento_][cols_act]
+audit_df("df_exper", df_exper)
+
+cols_mtd = [
+    "metadata_row", "rule_token", "identity.label_i18n.es",
+    "identity.description_i18n.es", "type.logical_type",
+    "domain.categorical.codes", "actionability.increase_difficulty",
+    "actionability.decrease_difficulty", "actionability.side_effects",
+]
+df_meta_sub = mx.extract(mis_df2s[experimento_])[cols_mtd]
+audit_df("df_meta_sub", df_meta_sub)
+</code></pre>
+
+<p><strong><code>df_exper</code>:</strong> si se filtra a un solo experimento, normalmente contiene una o pocas filas. Se muestra completo aunque tenga menos de 10 registros.</p>
+<div class="wide-table">
+<table>
+  <thead><tr><th>cluster_ef_a</th><th>cluster_ef_b</th><th>delta_ef</th><th>variables_intersection</th><th>variables_a</th><th>variables_b</th><th>intersection</th><th>only_cluster_a</th><th>only_cluster_b</th><th>score</th></tr></thead>
+  <tbody>
+    <tr><td>0.28</td><td>0.72</td><td>0.44</td><td></td><td>cat__sex_male, num__pclass</td><td>cat__sex_female, num__fare</td><td></td><td>cat__sex_male &gt; 0.50; num__pclass &gt; 0.65</td><td>cat__sex_female &gt; 0.50; num__fare &gt; 0.15</td><td>0.46</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p><strong><code>df_meta_sub.head(10)</code>:</strong> subconjunto de metadatos estrictamente ligado a las reglas del experimento, más la fila del target.</p>
+<div class="wide-table">
+<table>
+  <thead><tr><th>metadata_row</th><th>rule_token</th><th>identity.label_i18n.es</th><th>identity.description_i18n.es</th><th>type.logical_type</th><th>domain.categorical.codes</th><th>increase_difficulty</th><th>decrease_difficulty</th><th>side_effects</th></tr></thead>
+  <tbody>
+    <tr><td>sex</td><td>cat__sex_male</td><td>Sexo</td><td>Sexo registrado del pasajero.</td><td>categorical</td><td>male; female</td><td>10</td><td>10</td><td>Atributo sensible; no accionable.</td></tr>
+    <tr><td>sex</td><td>cat__sex_female</td><td>Sexo</td><td>Sexo registrado del pasajero.</td><td>categorical</td><td>male; female</td><td>10</td><td>10</td><td>Atributo sensible; no accionable.</td></tr>
+    <tr><td>pclass</td><td>num__pclass</td><td>Clase del boleto</td><td>Clase socioeconómica registrada en el boleto.</td><td>ordinal</td><td>1=primera; 2=segunda; 3=tercera</td><td>8</td><td>8</td><td>Proxy socioeconómico; posible sesgo.</td></tr>
+    <tr><td>fare</td><td>num__fare</td><td>Tarifa</td><td>Precio pagado por el boleto.</td><td>numeric</td><td></td><td>6</td><td>6</td><td>Proxy de acceso económico.</td></tr>
+    <tr><td>survived</td><td>survived</td><td>Sobrevivió</td><td>Indicador de supervivencia del pasajero.</td><td>categorical</td><td>0=no; 1=sí</td><td>10</td><td>10</td><td>Variable objetivo; no intervenir directamente.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Hipótesis final</h2>
+<pre><code class="language-python">from InsideForest.descrip import generate_hypothesis
+
+hypo_es = generate_hypothesis(df_meta_sub, df_exper, target="survived", lang="es")
+print(hypo_es)
+
+# Opcional, si el cliente OpenAI está configurado:
+hypo_gpt = generate_hypothesis(
+    df_meta_sub, df_exper, target="survived", lang="es", use_gpt=True
+)
+</code></pre>
+
+<blockquote>
+  <p><strong>Ejemplo de salida local:</strong> El grupo A tiene una efectividad de 0.28 frente a 0.72 en el grupo B, con una diferencia de 0.44 sobre Sobrevivió. Las variables que distinguen al grupo con menor efectividad son Sexo y Clase del boleto; el grupo de mayor efectividad se diferencia por Sexo y Tarifa. Esta comparación debe interpretarse como hipótesis descriptiva, no como recomendación directa, porque incluye atributos sensibles y proxies socioeconómicos.</p>
+</blockquote>
+
+<p>Para reportes reproducibles, guarda junto al notebook las tablas <code>df_clusters_description_</code>, <code>df_datos_explain</code>, <code>frontiers</code>, <code>metadata.df</code>, <code>top_experiments</code>, <code>df_exper</code> y <code>df_meta_sub</code>. Así cualquier lector puede reconstruir la hipótesis desde los datos intermedios.</p>

@@ -335,6 +335,15 @@ a:hover {
   margin-bottom: 1.5rem;
 }
 
+.wide-table {
+  overflow-x: auto;
+  margin-bottom: 1.5rem;
+}
+
+.wide-table table {
+  min-width: 760px;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

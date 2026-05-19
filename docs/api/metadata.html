@@ -36,4 +36,6 @@ hypotheses = run_experiments(
 )
 </code></pre>
 
+<p>For examples with <code>metadata.df.head(10)</code>, <code>df_meta_sub</code>, <code>top_experiments</code>, and generated hypotheses, review <a href="../tutorials/full_pipeline_outputs.html">full pipeline outputs</a>.</p>
+
 <p><strong>Note:</strong> the metadata catalog must be indexed by the variable tokens found in <code>cluster_description</code> plus the target column. The detailed DataFrames <code>df_clusters_description_</code> and <code>df_datos_explain_</code> are populated when the estimator is fitted with <code>get_detail=True</code>. Combine the extracted catalog with reproducibility assets from the <a href="../reproducibility.html">Reproducibility</a> guide.</p>
