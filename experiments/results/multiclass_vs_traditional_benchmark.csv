@@ -1,0 +1,7 @@
+dataset,method,fit_seconds_median,assign_seconds_median,rf_accuracy_median,assignment_accuracy_median,n_rules_or_regions_median,fallback_or_unmatched_rate_median
+iris,InsideForestClassifier_traditional,0.3583535000216216,0.05316569993738085,1.0,0.7066666666666667,80.0,0.5933333333333334
+iris,InsideForestMulticlassClassifier,0.07268729992210865,0.18551900004968047,1.0,0.98,76.0,0.0
+wine,InsideForestClassifier_traditional,0.853375899954699,0.11420069995801896,1.0,0.6853932584269663,79.0,0.6235955056179775
+wine,InsideForestMulticlassClassifier,0.08989219996146858,0.21884279989171773,1.0,0.9887640449438202,82.0,0.0
+synthetic_3class,InsideForestClassifier_traditional,2.9231594000011683,0.5384201999986544,0.98,0.7844444444444445,314.0,0.2688888888888889
+synthetic_3class,InsideForestMulticlassClassifier,0.2008247000630945,0.5437818999635056,0.98,0.9511111111111111,222.0,0.0

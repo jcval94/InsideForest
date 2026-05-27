@@ -368,3 +368,25 @@ Esto produce un `DataFrame` resumen donde cada condición se etiqueta por grupo 
 
 InsideForest ahora incluye un optimizador de Newton con región de confianza para problemas con restricciones de caja. La función auxiliar `_find_maximum` expone el parámetro `optim_method` para alternar entre el ascenso por gradiente estándar y este enfoque de región de confianza, que usa derivadas analíticas o por diferencias finitas y suele converger con menos evaluaciones respetando los límites.
 
+## Interpretacion multiclase
+
+InsideForest tambien incluye una capa opt-in para interpretacion multiclase. Esta version conserva la distribucion completa de clases por hoja del bosque y rankea regiones usando pureza, cobertura y lift por clase, sin usar el ID numerico de la clase como magnitud.
+
+```python
+from InsideForest.multiclass import InsideForestMulticlassClassifier
+
+model = InsideForestMulticlassClassifier(
+    rf_params={"n_estimators": 50, "random_state": 42},
+    percentil=95,
+    min_support=2,
+)
+model.fit(X_train, y_train)
+
+reglas = model.explain(top_n=10)
+asignaciones = model.assign_regions(X_test)
+prototipos = model.prototype_regions(top_n=5)
+conflictos = model.confusion_regions(top_n=10)
+```
+
+La guia completa, benchmarks, validacion de mejora real y resultados locales estan en [README.multiclass.md](README.multiclass.md). El script de validacion es `experiments/validate_multiclass_real_gain.py` y guarda metricas por fold, resumenes, graficas y matrices de confusion en `experiments/results/multiclass_validation/`.
+

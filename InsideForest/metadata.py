@@ -226,15 +226,27 @@ class MetaExtractor:
         mini = self.meta.loc[list(valid.values()), keep_cols].copy()
         mini.insert(0, "rule_token", list(valid.keys()))
         mini.reset_index(names="metadata_row", inplace=True)
-        try:
-            metadata_OBJ = self.meta.loc[[self.var_obj]]
-        except:
-            metadata_OBJ = self.meta.loc[[self.var_obj.upper()]]
 
-        metadata_OBJ['metadata_row'] = self.var_obj
-        metadata_OBJ['rule_token'] = self.var_obj
+        target_key = None
+        if self.var_obj in self.meta.index:
+            target_key = self.var_obj
+        elif self.var_obj.upper() in self.meta.index:
+            target_key = self.var_obj.upper()
 
-        return pd.concat([mini, metadata_OBJ[mini.columns]], axis=0)
+        if target_key is None:
+            metadata_OBJ = pd.DataFrame([{col: pd.NA for col in mini.columns}])
+        else:
+            metadata_OBJ = self.meta.loc[[target_key], keep_cols].copy()
+            metadata_OBJ.reset_index(names="metadata_row", inplace=True)
+            for col in mini.columns:
+                if col not in metadata_OBJ.columns:
+                    metadata_OBJ[col] = pd.NA
+            metadata_OBJ = metadata_OBJ[mini.columns]
+
+        metadata_OBJ.loc[:, 'metadata_row'] = self.var_obj
+        metadata_OBJ.loc[:, 'rule_token'] = self.var_obj
+
+        return pd.concat([mini, metadata_OBJ[mini.columns]], axis=0, ignore_index=True)
 
 # ------------------------------------------------------------------ #
 # 1. UTILITARIOS DE PARSEO

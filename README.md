@@ -396,15 +396,37 @@ This produces a summary `DataFrame` where each condition is tagged by group alon
 
 InsideForest now includes a trust-region Newton optimizer for box-constrained problems. The helper function `_find_maximum` exposes an `optim_method` parameter to switch between standard gradient ascent and this trust-region approach, which uses analytic or finite-difference derivatives and typically converges in fewer evaluations while respecting bounds.
 
+## Multiclass interpretation
+
+InsideForest also includes an opt-in multiclass interpretation layer that keeps the full class distribution for each forest leaf and ranks regions with class-aware purity, coverage and lift instead of numeric class IDs.
+
+```python
+from InsideForest.multiclass import InsideForestMulticlassClassifier
+
+model = InsideForestMulticlassClassifier(
+    rf_params={"n_estimators": 50, "random_state": 42},
+    percentil=95,
+    min_support=2,
+)
+model.fit(X_train, y_train)
+
+rules = model.explain(top_n=10)
+assignments = model.assign_regions(X_test)
+prototypes = model.prototype_regions(top_n=5)
+conflicts = model.confusion_regions(top_n=10)
+```
+
+The detailed multiclass guide, benchmark, validation plan and latest local results are in [README.multiclass.md](README.multiclass.md). The validation script is `experiments/validate_multiclass_real_gain.py` and writes fold metrics, summaries, plots and confusion matrices to `experiments/results/multiclass_validation/`.
+
 ## Tests
 
 Latest test run:
 
 ```bash
-pytest -q
+pytest tests -q
 ```
 
 ```
-43 passed
+98 passed, 23 warnings
 ```
 

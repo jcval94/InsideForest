@@ -1143,7 +1143,7 @@ def generate_hypothesis(
 
     # ===== GPT PATH =====
     if use_gpt:
-        client = get_openai_client()
+        client = _client
         if client is not None:
             payload = {
                 "lang": lang,
