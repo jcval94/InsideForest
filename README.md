@@ -427,6 +427,6 @@ pytest tests -q
 ```
 
 ```
-98 passed, 23 warnings
+98 passed
 ```
 

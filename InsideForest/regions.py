@@ -1134,7 +1134,10 @@ class Regions:
           DataFrame with description or metrics for each cluster.
       """
       clusters_datos, clusters_datos_all, ponderadores_datos_all = select_clusters(
-          df_datos, df_reglas, keep_all_clusters
+          df_datos,
+          df_reglas,
+          keep_all_clusters,
+          warn_unmatched=False,
       )
 
       # --- 3) Construir el DataFrame de salida ---

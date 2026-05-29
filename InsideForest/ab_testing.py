@@ -16,6 +16,7 @@ class BenchmarkConfig:
     runs: int = 5
     keep_all_clusters: bool = True
     fallback_cluster: Optional[float] = None
+    warn_unmatched: bool = False
 
 
 def _results_match(
@@ -81,6 +82,7 @@ def benchmark_select_clusters(
             df_reglas,
             keep_all_clusters=cfg.keep_all_clusters,
             fallback_cluster=cfg.fallback_cluster,
+            warn_unmatched=cfg.warn_unmatched,
         )
         vectorized_seconds = perf_counter() - start
 
@@ -90,6 +92,7 @@ def benchmark_select_clusters(
             df_reglas,
             keep_all_clusters=cfg.keep_all_clusters,
             fallback_cluster=cfg.fallback_cluster,
+            warn_unmatched=cfg.warn_unmatched,
         )
         legacy_seconds = perf_counter() - start
 

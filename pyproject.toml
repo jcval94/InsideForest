@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "InsideForest"
-version = "0.3.9"
+version = "0.4.0"
 description = "A comprehensive library for describing and analyzing data insights via AI"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -28,7 +28,6 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
-  "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
 ]
 

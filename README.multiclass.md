@@ -285,7 +285,7 @@ pytest tests -q --basetemp $bt
 Resultado de referencia:
 
 ```text
-98 passed, 23 warnings
+98 passed
 ```
 
 Tests especificos multiclase:

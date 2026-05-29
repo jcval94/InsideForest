@@ -13,6 +13,7 @@ def select_clusters_legacy(
     *,
     keep_all_clusters: bool = True,
     fallback_cluster: float | None = None,
+    warn_unmatched: bool = True,
 ) -> Tuple[np.ndarray, Optional[List[List[float]]], Optional[List[List[float]]]]:
     """Reference implementation of ``select_clusters`` used for regression tests."""
 
@@ -88,7 +89,7 @@ def select_clusters_legacy(
                 for i in indices_sin_cluster:
                     clusters_datos_all[i].append(fallback_cluster)
                     ponderadores_datos_all[i].append(0.0)
-        else:
+        elif warn_unmatched:
             warnings.warn(
                 f"{len(indices_sin_cluster)} records did not match any rule.",
                 UserWarning,

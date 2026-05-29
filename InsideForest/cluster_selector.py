@@ -14,6 +14,7 @@ def select_clusters(
     keep_all_clusters: bool = True,
     fallback_cluster: float | None = None,
     batch_size: int | None = 2_048,
+    warn_unmatched: bool = True,
 ):
     """Determine cluster assignments for each record based on rules.
 
@@ -37,6 +38,9 @@ def select_clusters(
     batch_size : int | None, optional
         Number of rows from ``df_datos`` to process per block. Use ``None`` to
         keep the legacy full-matrix behaviour (single block).
+    warn_unmatched : bool, optional
+        If True, emit a warning when records remain unassigned and no fallback
+        cluster is provided.
 
     Returns
     -------
@@ -67,7 +71,7 @@ def select_clusters(
                 for i in indices_sin_cluster:
                     clusters_datos_all[i].append(fallback_cluster)
                     ponderadores_datos_all[i].append(0.0)
-        elif indices_sin_cluster.size:
+        elif indices_sin_cluster.size and warn_unmatched:
             warnings.warn(
                 f"{len(indices_sin_cluster)} records did not match any rule.",
                 UserWarning,
@@ -99,7 +103,7 @@ def select_clusters(
                 for i in indices_sin_cluster:
                     clusters_datos_all[i].append(fallback_cluster)
                     ponderadores_datos_all[i].append(0.0)
-        elif indices_sin_cluster.size:
+        elif indices_sin_cluster.size and warn_unmatched:
             warnings.warn(
                 f"{len(indices_sin_cluster)} records did not match any rule.",
                 UserWarning,
@@ -205,7 +209,7 @@ def select_clusters(
                 for i in indices_sin_cluster:
                     clusters_datos_all[i].append(fallback_cluster)
                     ponderadores_datos_all[i].append(0.0)
-        else:
+        elif warn_unmatched:
             warnings.warn(
                 f"{len(indices_sin_cluster)} records did not match any rule.",
                 UserWarning,
