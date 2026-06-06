@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: InsideForest
 Version: 0.4.0
-Summary: A comprehensive library for describing and analyzing data insights via AI
+Summary: Supervised forest-based rule extraction, region labeling, and multiclass interpretation for explainable tabular modeling
 Author: Jose Carlos Del Valle
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/jcval94/InsideForest
@@ -29,11 +29,13 @@ Dynamic: license-file
 
 # InsideForest
 
-InsideForest is a **supervised clustering** technique built on decision forests to identify and describe categories within a dataset, much like a curious *gato* sorting every *coco* into the right basket. It discovers relevant regions, assigns labels and produces interpretable descriptions.
+InsideForest is a Python library for explainable tabular modeling with decision forests. It extracts rules from trained forests, prioritizes high-signal regions, assigns observations to interpretable segments, and generates human-readable descriptions of the patterns found in the data.
 
-*Supervised clustering* groups observations using the target variable to guide segmentation. Instead of letting the algorithm find groups on its own, existing labels steer the search for coherent patterns.
+The core workflow is **supervised clustering**: the target variable guides the search for coherent regions instead of leaving the segmentation fully unsupervised. This makes the resulting clusters easier to connect to business outcomes, model behavior, and operational decisions.
 
-Whether you work with customer data, sales or any other source, the library helps you understand your information and make informed decisions.
+Version `0.4.0` adds an opt-in multiclass interpretation layer through `InsideForest.multiclass`. This layer keeps the full class distribution for each leaf, scores rules with class-aware purity, coverage, and lift, identifies prototype and conflict regions, and provides explicit RandomForest fallback behavior for observations that do not match a selected region.
+
+InsideForest is useful when you need more than a model score: it helps inspect why a forest separates classes, where a target concentrates, which conditions define useful segments, and how stable or efficient those explanations are across validation datasets.
 
 ## Example use cases
 

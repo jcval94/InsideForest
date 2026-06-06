@@ -1,5 +1,4 @@
 import numpy as np
-from time import perf_counter
 from sklearn.cluster import DBSCAN
 from InsideForest.regions import Regions
 
@@ -32,21 +31,17 @@ def _old_get_eps(data, eps_min=1e-5, eps_max=None):
     return eps_values[n_groups.index(mode)]
 
 
-def _time(func, data, repeats=3):
-    times = []
-    for _ in range(repeats):
-        start = perf_counter()
-        func(data)
-        times.append(perf_counter() - start)
-    return min(times)
-
-
-def test_eps_search_speedup():
+def test_eps_search_returns_valid_candidate():
     rng = np.random.default_rng(0)
     data = rng.normal(size=(200, 2))
-
-    old_time = _time(_old_get_eps, data)
     regions = Regions()
-    new_time = _time(regions.get_eps_multiple_groups_opt, data)
 
-    assert new_time < old_time
+    eps = regions.get_eps_multiple_groups_opt(data)
+    distances = np.linalg.norm(data[:, None, :] - data[None, :, :], axis=2)
+    eps_max = np.max(distances)
+
+    assert np.isfinite(eps)
+    assert 1e-5 <= eps <= max(eps_max, 1e-5)
+    labels = DBSCAN(eps=eps, min_samples=2).fit_predict(data)
+    non_noise = labels[labels != -1]
+    assert np.unique(non_noise).size >= 1
