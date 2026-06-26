@@ -19,6 +19,13 @@ from .cluster_selector import (
     match_class_distribution,
     ChimeraValuesSelector,
 )
+from .group_priority import (
+    RegionDescriptor,
+    feature_weights_from_model,
+    from_multiclass_rules,
+    from_traditional_regions,
+    rank_region_pairs,
+)
 
 # Backward compatibility
 InsideForest = InsideForestClassifier
