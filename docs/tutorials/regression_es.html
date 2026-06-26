@@ -24,10 +24,13 @@ X, y = load_diabetes(return_X_y=True)
 
 regr = InsideForestRegressor(auto_feature_reduce=True, auto_fast=True, get_detail=True)
 regr.fit(X, y)
+etiquetas_region = regr.predict(X)
+r2 = regr.score(X, y)
 </code></pre>
 
 <h2>Paso 3: interpretar</h2>
 <ul>
+  <li><code>etiquetas_region</code> contiene etiquetas interpretables de region; las estimaciones continuas vienen del bosque ajustado con el mismo conjunto de caracteristicas usado durante el entrenamiento.</li>
   <li><code>regr.df_clusters_description_</code> y <code>regr.df_datos_explain_</code> para reglas y métricas.</li>
   <li>Localiza segmentos con error alto y genera acciones.</li>
   <li>Guarda el modelo con <code>regr.save("modelos/housing.joblib")</code>.</li>

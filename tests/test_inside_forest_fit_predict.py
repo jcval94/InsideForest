@@ -4,6 +4,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import pandas as pd
 import numpy as np
 import pytest
+from sklearn.datasets import load_iris
 from sklearn.ensemble import RandomForestClassifier
 
 from InsideForest import InsideForestClassifier
@@ -225,3 +226,75 @@ def test_balance_clusters_applies_balanced_settings():
 
     assert model.rf.get_params()["class_weight"] == "balanced"
     assert model.method == "menu"
+
+
+def test_region_quality_tables_are_populated_for_classifier():
+    data = load_iris()
+    X = pd.DataFrame(
+        data.data,
+        columns=[str(col).replace(" ", "_") for col in data.feature_names],
+    )
+    y = data.target
+    model = InsideForestClassifier(
+        rf_params={"n_estimators": 6, "max_depth": 3, "random_state": 0, "n_jobs": 1},
+        no_trees_search=6,
+        max_cases=90,
+        seed=0,
+    )
+
+    model.fit(X.iloc[:90], y[:90])
+
+    assert model.region_rules_ is not None
+    assert model.region_quality_ is not None
+    assert not model.region_rules_.empty
+    assert not model.region_quality_.empty
+    assert {
+        "lower_bounds",
+        "upper_bounds",
+        "support",
+        "coverage",
+        "target_distribution",
+        "dominant_probability",
+        "lift",
+        "entropy",
+        "n_conditions",
+    }.issubset(model.region_quality_.columns)
+    assert model.region_quality_["support"].ge(0).all()
+    assert model.region_quality_["coverage"].between(0, 1).all()
+
+    report = model.region_quality_report()
+    assert 0 <= report["coverage"] <= 1
+    assert 0 <= report["unmatched_rate"] <= 1
+    assert report["n_regions"] == len(model.region_quality_)
+    assert report["weighted_region_purity"] >= 0
+    assert np.array_equal(model.predict(X.iloc[:90]), model.labels_)
+
+
+def test_region_quality_report_before_fit_raises():
+    model = InsideForestClassifier()
+    with pytest.raises(RuntimeError):
+        model.region_quality_report()
+
+
+def test_region_quality_survives_save_load(tmp_path):
+    data = load_iris()
+    X = pd.DataFrame(
+        data.data[:80],
+        columns=[str(col).replace(" ", "_") for col in data.feature_names],
+    )
+    y = data.target[:80]
+    model = InsideForestClassifier(
+        rf_params={"n_estimators": 5, "max_depth": 3, "random_state": 0, "n_jobs": 1},
+        no_trees_search=5,
+        max_cases=80,
+        seed=0,
+    )
+    model.fit(X, y)
+
+    filepath = tmp_path / "quality.joblib"
+    model.save(str(filepath))
+    loaded = InsideForestClassifier.load(str(filepath))
+
+    assert loaded.region_quality_report() == model.region_quality_report()
+    pd.testing.assert_frame_equal(loaded.region_rules_, model.region_rules_)
+    pd.testing.assert_frame_equal(loaded.region_quality_, model.region_quality_)

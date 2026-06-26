@@ -8,6 +8,7 @@ lang: es
 ---
 
 <h1>InsideForestRegressor</h1>
+<p><code>predict(X)</code> devuelve etiquetas de region, no estimaciones continuas del objetivo. Usa <code>score(X, y)</code> para medir el bosque interno, o llama <code>regr.rf.predict(...)</code> con un conjunto de caracteristicas que coincida con el bosque ajustado cuando necesites predicciones numericas.</p>
 <p>Envoltorio para tareas de regresión que combina bosques, extracción de regiones y reglas interpretables.</p>
 
 <h2>Firma</h2>
@@ -31,7 +32,7 @@ lang: es
     rf_params={"random_state": 42, "n_estimators": 500},
 )
 regr.fit(X_train, y_train)
-predicciones = regr.predict(X_test)
+etiquetas_region = regr.predict(X_test)
 segmentos = regr.df_clusters_description_
 </code></pre>
 
@@ -51,3 +52,4 @@ segmentos = regr.df_clusters_description_
 </ul>
 
 <p>Complementa con los <a href="clusterselector_es.html">auxiliares de selección</a> y las <a href="metadata_es.html">utilidades de metadatos</a> para auditoría.</p>
+<p>Los resultados de validacion de regresion estan documentados en <code>experiments/results/regression_region_validation/README.md</code> y se reproducen con <code>python experiments/validate_regression_regions.py --profile quick</code>.</p>

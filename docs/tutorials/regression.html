@@ -22,13 +22,20 @@ X, y = load_diabetes(return_X_y=True)
 
 regr = InsideForestRegressor(auto_feature_reduce=True, auto_fast=True, get_detail=True)
 regr.fit(X, y)
+region_labels = regr.predict(X)
+r2 = regr.score(X, y)
 </code></pre>
 
 <h2>Step 3: analyze results</h2>
 <ul>
+  <li><code>region_labels</code> contains interpretable region labels; continuous estimates come from the fitted random forest with the same feature frame used during training.</li>
   <li>Inspect <code>regr.df_clusters_description_</code> and <code>regr.df_datos_explain_</code> for rules and metrics.</li>
   <li>Identify segments with high residuals for corrective actions.</li>
   <li>Save the model with <code>regr.save("models/housing.joblib")</code>.</li>
 </ul>
+
+<h2>Step 4: validate on multiple regression datasets</h2>
+<pre><code class="language-bash">python experiments/validate_regression_regions.py --profile quick</code></pre>
+<p>The latest local quick run reports median test rule coverage of <code>0.9008</code>, target-spread reduction of <code>0.5450</code>, and region-mean RMSE lift of <code>0.1537</code>. Full CSV outputs and the README are stored in <code>experiments/results/regression_region_validation/</code>.</p>
 
 <p>Repeat the analysis with your data and compare with <a href="../performance_tips.html">Performance Tips</a>.</p>

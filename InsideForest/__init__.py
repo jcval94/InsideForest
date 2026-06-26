@@ -26,6 +26,12 @@ from .group_priority import (
     from_traditional_regions,
     rank_region_pairs,
 )
+from .region_quality import (
+    build_region_rule_table,
+    score_region_rules,
+    summarize_region_quality,
+    cluster_label_quality,
+)
 
 # Backward compatibility
 InsideForest = InsideForestClassifier

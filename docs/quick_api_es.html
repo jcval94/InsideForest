@@ -33,9 +33,11 @@ from InsideForest import InsideForestRegressor
 X, y = load_diabetes(return_X_y=True)
 regr = InsideForestRegressor(auto_feature_reduce=True, get_detail=True)
 regr.fit(X, y)
-pred = regr.predict(X)
+etiquetas_region = regr.predict(X)
+r2 = regr.score(X, y)
 reglas = regr.df_clusters_description_
 </code></pre>
+<p><code>etiquetas_region</code> son regiones interpretables, no estimaciones continuas. Usa <code>score(X, y)</code> para medir el bosque interno, y llama <code>regr.rf.predict(...)</code> con el conjunto de caracteristicas del bosque ajustado cuando necesites predicciones numericas.</p>
 <p>El parámetro <code>auto_feature_reduce</code> elimina variables poco informativas antes de generar las regiones. Con <code>get_detail=True</code> obtienes <code>df_clusters_description_</code> y <code>df_datos_explain_</code> para análisis adicionales.</p>
 
 <h2>Estrategias de selección de clústeres</h2>

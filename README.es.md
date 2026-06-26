@@ -71,6 +71,36 @@ in_f = InsideForestClassifier(
 
 in_f.fit(X_train, y_train)
 pred_labels = in_f.predict(X_rest)  # etiquetas de cluster para los datos restantes
+```
+
+En `InsideForestRegressor`, `predict(X)` tambien devuelve etiquetas de region.
+Usa `score(X, y)` para medir el bosque interno, o llama
+`regr.rf.predict(...)` con un conjunto de caracteristicas que coincida con el
+bosque ajustado cuando necesites estimaciones continuas del objetivo.
+
+### Validación de regiones de regresión
+
+`experiments/validate_regression_regions.py` valida `InsideForestRegressor`
+como extractor de regiones interpretables sobre Diabetes, Friedman1, un
+problema lineal disperso y una señal no lineal sintética. El perfil rápido
+guarda métricas crudas y un reporte completo en
+`experiments/results/regression_region_validation/`.
+
+Última corrida local del perfil rápido:
+
+- R2 mediano del bosque en test: `0.6277`
+- Cobertura mediana de reglas en test: `0.9008`
+- Cobertura mediana de regiones vistas en train: `0.7460`
+- Reducción mediana de dispersión del target dentro de regiones: `0.5450`
+- Lift mediano de RMSE por media de región vs baseline de media train: `0.1537`
+- Warnings de clasificación sobre targets continuos: `0`
+
+Reproduce con:
+
+```bash
+python experiments/validate_regression_regions.py --profile quick
+```
+
 ### Presets FAST y reducción de características
 
 InsideForest puede elegir automáticamente parámetros de entrenamiento más

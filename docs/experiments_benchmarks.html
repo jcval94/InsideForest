@@ -47,33 +47,31 @@ nav_order: 7
 </table>
 </div>
 
-<h2>Sample regression results</h2>
+<h2>Regression region validation</h2>
+<p>The reproducible script <code>experiments/validate_regression_regions.py</code> evaluates <code>InsideForestRegressor</code> as a region extractor for continuous targets. The quick profile uses Diabetes, Friedman1, a sparse linear regression problem, and a nonlinear synthetic signal with two seeds.</p>
+<pre><code class="language-bash">python experiments/validate_regression_regions.py --profile quick</code></pre>
+<p>Latest local quick run: median RF test R2 <code>0.6277</code>, median test rule coverage <code>0.9008</code>, median known-region coverage <code>0.7460</code>, median target-spread reduction <code>0.5450</code>, median region-mean RMSE lift vs train-mean baseline <code>0.1537</code>, and zero classification-style target warnings.</p>
 <div class="scroll-table">
 <table>
   <thead>
     <tr>
       <th>Dataset</th>
-      <th>Metric</th>
-      <th>InsideForest</th>
-      <th>Baseline</th>
-      <th>Notes</th>
+      <th>RF R2</th>
+      <th>RF RMSE</th>
+      <th>Mean RMSE</th>
+      <th>Region RMSE</th>
+      <th>Region Lift</th>
+      <th>Rule Coverage</th>
+      <th>Known Coverage</th>
+      <th>Std Reduction</th>
+      <th>Regions</th>
     </tr>
   </thead>
   <tbody>
-    <tr>
-      <td>California Housing</td>
-      <td>RMSE</td>
-      <td>0.48 ± 0.02</td>
-      <td>0.51 ± 0.02 (RandomForest)</td>
-      <td>Auto feature reduction reduced runtime by 18%.</td>
-    </tr>
-    <tr>
-      <td>Energy Efficiency</td>
-      <td>RMSE</td>
-      <td>0.36 ± 0.01</td>
-      <td>0.39 ± 0.01 (XGBoost)</td>
-      <td>InsideForest produced 8 rules with coverage above 90%.</td>
-    </tr>
+    <tr><td>Diabetes</td><td>0.4173</td><td>56.1308</td><td>75.0765</td><td>64.9787</td><td>0.1342</td><td>0.9802</td><td>0.8452</td><td>0.5283</td><td>154.5</td></tr>
+    <tr><td>Friedman1</td><td>0.7170</td><td>2.5284</td><td>4.7960</td><td>3.5953</td><td>0.2501</td><td>0.9881</td><td>0.8849</td><td>0.5275</td><td>148.0</td></tr>
+    <tr><td>Linear sparse</td><td>0.7876</td><td>55.6702</td><td>119.0026</td><td>104.1888</td><td>0.1496</td><td>0.7143</td><td>0.6389</td><td>0.5599</td><td>108.0</td></tr>
+    <tr><td>Nonlinear signal</td><td>0.5801</td><td>1.5776</td><td>2.4551</td><td>2.2907</td><td>0.0694</td><td>0.7937</td><td>0.6825</td><td>0.5634</td><td>126.0</td></tr>
   </tbody>
 </table>
 </div>

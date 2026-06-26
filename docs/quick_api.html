@@ -37,9 +37,11 @@ from InsideForest import InsideForestRegressor
 X, y = load_diabetes(return_X_y=True)
 regr = InsideForestRegressor(auto_feature_reduce=True, get_detail=True)
 regr.fit(X, y)
-predictions = regr.predict(X)
+region_labels = regr.predict(X)
+r2 = regr.score(X, y)
 region_rules = regr.df_clusters_description_
 </code></pre>
+<p><code>region_labels</code> are interpretable regions, not continuous estimates. Use <code>score(X, y)</code> for the underlying forest score, and call <code>regr.rf.predict(...)</code> with the fitted forest feature frame when you need numeric target predictions.</p>
 <p>Enable <code>auto_feature_reduce</code> to limit the number of variables that participate in clustering. When <code>get_detail=True</code>, descriptive DataFrames are exposed via <code>df_clusters_description_</code> and <code>df_datos_explain_</code>.</p>
 
 <h2>Cluster selection strategies</h2>

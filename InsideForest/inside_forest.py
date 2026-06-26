@@ -1,4 +1,5 @@
 from typing import Optional, Dict, Any, List, Tuple
+import warnings
 
 import numpy as np
 import joblib
@@ -16,6 +17,11 @@ from sklearn.utils.multiclass import type_of_target
 from .trees import Trees
 from .regions import Regions
 from .descrip import get_frontiers
+from .region_quality import (
+    build_region_rule_table,
+    score_region_rules,
+    summarize_region_quality,
+)
 
 
 _DEFAULT_NO_TREES_SEARCH = object()
@@ -174,6 +180,7 @@ class _BaseInsideForest:
         seed: int = 42,
     ):
         self.rf_cls = rf_cls
+        self._is_regressor = issubclass(rf_cls, RandomForestRegressor)
         self.rf_params = rf_params or {}
         self._user_rf_random_state = self.rf_params.get("random_state")
         self.seed = seed
@@ -230,7 +237,164 @@ class _BaseInsideForest:
         self.df_reres_ = None
         self.df_datos_explain_ = None
         self.frontiers_ = None
+        self.region_rules_ = None
+        self.region_quality_ = None
+        self.region_quality_summary_ = None
         self._sample_indices_ = None
+
+    @staticmethod
+    def _target_as_series(y, index):
+        """Return a one-dimensional target aligned by position to ``index``."""
+
+        arr = np.asarray(y)
+        if arr.ndim > 1:
+            if arr.shape[1] != 1:
+                raise ValueError(
+                    "InsideForest requires a one-dimensional target for rule extraction."
+                )
+            arr = arr[:, 0]
+        return pd.Series(arr, index=index)
+
+    def _prepare_prediction_frame(self, X):
+        """Coerce prediction/score input and apply the fitted feature mask."""
+
+        if self.feature_names_ is None:
+            raise RuntimeError("InsideForest instance is not fitted yet")
+
+        if isinstance(X, pd.DataFrame):
+            X_df = X.copy()
+            X_df.columns = [str(c).replace(" ", "_") for c in X_df.columns]
+
+            missing_cols = [col for col in self.feature_names_ if col not in X_df.columns]
+            if missing_cols:
+                if self._feature_mask_ is None or self.feature_names_in_ is None:
+                    missing_str = ", ".join(missing_cols)
+                    raise ValueError(
+                        "Input data is missing required feature columns: "
+                        f"{missing_str}. Ensure these columns are present in 'X' or refit the model with this feature set."
+                    )
+
+                original_missing = [
+                    col for col in self.feature_names_in_ if col not in X_df.columns
+                ]
+                if original_missing:
+                    missing_str = ", ".join(original_missing)
+                    raise ValueError(
+                        "Input data is missing required feature columns: "
+                        f"{missing_str}. Ensure these columns are present in 'X' or refit the model with this feature set."
+                    )
+
+                X_df = X_df[self.feature_names_in_]
+                X_df = X_df.loc[:, self._feature_mask_]
+                X_df.columns = self.feature_names_
+                return X_df
+
+            return X_df[self.feature_names_]
+
+        X_arr = np.asarray(X)
+        if X_arr.ndim == 1:
+            X_arr = X_arr.reshape(1, -1)
+
+        n_features = X_arr.shape[1]
+        if n_features == len(self.feature_names_):
+            return pd.DataFrame(data=X_arr, columns=self.feature_names_)
+
+        if self._feature_mask_ is not None and n_features == len(self._feature_mask_):
+            return pd.DataFrame(data=X_arr[:, self._feature_mask_], columns=self.feature_names_)
+
+        if self._feature_mask_ is not None:
+            expected = len(self._feature_mask_)
+            raise ValueError(
+                "Input data must contain either the original feature set "
+                f"({expected} columns) or the reduced feature set "
+                f"({len(self.feature_names_)} columns)."
+            )
+
+        raise ValueError(
+            "Input data must contain all feature columns used during fitting: "
+            f"{', '.join(self.feature_names_)}."
+        )
+
+    def _extract_region_candidates(self, df):
+        """Extract raw rectangular regions from the fitted forest."""
+
+        return self.trees.get_branches(
+            df=df,
+            var_obj=self.var_obj,
+            regr=self.rf,
+            no_trees_search=self.no_trees_search,
+        )
+
+    def _score_region_candidates(self, separacion_dim, df):
+        """Prioritize raw regions before cluster consolidation."""
+
+        return self.regions.prio_ranges(separacion_dim=separacion_dim, df=df)
+
+    def _fit_region_labels(self, df, df_reres):
+        """Consolidate prioritized regions and store compatibility outputs."""
+
+        if self.get_detail:
+            df_datos_clusterizados, df_clusters_description, labels = self.regions.labels(
+                df=df,
+                df_reres=df_reres,
+                n_clusters=self.n_clusters,
+                include_summary_cluster=self.include_summary_cluster,
+                method=self.method,
+                return_dfs=True,
+                var_obj=self.var_obj,
+                seed=self.seed,
+            )
+            labels = pd.Series(labels).fillna(value=-1).to_numpy()
+            self.labels_ = labels
+            self.df_clusters_description_ = df_clusters_description
+            self.df_reres_ = df_reres
+
+            df_datos_explain, frontiers = get_frontiers(
+                df_descriptive=df_clusters_description, df=df, divide=self.divide
+            )
+            self.df_datos_explain_ = df_datos_explain
+            self.frontiers_ = frontiers
+        else:
+            labels = self.regions.labels(
+                df=df,
+                df_reres=df_reres,
+                n_clusters=self.n_clusters,
+                include_summary_cluster=self.include_summary_cluster,
+                method=self.method,
+                return_dfs=False,
+                var_obj=self.var_obj,
+                seed=self.seed,
+            )
+            labels = pd.Series(labels).fillna(value=-1).to_numpy()
+            self.labels_ = labels
+            self.df_reres_ = df_reres
+            self.df_clusters_description_ = None
+            self.df_datos_explain_ = None
+            self.frontiers_ = None
+
+        return self.labels_
+
+    def _store_region_quality(self, df, y):
+        """Build the region quality table and aggregate report."""
+
+        rule_table = getattr(self.regions, "last_rule_table_", None)
+        X_quality = df.drop(columns=[self.var_obj], errors="ignore")
+        task = "regression" if self._is_regressor else "classification"
+
+        self.region_rules_ = build_region_rule_table(rule_table)
+        self.region_quality_ = score_region_rules(
+            self.region_rules_,
+            X_quality,
+            y,
+            task=task,
+        )
+        self.region_quality_summary_ = summarize_region_quality(
+            self.region_quality_,
+            self.labels_,
+            y,
+            task=task,
+        )
+        return self.region_quality_summary_
 
     def get_params(self, deep=True):
         """Return estimator parameters.
@@ -382,16 +546,20 @@ class _BaseInsideForest:
 
         support = None
         if y is not None:
-            try:
-                ytype = type_of_target(y)
-            except Exception:
-                ytype = None
-            if ytype in {"binary", "multiclass"}:
-                sel = SelectKBest(mutual_info_classif, k=k).fit(X_arr, y)
+            if self._is_regressor:
+                sel = SelectKBest(mutual_info_regression, k=k).fit(X_arr, np.asarray(y))
                 support = sel.get_support()
-            elif ytype in {"continuous", "continuous-multioutput"}:
-                sel = SelectKBest(mutual_info_regression, k=k).fit(X_arr, y)
-                support = sel.get_support()
+            else:
+                try:
+                    ytype = type_of_target(y)
+                except Exception:
+                    ytype = None
+                if ytype in {"binary", "multiclass"}:
+                    sel = SelectKBest(mutual_info_classif, k=k).fit(X_arr, y)
+                    support = sel.get_support()
+                elif ytype in {"continuous", "continuous-multioutput"}:
+                    sel = SelectKBest(mutual_info_regression, k=k).fit(X_arr, y)
+                    support = sel.get_support()
         if support is None:
             variances = X_arr.var(axis=0)
             idx_sorted = np.argsort(-variances)[:k]
@@ -472,6 +640,8 @@ class _BaseInsideForest:
         else:
             self._sample_indices_ = np.arange(n_samples)
 
+        y = self._target_as_series(y, X_df.index)
+
         # Replace spaces with underscores to keep compatibility with Trees
         X_df.columns = [str(c).replace(" ", "_") for c in X_df.columns]
 
@@ -496,7 +666,10 @@ class _BaseInsideForest:
             if hasattr(self, "divide"):
                 combined["divide"] = getattr(self, "divide", auto["divide"])
             if hasattr(self, "method"):
-                combined["method"] = "menu" if y is not None else getattr(self, "method", auto["method"])
+                if self._is_regressor:
+                    combined["method"] = getattr(self, "method", "select_clusters")
+                else:
+                    combined["method"] = "menu" if y is not None else getattr(self, "method", auto["method"])
             if hasattr(self, "get_detail"):
                 combined["get_detail"] = getattr(self, "get_detail", auto["get_detail"])
 
@@ -527,7 +700,7 @@ class _BaseInsideForest:
             self.rf = rf
 
         # Optional balancing of class distribution and cluster method
-        if self.balance_clusters and y is not None:
+        if self.balance_clusters and y is not None and not self._is_regressor:
             try:
                 ytype = type_of_target(y)
             except Exception:
@@ -539,6 +712,23 @@ class _BaseInsideForest:
                 if self.method in (None, "select_clusters"):
                     self.method = "menu"
 
+        if self._is_regressor and self.method in {
+            "match_class_distribution",
+            "chimera",
+            "chimera_values_selector",
+            "ChimeraValuesSelector",
+            "menu",
+            "MenuClusterSelector",
+            "menu_cluster_selector",
+        }:
+            warnings.warn(
+                f"method='{self.method}' treats the target as discrete labels. "
+                "For continuous regression targets, the default 'select_clusters' "
+                "usually keeps the region semantics clearer.",
+                UserWarning,
+                stacklevel=2,
+            )
+
         # Train RandomForest only if it has not been fitted already
         try:
             check_is_fitted(self.rf)
@@ -549,53 +739,10 @@ class _BaseInsideForest:
         df = X_df.copy()
         df[self.var_obj] = y
 
-        # Extract rules and compute labels using existing utilities
-        separacion_dim = self.trees.get_branches(
-            df=df,
-            var_obj=self.var_obj,
-            regr=self.rf,
-            no_trees_search=self.no_trees_search,
-        )
-        df_reres = self.regions.prio_ranges(separacion_dim=separacion_dim, df=df)
-
-        if self.get_detail:
-            df_datos_clusterizados, df_clusters_description, labels = self.regions.labels(
-                df=df,
-                df_reres=df_reres,
-                n_clusters=self.n_clusters,
-                include_summary_cluster=self.include_summary_cluster,
-                method=self.method,
-                return_dfs=True,
-                var_obj=self.var_obj,
-                seed=self.seed,
-            )
-            labels = pd.Series(labels).fillna(value=-1).to_numpy()
-            self.labels_ = labels
-            self.df_clusters_description_ = df_clusters_description
-            self.df_reres_ = df_reres
-
-            df_datos_explain, frontiers = get_frontiers(
-                df_descriptive=df_clusters_description, df=df, divide=self.divide
-            )
-            self.df_datos_explain_ = df_datos_explain
-            self.frontiers_ = frontiers
-        else:
-            labels = self.regions.labels(
-                df=df,
-                df_reres=df_reres,
-                n_clusters=self.n_clusters,
-                include_summary_cluster=self.include_summary_cluster,
-                method=self.method,
-                return_dfs=False,
-                var_obj=self.var_obj,
-                seed=self.seed,
-            )
-            labels = pd.Series(labels).fillna(value=-1).to_numpy()
-            self.labels_ = labels
-            self.df_reres_ = df_reres
-            self.df_clusters_description_ = None
-            self.df_datos_explain_ = None
-            self.frontiers_ = None
+        separacion_dim = self._extract_region_candidates(df)
+        df_reres = self._score_region_candidates(separacion_dim, df)
+        self._fit_region_labels(df, df_reres)
+        self._store_region_quality(df, y)
 
         return self
 
@@ -648,6 +795,12 @@ class _BaseInsideForest:
     def predict(self, X):
         """Assign cluster labels to new data based on learned regions.
 
+        ``InsideForestRegressor`` keeps this same contract for compatibility:
+        this method returns region labels, not continuous target estimates. For
+        numeric predictions use the fitted ``rf`` estimator with the same
+        feature frame used by the forest; :meth:`score` applies any automatic
+        feature mask before delegating to that estimator.
+
         Parameters
         ----------
         X : array-like or pandas.DataFrame
@@ -664,26 +817,7 @@ class _BaseInsideForest:
         if self.df_reres_ is None:
             raise RuntimeError("InsideForest instance is not fitted yet")
 
-        if isinstance(X, pd.DataFrame):
-            X_df = X.copy()
-            X_df.columns = [str(c).replace(" ", "_") for c in X_df.columns]
-            missing_cols = [col for col in self.feature_names_ if col not in X_df.columns]
-            if missing_cols:
-                missing_str = ", ".join(missing_cols)
-                raise ValueError(
-                    "Input data is missing required feature columns: "
-                    f"{missing_str}. Ensure these columns are present in 'X' or refit the model with this feature set."
-                )
-            # Reorder/Subset columns to match training features
-            X_df = X_df[self.feature_names_]
-        else:
-            try:
-                X_df = pd.DataFrame(data=X, columns=self.feature_names_)
-            except ValueError as err:
-                raise ValueError(
-                    "Input data must contain all feature columns used during fitting: "
-                    f"{', '.join(self.feature_names_)}."
-                ) from err
+        X_df = self._prepare_prediction_frame(X)
 
         # Some label consolidation strategies require an auxiliary target
         # column even at prediction time. When the method depends on class
@@ -736,14 +870,16 @@ class _BaseInsideForest:
 
         check_is_fitted(self.rf)
 
-        if isinstance(X, pd.DataFrame):
-            X_df = X.copy()
-            X_df.columns = [str(c).replace(" ", "_") for c in X_df.columns]
-            X_df = X_df[self.feature_names_]
-        else:
-            X_df = pd.DataFrame(data=X, columns=self.feature_names_)
+        X_df = self._prepare_prediction_frame(X)
 
         return self.rf.score(X_df, y)
+
+    def region_quality_report(self) -> Dict[str, float]:
+        """Return aggregate quality metrics for fitted regions and clusters."""
+
+        if self.region_quality_summary_ is None:
+            raise RuntimeError("InsideForest instance is not fitted yet")
+        return dict(self.region_quality_summary_)
 
     def save(self, filepath: str):
         """Save the fitted model and derived attributes to ``filepath``.
@@ -768,12 +904,26 @@ class _BaseInsideForest:
             "low_leaf_fraction": self.low_leaf_fraction,
             "max_cases": self.max_cases,
             "no_trees_search": self.no_trees_search,
+            "balance_clusters": self.balance_clusters,
+            "auto_fast": self.auto_fast,
+            "auto_feature_reduce": self.auto_feature_reduce,
+            "explicit_k_features": self.explicit_k_features,
+            "fast_overrides": self.fast_overrides,
+            "seed": self.seed,
             "labels_": self.labels_,
             "feature_names_": self.feature_names_,
+            "feature_names_in_": self.feature_names_in_,
+            "feature_names_out_": self.feature_names_out_,
+            "_feature_mask_": self._feature_mask_,
+            "_size_bucket_": self._size_bucket_,
+            "_fast_params_used_": self._fast_params_used_,
             "df_clusters_description_": self.df_clusters_description_,
             "df_reres_": self.df_reres_,
             "df_datos_explain_": self.df_datos_explain_,
             "frontiers_": self.frontiers_,
+            "region_rules_": self.region_rules_,
+            "region_quality_": self.region_quality_,
+            "region_quality_summary_": self.region_quality_summary_,
             "menu_selector_": getattr(self.regions, "_menu_selector", None),
         }
         joblib.dump(payload, filepath)
@@ -806,6 +956,12 @@ class _BaseInsideForest:
             leaf_percentile=payload.get("leaf_percentile", 96),
             low_leaf_fraction=payload.get("low_leaf_fraction", 0.03),
             max_cases=payload.get("max_cases", 750),
+            balance_clusters=payload.get("balance_clusters", False),
+            auto_fast=payload.get("auto_fast", False),
+            auto_feature_reduce=payload.get("auto_feature_reduce", False),
+            explicit_k_features=payload.get("explicit_k_features", None),
+            fast_overrides=payload.get("fast_overrides", None),
+            seed=payload.get("seed", 42),
         )
         stored_no_trees = payload.get("no_trees_search", _DEFAULT_NO_TREES_SEARCH)
         if stored_no_trees is not _DEFAULT_NO_TREES_SEARCH:
@@ -814,10 +970,18 @@ class _BaseInsideForest:
         model.rf = payload["rf"]
         model.labels_ = payload["labels_"]
         model.feature_names_ = payload["feature_names_"]
+        model.feature_names_in_ = payload.get("feature_names_in_")
+        model.feature_names_out_ = payload.get("feature_names_out_")
+        model._feature_mask_ = payload.get("_feature_mask_")
+        model._size_bucket_ = payload.get("_size_bucket_")
+        model._fast_params_used_ = payload.get("_fast_params_used_")
         model.df_clusters_description_ = payload["df_clusters_description_"]
         model.df_reres_ = payload["df_reres_"]
         model.df_datos_explain_ = payload["df_datos_explain_"]
         model.frontiers_ = payload["frontiers_"]
+        model.region_rules_ = payload.get("region_rules_")
+        model.region_quality_ = payload.get("region_quality_")
+        model.region_quality_summary_ = payload.get("region_quality_summary_")
         if "menu_selector_" in payload:
             model.regions._menu_selector = payload["menu_selector_"]
         return model
@@ -873,7 +1037,12 @@ class InsideForestClassifier(_BaseInsideForest):
 
 class InsideForestRegressor(_BaseInsideForest):
     """Wrapper model that combines a ``RandomForestRegressor`` with the
-    Trees/Regions utilities to provide cluster labels for the training data."""
+    Trees/Regions utilities to provide interpretable region labels.
+
+    ``predict`` returns region labels for compatibility with earlier
+    InsideForest releases. Continuous target estimates are available from the
+    fitted ``rf`` estimator; ``score`` reports the estimator's R2 score.
+    """
 
     def __init__(
         self,

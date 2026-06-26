@@ -89,6 +89,36 @@ in_f = InsideForestClassifier(
 
 in_f.fit(X_train, y_train)
 pred_labels = in_f.predict(X_rest)  # cluster labels for the remaining data
+```
+
+For `InsideForestRegressor`, `predict(X)` also returns region labels. Use
+`score(X, y)` for the underlying forest score, or call `regr.rf.predict(...)`
+with a feature frame that matches the fitted forest when you need continuous
+target estimates.
+
+### Regression region validation
+
+`experiments/validate_regression_regions.py` validates `InsideForestRegressor`
+as an interpretable region extractor on Diabetes, Friedman1, a sparse linear
+regression problem, and a nonlinear synthetic signal. The quick profile writes
+raw metrics and a full report to
+`experiments/results/regression_region_validation/`.
+
+Latest local quick run:
+
+- Median RF test R2: `0.6277`
+- Median test rule coverage: `0.9008`
+- Median known-region coverage: `0.7460`
+- Median target-spread reduction inside regions: `0.5450`
+- Median region-mean RMSE lift vs train-mean baseline: `0.1537`
+- Classification-style target warnings: `0`
+
+Reproduce with:
+
+```bash
+python experiments/validate_regression_regions.py --profile quick
+```
+
 ### FAST presets and feature reduction
 
 InsideForest can automatically pick faster training parameters and reduce

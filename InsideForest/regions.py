@@ -1779,6 +1779,11 @@ class Regions:
       labels = df_datos_clusterizados['cluster'].tolist()
     else:
       raise ValueError(f"Unknown method '{method}'")
+
+    self.last_rule_table_ = df_reglas_importantes.copy()
+    self.last_clustered_data_ = df_datos_clusterizados.copy()
+    self.last_clustered_data_['cluster'] = labels
+    self.last_cluster_description_ = df_clusters_description.copy()
     
     if return_dfs:
        if not include_summary_cluster:
