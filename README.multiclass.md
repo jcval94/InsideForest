@@ -2,6 +2,13 @@
 
 Esta version agrega una capa opt-in para interpretacion multiclase sin reemplazar el flujo tradicional de InsideForest. La API nueva vive en `InsideForest.multiclass` y conserva, por hoja del bosque, el vector completo de probabilidades por clase.
 
+## Notebook Ejecutable
+
+El caso de uso canónico se distribuye con la librería en
+[`InsideForest/examples/InsideForest_Caso_de_Uso.ipynb`](InsideForest/examples/InsideForest_Caso_de_Uso.ipynb).
+Incluye un ejemplo Wine de tres clases con reglas, prototipos, regiones de
+confusión, asignación sobre holdout y fallback explícito.
+
 ## Uso Rapido
 
 ```python

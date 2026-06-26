@@ -37,3 +37,6 @@ Repository = "https://github.com/jcval94/InsideForest.git"
 
 [tool.setuptools.packages.find]
 include = ["InsideForest*"]
+
+[tool.setuptools.package-data]
+"InsideForest.examples" = ["*.ipynb"]

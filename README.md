@@ -21,7 +21,7 @@ InsideForest is useful when you need more than a model score: it helps inspect w
 
 Building and analyzing a random forest with InsideForest uncovers hidden trends and provides **insights** that support business decisions.
 
-[USE CASE](https://colab.research.google.com/drive/11VGeB0V6PLMlQ8Uhba91fJ4UN1Bfbs90?usp=sharing)
+[USE CASE NOTEBOOK](InsideForest/examples/InsideForest_Caso_de_Uso.ipynb) · [OPEN THE REPOSITORY VERSION IN COLAB](https://colab.research.google.com/github/jcval94/InsideForest/blob/main/InsideForest/examples/InsideForest_Caso_de_Uso.ipynb)
 
 ## Installation
 
@@ -137,7 +137,7 @@ attributes, allowing you to continue generating labels or predictions
 without re-fitting.
 
 ## Use case (Iris)
-The following summarizes the flow used in the [example notebook](https://colab.research.google.com/drive/11VGeB0V6PLMlQ8Uhba91fJ4UN1Bfbs90?usp=sharing).
+The following summarizes the flow used in the [example notebook included with the library](InsideForest/examples/InsideForest_Caso_de_Uso.ipynb). The notebook also contains a complete three-class example using `InsideForestMulticlassClassifier`.
 
 ### 1. Model preparation
 

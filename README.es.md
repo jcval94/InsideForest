@@ -19,7 +19,7 @@ Ya sea que trabajes con datos de clientes, ventas u otra fuente, la biblioteca t
 
 Construir y analizar un bosque aleatorio con InsideForest revela tendencias ocultas y proporciona **insights** que respaldan decisiones de negocio.
 
-[CASO DE USO](https://colab.research.google.com/drive/11VGeB0V6PLMlQ8Uhba91fJ4UN1Bfbs90?usp=sharing)
+[NOTEBOOK DEL CASO DE USO](InsideForest/examples/InsideForest_Caso_de_Uso.ipynb) · [ABRIR LA VERSIÓN DEL REPOSITORIO EN COLAB](https://colab.research.google.com/github/jcval94/InsideForest/blob/main/InsideForest/examples/InsideForest_Caso_de_Uso.ipynb)
 
 ## Instalación
 
@@ -118,7 +118,7 @@ calculados, permitiendo continuar generando etiquetas o predicciones
 sin volver a entrenar.
 
 ## Caso de uso (Iris)
-Lo siguiente resume el flujo utilizado en el [notebook de ejemplo](https://colab.research.google.com/drive/11VGeB0V6PLMlQ8Uhba91fJ4UN1Bfbs90?usp=sharing).
+Lo siguiente resume el flujo utilizado en el [notebook incluido en la librería](InsideForest/examples/InsideForest_Caso_de_Uso.ipynb). El notebook también contiene un ejemplo completo de tres clases con `InsideForestMulticlassClassifier`.
 
 ### 1. Preparación del modelo
 
