@@ -21,7 +21,7 @@ InsideForest is useful when you need more than a model score: it helps inspect w
 
 Building and analyzing a random forest with InsideForest uncovers hidden trends and provides **insights** that support business decisions.
 
-[USE CASE NOTEBOOK](InsideForest/examples/InsideForest_Caso_de_Uso.ipynb) · [OPEN THE REPOSITORY VERSION IN COLAB](https://colab.research.google.com/github/jcval94/InsideForest/blob/main/InsideForest/examples/InsideForest_Caso_de_Uso.ipynb)
+[USE CASE NOTEBOOK](InsideForest/examples/InsideForest_Caso_de_Uso.ipynb) · [OPEN THE REPOSITORY VERSION IN COLAB](https://colab.research.google.com/github/jcval94/InsideForest/blob/master/InsideForest/examples/InsideForest_Caso_de_Uso.ipynb)
 
 ## Installation
 

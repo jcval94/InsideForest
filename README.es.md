@@ -19,7 +19,7 @@ Ya sea que trabajes con datos de clientes, ventas u otra fuente, la biblioteca t
 
 Construir y analizar un bosque aleatorio con InsideForest revela tendencias ocultas y proporciona **insights** que respaldan decisiones de negocio.
 
-[NOTEBOOK DEL CASO DE USO](InsideForest/examples/InsideForest_Caso_de_Uso.ipynb) · [ABRIR LA VERSIÓN DEL REPOSITORIO EN COLAB](https://colab.research.google.com/github/jcval94/InsideForest/blob/main/InsideForest/examples/InsideForest_Caso_de_Uso.ipynb)
+[NOTEBOOK DEL CASO DE USO](InsideForest/examples/InsideForest_Caso_de_Uso.ipynb) · [ABRIR LA VERSIÓN DEL REPOSITORIO EN COLAB](https://colab.research.google.com/github/jcval94/InsideForest/blob/master/InsideForest/examples/InsideForest_Caso_de_Uso.ipynb)
 
 ## Instalación
 
