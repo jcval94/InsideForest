@@ -9,6 +9,12 @@ from InsideForest.trees import Trees
 from experiments.get_summary_ab_test import (
     run_ab_test,
     _baseline_get_summary_optimizado,
+    assert_summary_equivalent,
+)
+from experiments.branch_metrics_ab_test import (
+    _downstream_outputs,
+    _threshold_boundary_scenario,
+    adoption_decision,
 )
 
 
@@ -209,3 +215,139 @@ def test_get_summary_optimizado_respects_branch_limit(randomized_summary_inputs)
         baseline_limited.sort_index(axis=1).reset_index(drop=True),
         check_dtype=False,
     )
+
+
+@pytest.mark.parametrize(
+    "estimator_cls,target",
+    [
+        (RandomForestRegressor, np.array([0.0, 1.0, 1.0, 2.0])),
+        (RandomForestClassifier, np.array([0, 0, 1, 1])),
+    ],
+)
+@pytest.mark.parametrize("bootstrap", [True, False])
+def test_shared_prefix_summary_matches_rule_masks(estimator_cls, target, bootstrap):
+    X, _ = _build_regression_data()
+    model = estimator_cls(
+        n_estimators=3,
+        max_depth=3,
+        bootstrap=bootstrap,
+        random_state=17,
+    ).fit(X, target)
+    trees = Trees(percentil=0, low_frac=0)
+    parsed = trees.get_fro(trees.get_rangos(model, X, percentil=0))
+    df = X.copy()
+    df["target"] = target
+
+    baseline = trees.get_summary_optimizado(df, parsed, "target")
+    shared = trees._get_summary_from_fitted_forest(
+        df,
+        parsed,
+        "target",
+        model,
+        assignment_strategy="shared_prefix",
+    )
+
+    assert assert_summary_equivalent(shared, baseline) == 0.0
+
+
+def test_shared_prefix_falls_back_when_memory_budget_is_exceeded(
+    randomized_summary_inputs,
+):
+    trees, df_with_target, parsed = randomized_summary_inputs
+    X = df_with_target.drop(columns=["target"])
+    y = df_with_target["target"]
+    model = RandomForestRegressor(
+        n_estimators=6,
+        max_depth=6,
+        random_state=321,
+    ).fit(X, y)
+
+    baseline = trees.get_summary_optimizado(df_with_target, parsed, "target")
+    fallback = trees._get_summary_from_fitted_forest(
+        df_with_target,
+        parsed,
+        "target",
+        model,
+        assignment_strategy="shared_prefix",
+        max_work_bytes=0,
+    )
+
+    assert_summary_equivalent(fallback, baseline)
+
+
+def test_native_apply_boundary_difference_is_detected_but_shared_prefix_matches():
+    scenario = _threshold_boundary_scenario(9)
+    trees = Trees(percentil=0, low_frac=0)
+    parsed = trees.get_fro(
+        trees.get_rangos(scenario.model, scenario.X, percentil=0)
+    )
+    df = scenario.X.copy()
+    df["target"] = scenario.y
+    baseline = trees.get_summary_optimizado(df, parsed, "target")
+    native = trees._get_summary_from_fitted_forest(
+        df,
+        parsed,
+        "target",
+        scenario.model,
+        assignment_strategy="native_apply",
+    )
+    shared = trees._get_summary_from_fitted_forest(
+        df,
+        parsed,
+        "target",
+        scenario.model,
+        assignment_strategy="shared_prefix",
+    )
+
+    with pytest.raises(AssertionError):
+        assert_summary_equivalent(native, baseline)
+    assert_summary_equivalent(shared, baseline)
+
+
+def test_shared_prefix_preserves_regions_and_labels(randomized_summary_inputs):
+    trees, df, parsed = randomized_summary_inputs
+    X = df.drop(columns=["target"])
+    model = RandomForestRegressor(
+        n_estimators=6,
+        max_depth=6,
+        random_state=321,
+    ).fit(X, df["target"])
+    baseline = trees.get_summary_optimizado(df, parsed, "target")
+    shared = trees._get_summary_from_fitted_forest(
+        df,
+        parsed,
+        "target",
+        model,
+        assignment_strategy="shared_prefix",
+    )
+
+    base_rectangles, base_regions, base_labels = _downstream_outputs(
+        trees, baseline, df, "target"
+    )
+    new_rectangles, new_regions, new_labels = _downstream_outputs(
+        trees, shared, df, "target"
+    )
+    assert len(new_rectangles) == len(base_rectangles)
+    assert len(new_regions) == len(base_regions)
+    for actual, expected in zip(new_rectangles + new_regions, base_rectangles + base_regions):
+        pd.testing.assert_frame_equal(actual, expected)
+    np.testing.assert_array_equal(new_labels, base_labels)
+
+
+def test_adoption_gate_requires_equivalence_and_speed_thresholds():
+    rows = []
+    for speedup in [1.3, 1.4, 1.5]:
+        rows.append(
+            {
+                "strategy": "shared_prefix",
+                "speedup_vs_rule_masks": speedup,
+                "summary_equal": True,
+                "branch_identity_equal": True,
+                "regions_equal": True,
+                "labels_equal": True,
+                "within_memory_budget": True,
+            }
+        )
+    assert adoption_decision(pd.DataFrame(rows))["adopted"]
+    rows[0]["labels_equal"] = False
+    assert not adoption_decision(pd.DataFrame(rows))["adopted"]
