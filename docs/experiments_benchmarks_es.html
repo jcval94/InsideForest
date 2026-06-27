@@ -1,70 +1,40 @@
 ---
 layout: default
-title: Experimentos y Benchmarks
-description: Datasets y métricas que muestran el rendimiento de InsideForest.
+title: Experimentos y benchmarks
+description: Evaluación basada en datos del clustering supervisado por regiones.
 nav_order: 80
 nav_exclude: true
 lang: es
 ---
 
 <h1>Experimentos y benchmarks</h1>
-<p>Los siguientes resultados sirven como referencia para evaluar InsideForest en distintas tareas. Cada experimento incluye un conjunto de datos público y métricas reproducibles.</p>
+<p>InsideForest debe evaluarse como clustering supervisado y descubrimiento de regiones. La accuracy de clasificación del bosque queda intencionalmente fuera de la decisión sobre el clusterer.</p>
 
-<h2>Datasets evaluados</h2>
-<table>
-  <thead>
-    <tr>
-      <th>Dataset</th>
-      <th>Tarea</th>
-      <th>Observaciones</th>
-      <th>Variables</th>
-      <th>Métrica</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>UCI Adult</td>
-      <td>Clasificación</td>
-      <td>48&nbsp;842</td>
-      <td>14</td>
-      <td>F1 macro = 0.86</td>
-    </tr>
-    <tr>
-      <td>Credit Default</td>
-      <td>Clasificación</td>
-      <td>30&nbsp;000</td>
-      <td>23</td>
-      <td>AUC = 0.82</td>
-    </tr>
-    <tr>
-      <td>Boston Housing</td>
-      <td>Regresión</td>
-      <td>506</td>
-      <td>13</td>
-      <td>RMSE = 3.1</td>
-    </tr>
-  </tbody>
-</table>
-
-<h2>Metodología</h2>
+<h2>Métricas principales</h2>
 <ul>
-  <li>División estratificada 35% entrenamiento / 65% evaluación.</li>
-  <li>Presets <code>auto_fast</code> y <code>auto_feature_reduce</code> habilitados por defecto.</li>
-  <li>Semilla fija (<code>random_state=15</code>) para permitir comparaciones directas.</li>
-  <li>Baselines con <code>RandomForest</code> y <code>KMeans</code> para medir ganancias.</li>
+  <li>Cobertura y tasa sin asignar, conservando siempre el cluster <code>-1</code> en las métricas.</li>
+  <li>AMI, NMI, ARI, homogeneidad, completitud y pureza ponderada.</li>
+  <li>Lift, entropía, soporte, margen de clase y cobertura por clase objetivo.</li>
+  <li>Hojas crudas, regiones finales, compresión, tiempo y memoria.</li>
+  <li>Estabilidad de asignaciones y geometrías entre semillas o remuestreos.</li>
 </ul>
 
-<h2>Hallazgos</h2>
-<ul>
-  <li><strong>Interpretabilidad:</strong> las reglas finales contienen en promedio menos de cinco condiciones.</li>
-  <li><strong>Balance:</strong> el método <code>menu</code> mitiga la dominancia de clases mayoritarias.</li>
-  <li><strong>Tiempo:</strong> cada corrida se completa en menos de ocho minutos en CPU moderna.</li>
-</ul>
-
-<h2>Cómo replicar</h2>
-<pre><code class="language-bash">cd experiments
-python adult_experiment.py --auto-fast --save-report
-python credit_default.py --compare-baselines
-python ../experiments/validate_regression_regions.py --profile quick
+<h2>Benchmark actual de regiones por clase</h2>
+<pre><code class="language-bash">python experiments/validate_class_region_clusters.py --profile quick
 </code></pre>
-<p>Para más detalles revisa <a href="reproducibility_es.html">Reproducibilidad</a> y ajusta parámetros con <a href="performance_tips_es.html">Rendimiento</a>.</p>
+<p>Compara <code>InsideForestRegionClusterer</code> e <code>InsideForestClassRegionClusterer</code> sin fallback. En una prueba local de dos folds sobre Iris, el clusterer por clase obtuvo cobertura <code>1.000</code> y AMI cercano a <code>0.824</code>; el general obtuvo cobertura <code>0.440–0.480</code> y AMI <code>0.537–0.548</code>. Es evidencia de humo, no un ranking universal.</p>
+
+<h2>Decidir si agregar ramas aporta valor</h2>
+<p>Usa <code>branch_aggregation="none"</code> como baseline. Adopta una agregación sólo si evaluaciones repetidas muestran compresión mediana de al menos 20%, no inferioridad en cobertura, AMI y pureza, estabilidad no degradada y coste aceptable. Sólo se pueden unir regiones de la misma clase objetivo y deben recomputarse distribución, soporte y score.</p>
+
+<h2>Protocolo reproducible</h2>
+<ol>
+  <li>Usa particiones estratificadas repetidas y semillas fijas.</li>
+  <li>Ajusta únicamente en train y evalúa asignaciones sobre holdout.</li>
+  <li>Prueba etiquetas string, IDs remapeados, permutaciones numéricas y de columnas.</li>
+  <li>Reporta cada fold y resúmenes robustos, no sólo una media.</li>
+  <li>Archiva parámetros, versiones, regiones crudas y tabla final.</li>
+</ol>
+
+<h2>Regiones de regresión</h2>
+<p><code>python experiments/validate_regression_regions.py --profile quick</code> sigue siendo la validación de <code>InsideForestRegressor</code>. Su R² corresponde al bosque de regresión y no al contrato categórico.</p>

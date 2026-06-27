@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from InsideForest import InsideForestClassifier
+from InsideForest import InsideForestRegionClusterer
 from InsideForest.cluster_selector import MenuClusterSelector
 from InsideForest.regions import Regions
 from InsideForest.trees import Trees
@@ -454,7 +454,7 @@ def run(args) -> pd.DataFrame:
     )
 
     def fit_with_current():
-        model = InsideForestClassifier(
+        model = InsideForestRegionClusterer(
             rf_params={
                 "n_estimators": args.n_estimators,
                 "max_depth": args.max_depth,
@@ -504,7 +504,7 @@ def write_readme(df: pd.DataFrame, path: Path) -> None:
         "",
         "## Alcance",
         "",
-        "Este reporte compara la implementacion original contra cambios candidatos en la ruta principal de `InsideForestClassifier.fit`: extraccion de reglas, priorizacion de regiones y asignacion de etiquetas.",
+        "Este reporte compara cambios candidatos en la ruta principal de `InsideForestRegionClusterer.fit`: extraccion, priorizacion y asignacion de regiones.",
         "",
         "## Hallazgos",
         "",

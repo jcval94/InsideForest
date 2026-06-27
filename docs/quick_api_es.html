@@ -1,69 +1,55 @@
 ---
 layout: default
 title: API Rápida
-description: Referencia rápida para utilizar InsideForest.
+description: Patrones esenciales de clustering supervisado por regiones.
 nav_order: 3
 nav_exclude: true
 lang: es
 ---
 
-<h1>API Rápida</h1>
-<p>Esta guía resume los patrones esenciales de uso de InsideForest para clasificación y regresión. Las clases mantienen la convención <code>fit</code>/<code>predict</code> de <code>scikit-learn</code>.</p>
+<h1>API rápida</h1>
+<p>InsideForest ofrece dos clusterers supervisados. Ambos siguen <code>fit</code>/<code>predict</code>, pero <code>predict</code> devuelve IDs de regiones, no clases del objetivo.</p>
 
-<h2>Flujo para clasificación</h2>
+<h2>Regiones supervisadas generales</h2>
 <pre><code class="language-python">from sklearn.datasets import load_iris
-from InsideForest import InsideForestClassifier
+from InsideForest import InsideForestRegionClusterer
 
 X, y = load_iris(return_X_y=True)
-clf = InsideForestClassifier(
-    rf_params={"n_estimators": 400, "random_state": 21},
-    auto_fast=True,
-    get_detail=True,
+modelo = InsideForestRegionClusterer(
+    rf_params={"n_estimators": 40, "random_state": 21}
 )
-clf.fit(X, y)
-labels = clf.predict(X)
-resumen = clf.df_clusters_description_
+labels = modelo.fit_predict(X, y)
+asignaciones = modelo.assign_regions(X)
+regiones = modelo.explain_regions(top_n=10)
+calidad = modelo.region_quality_report(X, y)
 </code></pre>
-<p>Activa <code>get_detail=True</code> para conservar las tablas generadas durante el ajuste. Explora <code>clf.feature_importances_</code>, <code>clf.plot_importances()</code> y <code>clf.df_datos_explain_</code> para comunicar qué variables generan cada segmento. Los registros que no cumplen ninguna regla reciben la etiqueta <code>-1</code>; revisa la advertencia emitida por <code>predict</code> para cuantificarlos.</p>
+<p><code>labels</code> y <code>modelo.labels_</code> son IDs de cluster. <code>score(X, y)</code> devuelve AMI y una fila fuera de toda región recibe <code>-1</code>.</p>
 
-<h2>Flujo para regresión</h2>
-<pre><code class="language-python">from sklearn.datasets import load_diabetes
-from InsideForest import InsideForestRegressor
+<h2>Regiones enriquecidas por clase</h2>
+<pre><code class="language-python">from InsideForest import InsideForestClassRegionClusterer
 
-X, y = load_diabetes(return_X_y=True)
-regr = InsideForestRegressor(auto_feature_reduce=True, get_detail=True)
-regr.fit(X, y)
-etiquetas_region = regr.predict(X)
-r2 = regr.score(X, y)
-reglas = regr.df_clusters_description_
+por_clase = InsideForestClassRegionClusterer(
+    leaf_percentile=95,
+    min_support=2,
+    branch_aggregation="none",
+    random_state=21,
+)
+cluster_ids = por_clase.fit_predict(X, y)
+regiones_clase_0 = por_clase.regions_for_class(0, top_n=5)
+ambiguas = por_clase.ambiguous_regions(top_n=10)
+cobertura = por_clase.class_coverage_report()
 </code></pre>
-<p><code>etiquetas_region</code> son regiones interpretables, no estimaciones continuas. Usa <code>score(X, y)</code> para medir el bosque interno, y llama <code>regr.rf.predict(...)</code> con el conjunto de caracteristicas del bosque ajustado cuando necesites predicciones numericas.</p>
-<p>El parámetro <code>auto_feature_reduce</code> elimina variables poco informativas antes de generar las regiones. Con <code>get_detail=True</code> obtienes <code>df_clusters_description_</code> y <code>df_datos_explain_</code> para análisis adicionales.</p>
+<p>Cada hoja seleccionada tiene una sola <code>region_target_class</code> y conserva su <code>class_distribution</code> completa. <code>classes_</code> es metadato, no la salida de <code>predict</code>.</p>
 
-<h2>Estrategias de selección de clústeres</h2>
-<pre><code class="language-python">from InsideForest import cluster_selector
+<h2>Asignación y filas sin región</h2>
+<p><code>assign_regions(X)</code> devuelve el cluster, la clase objetivo de la región, score, distribución, lift, entropía, margen y todas las coincidencias. <code>source</code> sólo puede ser <code>region</code> o <code>unmatched</code>. No existen fallback al bosque ni <code>predict_proba</code>.</p>
 
-menu = cluster_selector.MenuClusterSelector(quota=0.2)
-menu.fit(clf.df_reres_, y)
-ajustado = menu.predict(clf.df_reres_)
+<h2>Persistencia</h2>
+<pre><code class="language-python">modelo.save("region-clusterer.joblib")
+cargado = InsideForestRegionClusterer.load("region-clusterer.joblib")
+assert (cargado.predict(X) == modelo.predict(X)).all()
 </code></pre>
-<ul>
-  <li><code>"select_clusters"</code>: selección directa basada en reglas.</li>
-  <li><code>cluster_selector.balance_lists_n_clusters</code>: reparte observaciones de forma uniforme.</li>
-  <li><code>cluster_selector.max_prob_clusters</code>: prioriza segmentos con probabilidad alta.</li>
-  <li><code>cluster_selector.match_class_distribution</code> y <code>MenuClusterSelector</code>: preservan proporciones entre clases.</li>
-</ul>
+<p>Se conservan bosque, regiones, distribuciones, métricas y asignaciones. Los modelos antiguos pueden migrarse, pero deben recalcular <code>labels_</code> si antes almacenaba una tabla de métricas.</p>
 
-<h2>Persistencia de modelos</h2>
-<pre><code class="language-python">clf.save("modelo.joblib")
-cargado = InsideForestClassifier.load("modelo.joblib")
-assert cargado._fast_params_used_ == clf._fast_params_used_
-</code></pre>
-<p>La carga restaura tanto el bosque entrenado como las regiones calculadas, permitiendo continuar con predicciones y análisis.</p>
-
-<h2>¿Qué sigue?</h2>
-<ul>
-  <li>Lee <a href="how_it_works_es.html">Cómo funciona</a> para profundizar en árboles, regiones y etiquetas.</li>
-  <li>Visita la <a href="api/index_es.html">referencia completa</a> para conocer cada módulo disponible.</li>
-  <li>Antes de ejecutar experimentos intensivos, revisa <a href="performance_tips_es.html">consejos de rendimiento</a>.</li>
-</ul>
+<h2>Regresión</h2>
+<p><code>InsideForestRegressor</code> conserva su contrato actual: <code>predict</code> devuelve regiones y <code>score</code> continúa siendo el R² del bosque interno.</p>

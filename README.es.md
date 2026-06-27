@@ -11,7 +11,7 @@ Ya sea que trabajes con datos de clientes, ventas u otra fuente, la biblioteca t
 ## Casos de uso de ejemplo
 
 - Analizar el comportamiento de los clientes para identificar segmentos rentables.
-- Clasificar pacientes por historial médico y síntomas.
+- Descubrir regiones de pacientes enriquecidas para un desenlace clínico.
 - Evaluar canales de marketing usando el tráfico del sitio web.
 - Construir sistemas de reconocimiento de imágenes más precisos.
 
@@ -19,7 +19,7 @@ Ya sea que trabajes con datos de clientes, ventas u otra fuente, la biblioteca t
 
 Construir y analizar un bosque aleatorio con InsideForest revela tendencias ocultas y proporciona **insights** que respaldan decisiones de negocio.
 
-[NOTEBOOK DEL CASO DE USO](InsideForest/examples/InsideForest_Caso_de_Uso.ipynb) · [ABRIR LA VERSIÓN DEL REPOSITORIO EN COLAB](https://colab.research.google.com/github/jcval94/InsideForest/blob/master/InsideForest/examples/InsideForest_Caso_de_Uso.ipynb)
+[ABRIR EL NOTEBOOK DEL CASO DE USO DIRECTAMENTE EN COLAB](https://colab.research.google.com/github/jcval94/InsideForest/blob/master/InsideForest/examples/InsideForest_Caso_de_Uso.ipynb)
 
 ## Instalación
 
@@ -44,8 +44,8 @@ El orden típico para aplicar InsideForest es:
 5. Opcionalmente interpretar resultados con `generate_descriptions` y `categorize_conditions`.
 6. Finalmente, usar utilidades como `Models` y `Labels` para un análisis adicional.
 
-## InsideForestClassifier e InsideForestRegressor
-Para un flujo simplificado puedes utilizar las clases `InsideForestClassifier` o
+## InsideForestRegionClusterer e InsideForestRegressor
+Para un flujo simplificado puedes utilizar las clases `InsideForestRegionClusterer` o
 `InsideForestRegressor`, que combinan el entrenamiento del bosque aleatorio y la
 asignación de regiones:
 
@@ -54,7 +54,7 @@ Nota: InsideForest está pensado para ejecutarse sobre un subconjunto de los dat
 ```python
 from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
-from InsideForest import InsideForestClassifier, InsideForestRegressor
+from InsideForest import InsideForestRegionClusterer, InsideForestRegressor
 
 iris = load_iris()
 X, y = iris.data, iris.target
@@ -64,14 +64,20 @@ X_train, X_rest, y_train, y_rest = train_test_split(
     X, y, train_size=0.35, stratify=y, random_state=15
 )
 
-in_f = InsideForestClassifier(
+in_f = InsideForestRegionClusterer(
     rf_params={"random_state": 15},
     tree_params={"mode": "py", "n_sample_multiplier": 0.05, "ef_sample_multiplier": 10},
 )
 
 in_f.fit(X_train, y_train)
 pred_labels = in_f.predict(X_rest)  # etiquetas de cluster para los datos restantes
+asignaciones = in_f.assign_regions(X_rest)
+calidad = in_f.region_quality_report(X_rest, y_rest)
 ```
+
+`InsideForestClassifier` permanece como nombre de compatibilidad deprecado. Su
+`score` histórico reporta accuracy del bosque; el `score` del clusterer
+canónico reporta adjusted mutual information para los IDs de cluster.
 
 En `InsideForestRegressor`, `predict(X)` tambien devuelve etiquetas de region.
 Usa `score(X, y)` para medir el bosque interno, o llama
@@ -107,7 +113,7 @@ InsideForest puede elegir automáticamente parámetros de entrenamiento más
 rápidos y reducir características según el tamaño del conjunto de datos:
 
 ```python
-in_f = InsideForestClassifier(auto_fast=True, auto_feature_reduce=True)
+in_f = InsideForestRegionClusterer(auto_fast=True, auto_feature_reduce=True)
 in_f.fit(X_train, y_train)
 ```
 
@@ -135,12 +141,12 @@ ejes = in_f.plot_importances()
 
 ### Guardar y cargar modelos
 
-Las clases `InsideForestClassifier` e `InsideForestRegressor` incluyen
+Las clases `InsideForestRegionClusterer` e `InsideForestRegressor` incluyen
 métodos para persistir un modelo entrenado utilizando `joblib`:
 
 ```python
 in_f.save("modelo.joblib")
-cargado = InsideForestClassifier.load("modelo.joblib")
+cargado = InsideForestRegionClusterer.load("modelo.joblib")
 ```
 
 El modelo cargado restaura el bosque aleatorio y los atributos
@@ -148,7 +154,7 @@ calculados, permitiendo continuar generando etiquetas o predicciones
 sin volver a entrenar.
 
 ## Caso de uso (Iris)
-Lo siguiente resume el flujo utilizado en el [notebook incluido en la librería](InsideForest/examples/InsideForest_Caso_de_Uso.ipynb). El notebook también contiene un ejemplo completo de tres clases con `InsideForestMulticlassClassifier`.
+Lo siguiente resume el flujo utilizado en el [notebook, que se abre directamente en Colab](https://colab.research.google.com/github/jcval94/InsideForest/blob/master/InsideForest/examples/InsideForest_Caso_de_Uso.ipynb). El notebook también contiene un ejemplo completo de clustering regional para tres clases con `InsideForestClassRegionClusterer`.
 
 ### 1. Preparación del modelo
 
@@ -398,25 +404,26 @@ Esto produce un `DataFrame` resumen donde cada condición se etiqueta por grupo 
 
 InsideForest ahora incluye un optimizador de Newton con región de confianza para problemas con restricciones de caja. La función auxiliar `_find_maximum` expone el parámetro `optim_method` para alternar entre el ascenso por gradiente estándar y este enfoque de región de confianza, que usa derivadas analíticas o por diferencias finitas y suele converger con menos evaluaciones respetando los límites.
 
-## Interpretacion multiclase
+## Clustering supervisado de regiones por clase
 
-InsideForest tambien incluye una capa opt-in para interpretacion multiclase. Esta version conserva la distribucion completa de clases por hoja del bosque y rankea regiones usando pureza, cobertura y lift por clase, sin usar el ID numerico de la clase como magnitud.
+`InsideForestClassRegionClusterer` usa un Random Forest únicamente como generador de ramas candidatas. Asocia cada hoja física con la clase que maximiza pureza, lift y cobertura, y devuelve IDs de clusters regionales, no predicciones de clase.
 
 ```python
-from InsideForest.multiclass import InsideForestMulticlassClassifier
+from InsideForest import InsideForestClassRegionClusterer
 
-model = InsideForestMulticlassClassifier(
+model = InsideForestClassRegionClusterer(
     rf_params={"n_estimators": 50, "random_state": 42},
-    percentil=95,
+    leaf_percentile=95,
     min_support=2,
 )
 model.fit(X_train, y_train)
 
-reglas = model.explain(top_n=10)
+clusters = model.predict(X_test)
 asignaciones = model.assign_regions(X_test)
-prototipos = model.prototype_regions(top_n=5)
-conflictos = model.confusion_regions(top_n=10)
+regiones = model.explain_regions(top_n=10)
+regiones_clase = model.regions_for_class(y_train[0], top_n=5)
+ambiguas = model.ambiguous_regions(top_n=10)
 ```
 
-La guia completa, benchmarks, validacion de mejora real y resultados locales estan en [README.multiclass.md](README.multiclass.md). El script de validacion es `experiments/validate_multiclass_real_gain.py` y guarda metricas por fold, resumenes, graficas y matrices de confusion en `experiments/results/multiclass_validation/`.
+Las filas fuera de toda región reciben el cluster `-1`; no existe fallback a la predicción del bosque. `InsideForestMulticlassClassifier` permanece temporalmente como nombre de compatibilidad deprecado. La guía y el protocolo de validación están en [README.multiclass.md](README.multiclass.md).
 

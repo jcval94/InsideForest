@@ -12,7 +12,7 @@ from sklearn.datasets import (
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
-from InsideForest import InsideForestClassifier
+from InsideForest import InsideForestRegionClusterer
 from experiments.benchmark import (
     _evaluate,
     _format_df,
@@ -28,7 +28,7 @@ def _run_insideforest_with_params(
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, train_size=0.35, stratify=y, random_state=42
     )
-    clf = InsideForestClassifier(
+    clf = InsideForestRegionClusterer(
         rf_params=rf_params,
         tree_params={"lang": "python", "n_sample_multiplier": 0.02, "ef_sample_multiplier": 5},
         method=method,

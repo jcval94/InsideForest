@@ -1,0 +1,20 @@
+---
+layout: default
+title: InsideForestClassRegionClusterer
+parent: InsideForest
+nav_order: 92
+nav_exclude: true
+lang: es
+---
+
+<h1>InsideForestClassRegionClusterer</h1>
+<p>Extrae regiones enriquecidas por clase. El bosque sólo genera ramas; no existe predicción de clases ni fallback.</p>
+
+<pre><code class="language-python">from InsideForest import InsideForestClassRegionClusterer
+
+modelo = InsideForestClassRegionClusterer(leaf_percentile=95, min_support=2)
+clusters = modelo.fit_predict(X_train, y_train)
+calidad = modelo.region_quality_report(X_test, y_test)
+</code></pre>
+<p>Cada hoja física se asocia únicamente con la clase que maximiza el objetivo de pureza, lift y cobertura; por eso produce como máximo una región final. Los solapamientos se resuelven por score, menor entropía, mayor soporte y menor ID.</p>
+<p><code>classes_</code> es metadato de las distribuciones, no el espacio de salida de <code>predict</code>. Las filas no cubiertas reciben <code>-1</code> y no existe fallback. La agregación IoU no es obligatoria: el valor soportado inicial es <code>branch_aggregation="none"</code>.</p>

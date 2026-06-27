@@ -54,9 +54,17 @@ lang: es
 
 <h2>Procesamiento por lotes</h2>
 <ul>
-  <li>Evalúa datos masivos en bloques y combina los resultados con <code>predict</code>.</li>
+  <li>Evalúa datos masivos en bloques con <code>predict</code>, <code>transform</code> o <code>assign_regions</code>.</li>
   <li>Guarda el progreso con <code>.save()</code> para reanudar entrenamientos costosos.</li>
   <li>Limita salidas visuales, por ejemplo <code>plot_importances(max_features=20)</code>.</li>
+  <li>Los clusterers no ofrecen <code>predict_proba</code>; consulta distribuciones en <code>regions_</code> y usa <code>forest_</code> sólo para diagnosticar el generador.</li>
+</ul>
+
+<h2>Controla el número de regiones</h2>
+<ul>
+  <li>Aumenta <code>leaf_percentile</code> o <code>min_support</code> para conservar menos regiones y más fuertes.</li>
+  <li>Usa <code>max_regions_per_class</code> para acotar la salida por clase.</li>
+  <li>Mantén <code>branch_aggregation="none"</code> mientras una agregación no demuestre compresión sin degradar cobertura, AMI, pureza, estabilidad y tiempo.</li>
 </ul>
 
 <h2>Monitorea recursos</h2>

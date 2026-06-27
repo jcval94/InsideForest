@@ -1,6 +1,6 @@
 """Validate traditional InsideForest as a region/cluster extractor.
 
-This benchmark treats ``InsideForestClassifier`` as supervised clustering, not
+This benchmark evaluates ``InsideForestRegionClusterer`` as supervised clustering, not
 as a direct competitor to a RandomForest classifier.  It reports region quality,
 cluster quality, coverage, stability and runtime.  The legacy selector path is
 included to compare the vectorized assignment against the reference
@@ -38,7 +38,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import InsideForest.regions as regions_module
-from InsideForest import InsideForestClassifier
+from InsideForest import InsideForestRegionClusterer
 from InsideForest.cluster_selector import select_clusters
 from InsideForest.legacy_select_clusters import select_clusters_legacy
 from InsideForest.region_quality import cluster_label_quality
@@ -234,7 +234,7 @@ def run_model(kind: str, selector, X_train, y_train, X_test, y_test, fold_id: in
         with selector_patch(selector):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                return InsideForestClassifier(
+                return InsideForestRegionClusterer(
                     rf_params=rf_params,
                     max_cases=min(config.max_cases, len(X_train)),
                     no_trees_search=config.no_trees_search,
@@ -271,7 +271,7 @@ def run_model(kind: str, selector, X_train, y_train, X_test, y_test, fold_id: in
     return row
 
 
-def region_feature_set(model: InsideForestClassifier) -> set[str]:
+def region_feature_set(model: InsideForestRegionClusterer) -> set[str]:
     if model.region_rules_ is None or model.region_rules_.empty:
         return set()
     features = set()

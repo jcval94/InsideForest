@@ -25,9 +25,11 @@ lang: es
 
 <h2>Exportación</h2>
 <ul>
-  <li><code>df_clusters_description_</code> para tablas (requiere <code>get_detail=True</code> al ajustar).</li>
+  <li><code>explain_regions()</code> y <code>regions_</code> para geometría y métricas supervisadas.</li>
+  <li><code>assign_regions()</code> para evidencia por fila, solapamientos y casos sin asignar.</li>
   <li><code>generate_descriptions</code> para textos automáticos.</li>
   <li><code>MetaExtractor</code> para registrar parámetros desde tu catálogo.</li>
 </ul>
+<p>Presenta <code>region_target_class</code> como metadato de enriquecimiento, no como clase predicha. Reporta cobertura y tasa sin asignar junto con pureza o lift.</p>
 
 <p>Complementa con la <a href="../faq_es.html">FAQ</a> y los <a href="../experiments_benchmarks_es.html">benchmarks</a> para respaldar conclusiones.</p>

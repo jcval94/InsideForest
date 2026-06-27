@@ -2,7 +2,7 @@
 
 ## Alcance
 
-Este reporte compara la implementacion original contra cambios candidatos en la ruta principal de `InsideForestClassifier.fit`: extraccion de reglas, priorizacion de regiones y asignacion de etiquetas.
+Este reporte compara cambios candidatos en la ruta principal de `InsideForestRegionClusterer.fit`: extracción, priorización y asignación de regiones.
 
 ## Hallazgos
 

@@ -1,41 +1,45 @@
 ---
 layout: default
-title: Clasificación
+title: Regiones guiadas por clase
 parent: Tutoriales
 nav_order: 1
 nav_exclude: true
 lang: es
 ---
 
-<h1>Tutorial de clasificación</h1>
-<p>Aprende a entrenar <code>InsideForestClassifier</code> con un dataset etiquetado.</p>
+<h1>Clustering regional guiado por clase</h1>
+<p>Encuentra regiones interpretables de Iris enriquecidas para una clase. Este flujo no predice especies: asigna IDs de clusters regionales.</p>
 
-<h2>Objetivo</h2>
-<p>Usar el conjunto Iris para generar segmentos interpretables.</p>
-
-<h2>Paso 1: preparar datos</h2>
+<h2>Ajusta el clusterer</h2>
 <pre><code class="language-python">from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
+from InsideForest import InsideForestClassRegionClusterer
 
-data = load_iris()
+X, y = load_iris(return_X_y=True)
 X_train, X_test, y_train, y_test = train_test_split(
-    data.data, data.target, train_size=0.35, stratify=data.target, random_state=15
+    X, y, test_size=0.3, stratify=y, random_state=15
 )
+modelo = InsideForestClassRegionClusterer(
+    rf_params={"n_estimators": 40, "max_depth": 5, "random_state": 15},
+    leaf_percentile=90,
+    min_support=2,
+    branch_aggregation="none",
+    random_state=15,
+)
+clusters_train = modelo.fit_predict(X_train, y_train)
 </code></pre>
 
-<h2>Paso 2: entrenar y describir</h2>
-<pre><code class="language-python">from InsideForest import InsideForestClassifier
-
-clf = InsideForestClassifier(auto_fast=True, auto_feature_reduce=True, get_detail=True)
-clf.fit(X_train, y_train)
-segmentos = clf.df_clusters_description_
+<h2>Asigna y evalúa holdout</h2>
+<pre><code class="language-python">clusters_test = modelo.predict(X_test)
+asignaciones = modelo.assign_regions(X_test)
+reporte = modelo.region_quality_report(X_test, y_test)
 </code></pre>
+<p>Revisa <code>coverage</code>, <code>unmatched_rate</code>, <code>ami</code>, <code>cluster_purity</code> y las filas con <code>source="unmatched"</code>. Ninguna predicción de clase rellena esas filas.</p>
 
-<h2>Paso 3: compartir resultados</h2>
-<ul>
-  <li>Extrae reglas clave desde <code>segmentos</code> o <code>clf.df_datos_explain_</code>.</li>
-  <li>Visualiza importancias con <code>clf.plot_importances()</code>.</li>
-  <li>Guarda el modelo con <code>clf.save("modelos/iris.joblib")</code>.</li>
-</ul>
-
-<p>Sigue con el tutorial de <a href="regression_es.html">regresión</a> para el caso continuo.</p>
+<h2>Interpreta las regiones</h2>
+<pre><code class="language-python">top = modelo.explain_regions(top_n=10)
+clase_cero = modelo.regions_for_class(0, top_n=5)
+ambiguas = modelo.ambiguous_regions(top_n=10)
+cobertura_por_clase = modelo.class_coverage_report()
+</code></pre>
+<p>Cada fila de <code>regions_</code> representa una hoja física seleccionada y conserva clase objetivo, distribución completa, lift, entropía, margen, soporte y límites geométricos.</p>

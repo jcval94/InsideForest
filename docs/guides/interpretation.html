@@ -23,9 +23,11 @@ nav_order: 13
 
 <h2>Exporting results</h2>
 <ul>
-  <li><code>df_clusters_description_</code>: tables ready for Excel after calling <code>fit(..., get_detail=True)</code>.</li>
+  <li><code>explain_regions()</code> and <code>regions_</code>: canonical region tables with geometry and supervised metrics.</li>
+  <li><code>assign_regions()</code>: row-level evidence, including overlap counts and explicit unmatched rows.</li>
   <li><code>generate_descriptions(...)</code>: produces short text snippets for reports.</li>
   <li><code>MetaExtractor</code>: documents parameters used and feature masks from your catalog.</li>
 </ul>
+<p>Describe <code>region_target_class</code> as enrichment metadata, not as a predicted class. Always disclose coverage and unmatched rate next to purity or lift.</p>
 
 <p>Pair this guide with the <a href="../faq.html">FAQ</a> and <a href="../experiments_benchmarks.html">benchmarks</a> to present quantitative evidence.</p>

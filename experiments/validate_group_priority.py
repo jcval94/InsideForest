@@ -36,8 +36,10 @@ from InsideForest.group_priority import (  # noqa: E402
     from_traditional_regions,
     rank_region_pairs,
 )
-from InsideForest.inside_forest import InsideForestClassifier  # noqa: E402
-from InsideForest.multiclass import InsideForestMulticlassClassifier  # noqa: E402
+from InsideForest import (  # noqa: E402
+    InsideForestClassRegionClusterer,
+    InsideForestRegionClusterer,
+)
 
 
 METHODS = (
@@ -410,19 +412,19 @@ def extract_regions_for_source(
     seed: int,
 ) -> tuple[list[RegionDescriptor], dict[str, float]]:
     if source == "multiclass":
-        model = InsideForestMulticlassClassifier(
+        model = InsideForestClassRegionClusterer(
             rf_params={"n_estimators": 24, "max_depth": 6, "random_state": seed},
-            percentil=85,
+            leaf_percentile=85,
             min_support=2,
-            max_rules_per_class=50,
+            max_regions_per_class=50,
             random_state=seed,
         ).fit(X_train, y_train)
-        regions = from_multiclass_rules(model.rules_, X_train, deduplicate=True, min_support=2)
+        regions = from_multiclass_rules(model.regions_, X_train, deduplicate=True, min_support=2)
         weights = feature_weights_from_model(model)
         return regions, weights
 
     if source == "traditional":
-        model = InsideForestClassifier(
+        model = InsideForestRegionClusterer(
             rf_params={"n_estimators": 16, "max_depth": 5, "random_state": seed},
             no_trees_search=16,
             get_detail=False,

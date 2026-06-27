@@ -19,7 +19,7 @@ lang: es
 <p>Sí. Emplea <code>Trees('pyspark')</code> para extraer reglas de un <code>RandomForestClassifier</code> entrenado en Spark.</p>
 
 <h2>¿Cómo comunico los resultados?</h2>
-<p>Tras ajustar con <code>get_detail=True</code> revisa <code>df_clusters_description_</code> y <code>df_datos_explain_</code> para obtener tablas claras. Complementa con <code>generate_descriptions</code> cuando necesites textos automáticos.</p>
+<p>Usa <code>explain_regions()</code> o <code>regions_</code> para geometría y métricas, y <code>assign_regions()</code> para evidencia por fila. <code>df_clusters_description_</code> se conserva para pipelines heredados de bajo nivel.</p>
 
 <h2>¿Qué tamaño de datos soporta?</h2>
 <p>Se ha probado con millones de registros en CPU. Activa <code>auto_fast</code> y revisa <a href="performance_tips_es.html">consejos de rendimiento</a> para mejorar tiempos.</p>
@@ -28,6 +28,6 @@ lang: es
 <p>Abre un issue con detalles del entorno, versión y pasos mínimos de reproducción. Adjunta <code>pip freeze</code> y resultados de <code>pytest -q</code>.</p>
 
 <h2>¿Dónde hay ejemplos completos?</h2>
-<p>Revisa los notebooks en <code>experiments/</code>, los <a href="tutorials/index_es.html">tutoriales</a> y la documentación del <a href="README.es.md">README</a>.</p>
+<p>Revisa el notebook canónico enlazado desde el <a href="index_es.html">inicio</a>, los scripts en <code>experiments/</code> y los <a href="tutorials/index_es.html">tutoriales</a>.</p>
 
 <p>Si tu pregunta no aparece aquí, sugiere nuevos temas en la <a href="roadmap_es.html">hoja de ruta</a>.</p>

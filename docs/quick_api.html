@@ -1,74 +1,53 @@
 ---
 layout: default
 title: Quick API
-description: Quick start reference for InsideForest classifiers and regressors.
+description: Essential supervised region-clustering patterns.
 nav_order: 3
 ---
 
 <h1>Quick API</h1>
-<p>This reference summarizes the basic flows to train, evaluate, and persist InsideForest models. All classes follow an interface similar to <code>scikit-learn</code>.</p>
+<p>InsideForest exposes two supervised clusterers. Both follow <code>fit</code>/<code>predict</code>, but <code>predict</code> returns region-cluster IDs rather than target classes.</p>
 
-<h2>Classifier workflow</h2>
+<h2>General supervised regions</h2>
 <pre><code class="language-python">from sklearn.datasets import load_iris
-from InsideForest import InsideForestClassifier
+from InsideForest import InsideForestRegionClusterer
 
 X, y = load_iris(return_X_y=True)
-clf = InsideForestClassifier(
-    rf_params={"n_estimators": 400, "random_state": 21},
-    auto_fast=True,
-    get_detail=True,
+model = InsideForestRegionClusterer(
+    rf_params={"n_estimators": 40, "random_state": 21}
 )
-clf.fit(X, y)
-cluster_labels = clf.predict(X)
-rules = clf.df_clusters_description_
+labels = model.fit_predict(X, y)
+assignments = model.assign_regions(X)
+regions = model.explain_regions(top_n=10)
+quality = model.region_quality_report(X, y)
 </code></pre>
-<p><strong>Tips:</strong></p>
-<ul>
-  <li>Set <code>get_detail=True</code> to persist the rule tables generated during <code>fit</code>.</li>
-  <li>The <code>df_clusters_description_</code> attribute stores readable bounds and metrics per cluster.</li>
-  <li>Use <code>auto_fast=True</code> to apply performance presets automatically and inspect <code>_fast_params_used_</code> for the applied overrides.</li>
-  <li>Records that do not match any learned rule receive the label <code>-1</code>; review the warning emitted during <code>predict</code> to quantify them.</li>
-</ul>
+<p><code>labels</code> and <code>model.labels_</code> are cluster IDs. <code>score(X, y)</code> returns AMI, and rows outside every selected region receive <code>-1</code>.</p>
 
-<h2>Regressor workflow</h2>
-<pre><code class="language-python">from sklearn.datasets import load_diabetes
-from InsideForest import InsideForestRegressor
+<h2>Class-enriched regions</h2>
+<pre><code class="language-python">from InsideForest import InsideForestClassRegionClusterer
 
-X, y = load_diabetes(return_X_y=True)
-regr = InsideForestRegressor(auto_feature_reduce=True, get_detail=True)
-regr.fit(X, y)
-region_labels = regr.predict(X)
-r2 = regr.score(X, y)
-region_rules = regr.df_clusters_description_
+class_regions = InsideForestClassRegionClusterer(
+    leaf_percentile=95,
+    min_support=2,
+    branch_aggregation="none",
+    random_state=21,
+)
+cluster_ids = class_regions.fit_predict(X, y)
+setosa_regions = class_regions.regions_for_class(0, top_n=5)
+ambiguous = class_regions.ambiguous_regions(top_n=10)
+coverage = class_regions.class_coverage_report()
 </code></pre>
-<p><code>region_labels</code> are interpretable regions, not continuous estimates. Use <code>score(X, y)</code> for the underlying forest score, and call <code>regr.rf.predict(...)</code> with the fitted forest feature frame when you need numeric target predictions.</p>
-<p>Enable <code>auto_feature_reduce</code> to limit the number of variables that participate in clustering. When <code>get_detail=True</code>, descriptive DataFrames are exposed via <code>df_clusters_description_</code> and <code>df_datos_explain_</code>.</p>
+<p>Each selected physical leaf has one <code>region_target_class</code> and retains its complete <code>class_distribution</code>. <code>classes_</code> is region metadata, not the output space of <code>predict</code>.</p>
 
-<h2>Cluster selection strategies</h2>
-<p>Control how clusters are consolidated by setting the <code>method</code> parameter or using the helpers in <code>InsideForest.cluster_selector</code>:</p>
-<pre><code class="language-python">from InsideForest import cluster_selector
+<h2>Assignment schema</h2>
+<p><code>assign_regions(X)</code> reports <code>cluster_id</code>, target-class metadata, membership score, class distribution, lift, entropy, margin, all matching region IDs, and a <code>source</code> limited to <code>region</code> or <code>unmatched</code>. There is no RandomForest fallback and no <code>predict_proba</code>.</p>
 
-menu = cluster_selector.MenuClusterSelector(quota=0.2)
-menu.fit(clf.df_reres_, y)
-rebalanced = menu.predict(clf.df_reres_)
+<h2>Persistence</h2>
+<pre><code class="language-python">model.save("region-clusterer.joblib")
+loaded = InsideForestRegionClusterer.load("region-clusterer.joblib")
+assert (loaded.predict(X) == model.predict(X)).all()
 </code></pre>
-<ul>
-  <li><code>"select_clusters"</code> (default) applies direct rules.</li>
-  <li><code>cluster_selector.balance_lists_n_clusters</code> and <code>cluster_selector.match_class_distribution</code> rebalance assignments.</li>
-  <li><code>cluster_selector.max_prob_clusters</code> favors segments with higher probabilities.</li>
-  <li><code>MenuClusterSelector</code> maximizes information when multiple candidates exist.</li>
-</ul>
+<p>Persistence retains the forest generator, regions, distributions, metrics, and training assignments. Legacy serialized models can be migrated, but <code>labels_</code> must be recalculated when it previously stored a metrics table.</p>
 
-<h2>Model persistence</h2>
-<pre><code class="language-python">clf.save("model.joblib")
-loaded = InsideForestClassifier.load("model.joblib")
-assert list(loaded.feature_names_out_) == list(clf.feature_names_out_)
-</code></pre>
-<p>Serialized models include the base forest, computed rules, and metadata so you can continue the analysis later.</p>
-
-<h2>Next steps</h2>
-<ul>
-  <li>Go deeper in <a href="how_it_works.html">How It Works</a> to understand the full pipeline.</li>
-  <li>Explore the <a href="api/index.html">API reference</a> to review every module.</li>
-  <li>Visit <a href="performance_tips.html">Performance Tips</a> when working with large datasets.</li>
-</ul>
+<h2>Regression</h2>
+<p><code>InsideForestRegressor</code> keeps its existing region-extraction contract. Its <code>predict</code> output is a region label, while <code>score</code> remains the underlying forest R².</p>

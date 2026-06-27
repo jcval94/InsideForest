@@ -24,11 +24,19 @@ def test_use_case_notebook_is_packaged_and_contains_multiclass_example():
     )
 
     assert notebook["nbformat"] == 4
-    assert "InsideForestMulticlassClassifier" in source
+    assert "InsideForestClassRegionClusterer" in source
     assert "load_wine" in source
-    assert "prototype_regions" in source
-    assert "confusion_regions" in source
-    assert "model_fallback" in source
+    assert "regions_for_class" in source
+    assert "ambiguous_regions" in source
+    assert "assign_regions" in source
+    assert "region_quality_report" in source
+    assert "branch_aggregation=\"none\"" in source
+    assert "transform(X_wine_test)" in source
+    assert "rf_accuracy" not in source
+    assert "df_clusters_description_" not in source
+    assert "frontiers_" not in source
+    assert "model_fallback" not in source
+    assert "cluster `-1`" in source
 
 
 def test_all_notebook_code_cells_compile():
@@ -54,4 +62,5 @@ def test_readme_colab_links_point_to_default_branch_notebook():
         readme_text = (repo_root / readme_name).read_text(encoding="utf-8")
 
         assert COLAB_NOTEBOOK_URL in readme_text
+        assert f"]({NOTEBOOK_RELATIVE_PATH})" not in readme_text
         assert "/blob/main/" not in readme_text

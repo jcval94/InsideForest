@@ -8,6 +8,14 @@ nav_order: 8
 <h1>Changelog</h1>
 <p>This log highlights notable updates. Dates reference repository tags.</p>
 
+<h2>Current — supervised region clusterers</h2>
+<ul>
+  <li>Added canonical <code>InsideForestRegionClusterer</code> and <code>InsideForestClassRegionClusterer</code> contracts.</li>
+  <li>Changed <code>predict</code> to return cluster IDs with explicit <code>-1</code>; removed class prediction and forest fallback from the public contract.</li>
+  <li>Reserved <code>labels_</code> for training assignments and moved region metrics to <code>region_metrics_</code>.</li>
+  <li>Added class distributions, ambiguity, class coverage, clustering metrics, migration aliases, tests, benchmark, and updated notebook.</li>
+</ul>
+
 <h2>v0.6.0 — 2024-02-15</h2>
 <ul>
   <li>Added language selector and refreshed documentation layout.</li>

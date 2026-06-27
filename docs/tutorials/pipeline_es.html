@@ -19,12 +19,14 @@ cp templates/daily_pipeline.py pipelines/
 </code></pre>
 
 <h2>Paso 2: script principal</h2>
-<pre><code class="language-python">from InsideForest import InsideForestClassifier
+<pre><code class="language-python">from InsideForest import InsideForestRegionClusterer
 from insideforest.utils import load_data
 
 X_train, X_new, y_train = load_data()
-clf = InsideForestClassifier(auto_fast=True, auto_feature_reduce=True)
+clf = InsideForestRegionClusterer(auto_fast=True, auto_feature_reduce=True)
 clf.fit(X_train, y_train)
+asignaciones = clf.assign_regions(X_new)
+calidad = clf.region_quality_report()
 clf.save("artifacts/insideforest.joblib")
 </code></pre>
 
