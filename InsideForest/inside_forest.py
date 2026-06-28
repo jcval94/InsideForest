@@ -9,7 +9,9 @@ try:
 except Exception:
     _HAS_PANDAS = False
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.base import BaseEstimator, ClusterMixin, TransformerMixin
 from sklearn.exceptions import NotFittedError
+from sklearn.metrics import adjusted_mutual_info_score
 from sklearn.utils.validation import check_is_fitted
 from sklearn.feature_selection import SelectKBest, mutual_info_classif, mutual_info_regression
 from sklearn.utils.multiclass import type_of_target
@@ -19,6 +21,7 @@ from .regions import Regions
 from .descrip import get_frontiers
 from .region_quality import (
     build_region_rule_table,
+    cluster_label_quality,
     score_region_rules,
     summarize_region_quality,
 )
@@ -97,7 +100,7 @@ def _merge_dicts(base: Dict[str, Any], override: Optional[Dict[str, Any]]) -> Di
     return out
 
 
-class _BaseInsideForest:
+class _BaseInsideForest(BaseEstimator):
     """Internal base class handling shared ``fit`` and ``predict`` logic.
 
     After fitting, the random forest's feature importances can be inspected
@@ -181,12 +184,12 @@ class _BaseInsideForest:
     ):
         self.rf_cls = rf_cls
         self._is_regressor = issubclass(rf_cls, RandomForestRegressor)
-        self.rf_params = rf_params or {}
+        self.rf_params = rf_params if rf_params is not None else {}
         self._user_rf_random_state = self.rf_params.get("random_state")
         self.seed = seed
         if self._user_rf_random_state is None:
             self.rf_params["random_state"] = seed
-        self.tree_params = tree_params or {}
+        self.tree_params = tree_params if tree_params is not None else {}
         if no_trees_search is _DEFAULT_NO_TREES_SEARCH:
             if "no_trees_search" in self.tree_params:
                 self.no_trees_search = self.tree_params["no_trees_search"]
@@ -209,7 +212,7 @@ class _BaseInsideForest:
         self.auto_fast = auto_fast
         self.auto_feature_reduce = auto_feature_reduce
         self.explicit_k_features = explicit_k_features
-        self.fast_overrides = fast_overrides or {}
+        self.fast_overrides = fast_overrides if fast_overrides is not None else {}
 
         # FAST bookkeeping
         self._feature_mask_: Optional[np.ndarray] = None
@@ -241,6 +244,11 @@ class _BaseInsideForest:
         self.region_quality_ = None
         self.region_quality_summary_ = None
         self._sample_indices_ = None
+        self.forest_ = None
+        self.regions_ = None
+        self.region_metrics_ = None
+        self.raw_regions_ = None
+        self.n_features_in_ = None
 
     @staticmethod
     def _target_as_series(y, index):
@@ -394,6 +402,8 @@ class _BaseInsideForest:
             y,
             task=task,
         )
+        self.regions_ = self.region_rules_
+        self.region_metrics_ = self.region_quality_
         return self.region_quality_summary_
 
     def get_params(self, deep=True):
@@ -644,6 +654,7 @@ class _BaseInsideForest:
 
         # Replace spaces with underscores to keep compatibility with Trees
         X_df.columns = [str(c).replace(" ", "_") for c in X_df.columns]
+        self.n_features_in_ = int(X_df.shape[1])
 
         # 0) Feature reduction (optional)
         Xr = self._maybe_reduce_features(X_df, y)
@@ -734,12 +745,14 @@ class _BaseInsideForest:
             check_is_fitted(self.rf)
         except NotFittedError:
             self.rf.fit(X=X_df, y=y)
+        self.forest_ = self.rf
 
         # Build DataFrame including target for region extraction
         df = X_df.copy()
         df[self.var_obj] = y
 
         separacion_dim = self._extract_region_candidates(df)
+        self.raw_regions_ = separacion_dim
         df_reres = self._score_region_candidates(separacion_dim, df)
         self._fit_region_labels(df, df_reres)
         self._store_region_quality(df, y)
@@ -924,6 +937,7 @@ class _BaseInsideForest:
             "region_rules_": self.region_rules_,
             "region_quality_": self.region_quality_,
             "region_quality_summary_": self.region_quality_summary_,
+            "raw_regions_": self.raw_regions_,
             "menu_selector_": getattr(self.regions, "_menu_selector", None),
         }
         joblib.dump(payload, filepath)
@@ -982,14 +996,26 @@ class _BaseInsideForest:
         model.region_rules_ = payload.get("region_rules_")
         model.region_quality_ = payload.get("region_quality_")
         model.region_quality_summary_ = payload.get("region_quality_summary_")
+        model.raw_regions_ = payload.get("raw_regions_")
+        model.forest_ = model.rf
+        model.regions_ = model.region_rules_
+        model.region_metrics_ = model.region_quality_
+        if model.feature_names_in_ is not None:
+            model.n_features_in_ = len(model.feature_names_in_)
+        elif model.feature_names_ is not None:
+            model.n_features_in_ = len(model.feature_names_)
         if "menu_selector_" in payload:
             model.regions._menu_selector = payload["menu_selector_"]
         return model
 
 
-class InsideForestClassifier(_BaseInsideForest):
-    """Wrapper model that combines a ``RandomForestClassifier`` with the
-    Trees/Regions utilities to provide cluster labels for the training data."""
+class InsideForestRegionClusterer(TransformerMixin, ClusterMixin, _BaseInsideForest):
+    """Supervised region clusterer backed by a random-forest branch generator."""
+
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.target_tags.required = True
+        return tags
 
     def __init__(
         self,
@@ -1033,6 +1059,194 @@ class InsideForestClassifier(_BaseInsideForest):
             fast_overrides=fast_overrides,
             seed=seed,
         )
+
+    def fit_predict(self, X, y=None, rf=None):
+        """Fit the region clusterer and assign cluster IDs to ``X``."""
+
+        self.fit(X, y=y, rf=rf)
+        features = X.drop(columns=[self.var_obj], errors="ignore") if isinstance(X, pd.DataFrame) else X
+        return self.predict(features)
+
+    def transform(self, X):
+        """Return hard rule-membership scores for every final region."""
+
+        if self.region_rules_ is None:
+            raise RuntimeError("InsideForestRegionClusterer is not fitted yet")
+        X_df = self._prepare_prediction_frame(X)
+        matches = self._region_match_matrix(X_df)
+        if self.region_rules_.empty:
+            return np.zeros((len(X_df), 0), dtype=float)
+        weights = pd.to_numeric(
+            self.region_rules_["weight"], errors="coerce"
+        ).fillna(1.0).to_numpy(dtype=float)
+        return matches.astype(float) * weights[None, :]
+
+    def assign_regions(self, X):
+        """Return detailed region-cluster assignments for each row."""
+
+        if self.region_rules_ is None:
+            raise RuntimeError("InsideForestRegionClusterer is not fitted yet")
+        X_df = self._prepare_prediction_frame(X)
+        labels = self.predict(X_df)
+        matches = self._region_match_matrix(X_df)
+        weights = (
+            pd.to_numeric(self.region_rules_["weight"], errors="coerce")
+            .fillna(1.0)
+            .to_numpy(dtype=float)
+        )
+        region_ids = self.region_rules_["region_id"].to_numpy()
+        quality_by_id = {}
+        if self.region_quality_ is not None:
+            quality_by_id = {
+                row["region_id"]: row
+                for row in self.region_quality_.to_dict("records")
+            }
+
+        rows = []
+        for row_position, cluster_id in enumerate(labels):
+            positions = np.flatnonzero(matches[row_position])
+            matched_ids = region_ids[positions].tolist()
+            if cluster_id == -1:
+                rows.append(
+                    {
+                        "cluster_id": -1,
+                        "representative_region_id": None,
+                        "region_target_class": None,
+                        "membership_score": 0.0,
+                        "target_probability": np.nan,
+                        "class_distribution": None,
+                        "lift": np.nan,
+                        "entropy": np.nan,
+                        "class_margin": np.nan,
+                        "matched_region_count": int(len(positions)),
+                        "matched_region_ids": matched_ids,
+                        "source": "unmatched",
+                    }
+                )
+                continue
+
+            chosen = quality_by_id.get(cluster_id, {})
+            distribution = chosen.get("target_distribution")
+            probabilities = (
+                sorted(distribution.values(), reverse=True)
+                if isinstance(distribution, dict)
+                else []
+            )
+            margin = (
+                float(probabilities[0] - probabilities[1])
+                if len(probabilities) > 1
+                else np.nan
+            )
+            selected_positions = np.flatnonzero(region_ids == cluster_id)
+            membership = (
+                float(weights[selected_positions[0]])
+                if selected_positions.size
+                else float(np.max(weights[positions])) if positions.size else 0.0
+            )
+            rows.append(
+                {
+                    "cluster_id": cluster_id,
+                    "representative_region_id": cluster_id,
+                    "region_target_class": chosen.get("dominant_target"),
+                    "membership_score": membership,
+                    "target_probability": chosen.get("dominant_probability", np.nan),
+                    "class_distribution": distribution,
+                    "lift": chosen.get("lift", np.nan),
+                    "entropy": chosen.get("entropy", np.nan),
+                    "class_margin": margin,
+                    "matched_region_count": int(len(positions)),
+                    "matched_region_ids": matched_ids,
+                    "source": "region",
+                }
+            )
+        return pd.DataFrame(rows)
+
+    def explain_regions(self, top_n=None):
+        """Return flattened final regions with their supervised metrics."""
+
+        if self.region_quality_ is None:
+            raise RuntimeError("InsideForestRegionClusterer is not fitted yet")
+        out = self.region_quality_.copy()
+        out["cluster_id"] = out["region_id"]
+        out["region_target_class"] = out["dominant_target"]
+        out["region_score"] = out["weight"]
+        out = out.sort_values(
+            ["region_score", "support"], ascending=[False, False]
+        )
+        if top_n is not None:
+            out = out.head(int(top_n))
+        return out.reset_index(drop=True)
+
+    def region_quality_report(self, X=None, y=None) -> Dict[str, float]:
+        """Return stored quality or evaluate cluster assignments on ``X``."""
+
+        if X is None:
+            if y is not None:
+                raise ValueError("X is required when y is provided")
+            return super().region_quality_report()
+        labels = self.predict(X)
+        valid = labels != -1
+        report = dict(super().region_quality_report())
+        report["coverage"] = float(np.mean(valid)) if len(labels) else 0.0
+        report["unmatched_rate"] = float(np.mean(~valid)) if len(labels) else 1.0
+        report["n_clusters"] = int(len(set(labels[valid].tolist())))
+        if y is not None:
+            y_array = np.asarray(y)
+            if y_array.ndim != 1:
+                y_array = np.ravel(y_array)
+            if len(y_array) != len(labels):
+                raise ValueError("X and y must contain the same number of rows")
+            report.update(cluster_label_quality(y_array, labels))
+        return report
+
+    def score(self, X, y):
+        """Return AMI between target values and region IDs, including ``-1``."""
+
+        labels = self.predict(X)
+        y_array = np.asarray(y)
+        if y_array.ndim != 1:
+            y_array = np.ravel(y_array)
+        if len(y_array) != len(labels):
+            raise ValueError("X and y must contain the same number of rows")
+        return float(adjusted_mutual_info_score(y_array, labels))
+
+    def _region_match_matrix(self, X_df):
+        matches = np.ones((len(X_df), len(self.region_rules_)), dtype=bool)
+        if self.region_rules_.empty:
+            return matches
+        values = {
+            column: X_df[column].to_numpy(dtype=float, copy=False)
+            for column in X_df.columns
+        }
+        for position, rule in enumerate(self.region_rules_.to_dict("records")):
+            for feature, lower in rule["lower_bounds"].items():
+                matches[:, position] &= values[feature] >= float(lower)
+            for feature, upper in rule["upper_bounds"].items():
+                matches[:, position] &= values[feature] <= float(upper)
+        return matches
+
+
+class InsideForestClassifier(InsideForestRegionClusterer):
+    """Deprecated compatibility name for :class:`InsideForestRegionClusterer`."""
+
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "InsideForestClassifier is deprecated; use InsideForestRegionClusterer",
+            FutureWarning,
+            stacklevel=2,
+        )
+        super().__init__(*args, **kwargs)
+
+    def score(self, X, y):
+        """Return legacy random-forest accuracy for backward compatibility."""
+
+        warnings.warn(
+            "InsideForestClassifier.score() reports legacy forest accuracy; "
+            "InsideForestRegionClusterer.score() reports AMI",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return _BaseInsideForest.score(self, X, y)
 
 
 class InsideForestRegressor(_BaseInsideForest):

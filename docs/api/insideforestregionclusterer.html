@@ -1,0 +1,28 @@
+---
+layout: default
+title: InsideForestRegionClusterer
+parent: InsideForest
+nav_order: 51
+---
+
+<h1>InsideForestRegionClusterer</h1>
+<p>The canonical traditional supervised-region clusterer. The random forest generates branches; <code>predict</code> returns region cluster IDs and <code>score</code> returns adjusted mutual information.</p>
+
+<pre><code class="language-python">from InsideForest import InsideForestRegionClusterer
+
+model = InsideForestRegionClusterer(rf_params={"random_state": 42})
+cluster_ids = model.fit_predict(X_train, y_train)
+assignments = model.assign_regions(X_test)
+regions = model.explain_regions(top_n=10)
+quality = model.region_quality_report(X_test, y_test)
+</code></pre>
+
+<h2>Output contract</h2>
+<ul>
+  <li><code>predict(X)</code> returns region-cluster IDs, never target classes.</li>
+  <li>Rows outside every selected region return <code>-1</code>.</li>
+  <li><code>transform(X)</code> returns a sample-by-region membership matrix.</li>
+  <li><code>score(X, y)</code> is adjusted mutual information (AMI), including <code>-1</code>.</li>
+  <li><code>regions_</code>, <code>region_metrics_</code>, <code>labels_</code>, and <code>raw_regions_</code> expose the fitted artifacts.</li>
+</ul>
+<p><code>forest_</code> and <code>feature_importances_</code> describe the branch-generating forest; they are not class predictions produced by the clusterer. The old <code>InsideForestClassifier</code> name remains deprecated for migration only.</p>

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "InsideForest"
 version = "0.4.0"
-description = "Supervised forest-based rule extraction, region labeling, and multiclass interpretation for explainable tabular modeling"
+description = "Supervised forest-based rule extraction and class-aware region clustering for explainable tabular modeling"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"

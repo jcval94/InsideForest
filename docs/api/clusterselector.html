@@ -20,7 +20,7 @@ nav_order: 56
 <h2>Example</h2>
 <pre><code class="language-python">from InsideForest import cluster_selector
 
-# After calling InsideForestClassifier(..., get_detail=True).fit(X, y)
+# After calling InsideForestRegionClusterer(..., get_detail=True).fit(X, y)
 menu = cluster_selector.MenuClusterSelector(quota=0.2)
 menu.fit(clf.df_reres_, y)
 rebalanced = menu.predict(clf.df_reres_)

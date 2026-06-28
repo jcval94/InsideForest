@@ -1,39 +1,43 @@
 ---
 layout: default
-title: Classification
+title: Class-guided regions
 parent: Tutorials
 nav_order: 1
 ---
 
-<h1>Classification tutorial</h1>
-<p>Classify labeled observations and generate interpretable rules.</p>
+<h1>Class-guided region clustering</h1>
+<p>Find interpretable Iris regions enriched for one target class. This workflow does not predict species; it assigns region-cluster IDs.</p>
 
-<h2>Goal</h2>
-<p>Train an <code>InsideForestClassifier</code> on the Iris dataset and produce a cluster report.</p>
-
-<h2>Step 1: prepare the data</h2>
+<h2>Fit the clusterer</h2>
 <pre><code class="language-python">from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
+from InsideForest import InsideForestClassRegionClusterer
 
-data = load_iris()
+X, y = load_iris(return_X_y=True)
 X_train, X_test, y_train, y_test = train_test_split(
-    data.data, data.target, train_size=0.35, stratify=data.target, random_state=15
+    X, y, test_size=0.3, stratify=y, random_state=15
 )
+model = InsideForestClassRegionClusterer(
+    rf_params={"n_estimators": 40, "max_depth": 5, "random_state": 15},
+    leaf_percentile=90,
+    min_support=2,
+    branch_aggregation="none",
+    random_state=15,
+)
+train_clusters = model.fit_predict(X_train, y_train)
 </code></pre>
 
-<h2>Step 2: train and generate segments</h2>
-<pre><code class="language-python">from InsideForest import InsideForestClassifier
-
-clf = InsideForestClassifier(auto_fast=True, auto_feature_reduce=True, get_detail=True)
-clf.fit(X_train, y_train)
-segments = clf.df_clusters_description_
+<h2>Assign and evaluate holdout rows</h2>
+<pre><code class="language-python">test_clusters = model.predict(X_test)
+assignments = model.assign_regions(X_test)
+report = model.region_quality_report(X_test, y_test)
 </code></pre>
+<p>Inspect <code>coverage</code>, <code>unmatched_rate</code>, <code>ami</code>, <code>cluster_purity</code>, and rows whose <code>source</code> is <code>unmatched</code>. No class prediction fills those rows.</p>
 
-<h2>Step 3: interpret results</h2>
-<ul>
-  <li>Inspect <code>segments</code> or <code>clf.df_datos_explain_</code> to review rules and metrics.</li>
-  <li>Use <code>clf.plot_importances()</code> to visualize key variables.</li>
-  <li>Export the model with <code>clf.save("models/iris.joblib")</code>.</li>
-</ul>
-
-<p>Continue with the <a href="regression.html">Regression</a> tutorial to learn the continuous variant.</p>
+<h2>Interpret the regions</h2>
+<pre><code class="language-python">top = model.explain_regions(top_n=10)
+class_zero = model.regions_for_class(0, top_n=5)
+ambiguous = model.ambiguous_regions(top_n=10)
+coverage_by_class = model.class_coverage_report()
+</code></pre>
+<p>Every row in <code>regions_</code> represents one selected physical leaf and contains its target class, complete class distribution, lift, entropy, class margin, support, and geometric bounds.</p>

@@ -16,22 +16,24 @@ lang: es
 </div>
 
 <h2>Pruébalo en un notebook</h2>
-<p>Entrena un clasificador, etiqueta nuevas observaciones y obtén importancias de variables en cuestión de minutos.</p>
+<p>Ajusta un clusterer regional supervisado, asigna IDs e inspecciona la calidad de las regiones.</p>
 <pre><code class="language-python">from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
-from InsideForest import InsideForestClassifier
+from InsideForest import InsideForestRegionClusterer
 
 X, y = load_iris(return_X_y=True)
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, train_size=0.35, stratify=y, random_state=15
 )
 
-clf = InsideForestClassifier(auto_fast=True, auto_feature_reduce=True)
+clf = InsideForestRegionClusterer(auto_fast=True, auto_feature_reduce=True)
 clf.fit(X_train, y_train)
 labels = clf.predict(X_test)
+asignaciones = clf.assign_regions(X_test)
+calidad = clf.region_quality_report(X_test, y_test)
 importances = clf.feature_importances_
 </code></pre>
-<p>Visita <a href="quick_api_es.html">API Rápida</a> para más ejemplos de clasificación y regresión.</p>
+<p><code>labels</code> son IDs regionales; <code>-1</code> indica que ninguna región coincidió. Visita <a href="quick_api_es.html">API rápida</a> para ver ambos clusterers y regresión.</p>
 
 <h2>¿Por qué InsideForest?</h2>
 <ul>
@@ -53,7 +55,7 @@ importances = clf.feature_importances_
 <h2>Explora la API</h2>
 <p>Consulta la documentación detallada de cada módulo:</p>
 <ul>
-  <li><a href="api/insideforestclassifier_es.html">InsideForestClassifier</a> y <a href="api/insideforestregressor_es.html">InsideForestRegressor</a>.</li>
+  <li><a href="api/insideforestregionclusterer_es.html">InsideForestRegionClusterer</a> e <a href="api/insideforestclassregionclusterer_es.html">InsideForestClassRegionClusterer</a>: clusterers canónicos.</li>
   <li><a href="api/trees_es.html">Trees</a>, <a href="api/regions_es.html">Regions</a> y <a href="api/labels_es.html">Labels</a>.</li>
   <li><a href="api/models_es.html">Models</a> y <a href="api/metadata_es.html">utilidades de metadatos</a>.</li>
   <li><a href="api/clusterselector_es.html">Auxiliares de selección</a> y estrategias de consolidación.</li>

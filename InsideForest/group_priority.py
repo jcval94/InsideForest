@@ -141,7 +141,7 @@ def from_multiclass_rules(
     min_support: int = 2,
     source: str = "multiclass",
 ) -> list[RegionDescriptor]:
-    """Build descriptors from ``InsideForestMulticlassClassifier.rules_``.
+    """Build descriptors from ``InsideForestClassRegionClusterer.regions_``.
 
     Multiclass tree rules use ``x > lower`` and ``x <= upper`` because lower
     bounds come from right-branch thresholds and upper bounds from left-branch

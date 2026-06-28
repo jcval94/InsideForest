@@ -7,7 +7,7 @@ from sklearn.datasets import load_iris, load_wine
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
-from InsideForest import InsideForestClassifier
+from InsideForest import InsideForestRegionClusterer
 from experiments.benchmark import _evaluate
 
 
@@ -38,7 +38,7 @@ def run_experiments() -> pd.DataFrame:
             param_grid["leaf_percentile"],
             param_grid["low_leaf_fraction"],
         ):
-            clf = InsideForestClassifier(
+            clf = InsideForestRegionClusterer(
                 method="select_clusters",
                 divide=divide,
                 get_detail=False,

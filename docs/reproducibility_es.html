@@ -13,12 +13,12 @@ lang: es
 <h2>Semillas consistentes</h2>
 <pre><code class="language-python">import random
 import numpy as np
-from InsideForest import InsideForestClassifier
+from InsideForest import InsideForestRegionClusterer
 
 SEMILLA = 15
 random.seed(SEMILLA)
 np.random.seed(SEMILLA)
-modelo = InsideForestClassifier(random_state=SEMILLA)
+modelo = InsideForestRegionClusterer(random_state=SEMILLA)
 </code></pre>
 <p>En PySpark, configura las semillas de cada estimador y limita particiones aleatorias para evitar variaciones.</p>
 
@@ -32,7 +32,7 @@ modelo = InsideForestClassifier(random_state=SEMILLA)
 <h2>Guarda artefactos</h2>
 <ul>
   <li>Persistir modelos con <code>.save()</code> y adjuntar los archivos <code>.joblib</code>.</li>
-  <li>Archivar <code>df_clusters_description_</code>, <code>df_datos_explain_</code>, tablas y gráficos.</li>
+  <li>Archivar <code>raw_regions_</code>, <code>regions_</code>, <code>region_metrics_</code>, <code>labels_</code> y <code>region_quality_report</code>.</li>
   <li>Publicar scripts en <code>experiments/</code> para facilitar su ejecución en CI/CD.</li>
 </ul>
 

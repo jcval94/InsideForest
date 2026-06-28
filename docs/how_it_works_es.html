@@ -1,7 +1,7 @@
 ---
 layout: default
-title: Cómo Funciona
-description: Explicación del enfoque de clustering supervisado de InsideForest.
+title: Cómo funciona
+description: Contrato de clustering supervisado por regiones de InsideForest.
 parent: InsideForest
 nav_order: 4
 nav_exclude: true
@@ -9,61 +9,35 @@ lang: es
 ---
 
 <h1>Cómo funciona InsideForest</h1>
-<p>InsideForest parte de un bosque entrenado y lo transforma en regiones descriptivas. El flujo general sigue cuatro pasos: árboles → reglas → regiones → etiquetas.</p>
+<p>InsideForest busca regiones geométricas cuya distribución del objetivo sea útil. Es clustering supervisado, no un predictor de clases alternativo.</p>
 
-<h2>1. Construye o reutiliza un bosque</h2>
-<p>Entrena un <code>RandomForest</code> con <code>scikit-learn</code> o conecta un modelo de PySpark. Los envoltorios de InsideForest aceptan parámetros típicos, y la clase <code>Trees</code> permite extraer ramas explícitamente.</p>
-<pre><code class="language-python">from InsideForest import Trees
+<h2>1. Genera hojas candidatas</h2>
+<p>Un <code>RandomForestClassifier</code> divide el espacio de variables. InsideForest extrae límites, soporte y distribuciones de las hojas físicas. El generador ajustado queda en <code>forest_</code>; sus importancias son metadatos diagnósticos.</p>
 
-trees = Trees("sklearn", n_sample_multiplier=0.05, ef_sample_multiplier=10)
-ramas = trees.get_branches(X, y, modelo)
+<h2>2. Puntúa y selecciona regiones</h2>
+<p><code>InsideForestClassRegionClusterer</code> evalúa pureza, lift y cobertura para cada clase, y asocia cada hoja únicamente con la clase que maximiza el objetivo. Los filtros de soporte, percentil y máximo por clase eliminan candidatos débiles. <code>branch_aggregation="none"</code> mantiene explícita la geometría una hoja/una región.</p>
+
+<h2>3. Asigna IDs de cluster</h2>
+<p>Se reúnen todas las regiones que coinciden con una observación. Gana la de mayor score; los empates se resuelven por menor entropía, mayor soporte y menor ID. Sin coincidencia, el resultado es <code>-1</code>. La predicción del bosque nunca actúa como fallback.</p>
+<pre><code class="language-python">modelo.fit(X_train, y_train)
+cluster_ids = modelo.predict(X_test)
+detalles = modelo.assign_regions(X_test)
+pertenencias = modelo.transform(X_test)
 </code></pre>
 
-<h2>2. Prioriza regiones candidatas</h2>
-<p><code>Regions.prio_ranges</code> fusiona reglas, calcula métricas y destaca aquellas con alta pureza y cobertura.</p>
-<pre><code class="language-python">from InsideForest import Regions
+<h2>4. Evalúa como clustering</h2>
+<p><code>region_quality_report</code> informa cobertura, tasa sin asignar, pureza, lift, entropía, AMI, NMI, ARI, homogeneidad, completitud y diagnósticos por clase. <code>score(X, y)</code> es AMI incluyendo <code>-1</code>; la accuracy del bosque queda fuera del contrato.</p>
 
-regions = Regions()
-rangos = regions.prio_ranges(ramas, X)
-</code></pre>
-<p>Si activas <code>auto_feature_reduce</code>, se eliminan variables con baja contribución antes de generar las regiones.</p>
-
-<h2>3. Etiqueta observaciones</h2>
-<p><code>regions.labels</code> asigna cada observación a una región y, con <code>return_dfs=True</code>, devuelve DataFrames descriptivos listos para análisis.</p>
-<pre><code class="language-python">df = X.copy()
-df["target"] = y
-clusteres, descripciones, etiquetas = regions.labels(
-    df=df,
-    df_reres=rangos,
-    n_clusters=None,
-    include_summary_cluster=False,
-    method="select_clusters",
-    return_dfs=True,
-    var_obj="target",
-)
-</code></pre>
-<p>Utiliza los auxiliares de <code>InsideForest.cluster_selector</code> como <code>select_clusters</code>, <code>menu</code> o <code>match_class_distribution</code> para controlar el balance entre clases.</p>
-
-<h2>4. Interpreta y comparte</h2>
-<p>El módulo <a href="api/labels_es.html">Labels</a> produce métricas por segmento y <a href="api/models_es.html">Models</a> ofrece utilidades para comparar modelos y exportar reglas.</p>
+<h2>Elige el clusterer</h2>
 <ul>
-  <li><code>generate_descriptions</code> redacta resúmenes ejecutivos.</li>
-  <li><code>categorize_conditions</code> agrupa restricciones por tipo.</li>
-  <li><code>plot_multi_dims</code> genera visualizaciones de 2D y 3D.</li>
+  <li><code>InsideForestRegionClusterer</code>: regiones supervisadas generales del pipeline histórico de priorización.</li>
+  <li><code>InsideForestClassRegionClusterer</code>: objetivos categóricos, una clase objetivo por hoja, distribución completa y herramientas de ambigüedad y cobertura.</li>
 </ul>
 
-<h2>Flujo completo</h2>
-<pre><code class="language-python">from InsideForest import InsideForestClassifier
-
-clf = InsideForestClassifier(auto_fast=True, auto_feature_reduce=True, method="menu", get_detail=True)
-clf.fit(X_train, y_train)
-etiquetas = clf.predict(X_test)
-resumenes = clf.df_clusters_description_
+<h2>Inspecciona el resultado</h2>
+<pre><code class="language-python">regiones = modelo.explain_regions(top_n=20)
+calidad = modelo.region_quality_report(X_test, y_test)
+print(modelo.labels_)         # IDs de cluster de entrenamiento
+print(modelo.region_metrics_) # métricas por región
 </code></pre>
-
-<h2>Más recursos</h2>
-<ul>
-  <li><a href="performance_tips_es.html">Rendimiento</a> para ajustar hiperparámetros.</li>
-  <li><a href="experiments_benchmarks_es.html">Experimentos y benchmarks</a> para resultados cuantitativos.</li>
-  <li><a href="reproducibility_es.html">Reproducibilidad</a> para garantizar experimentos repetibles.</li>
-</ul>
+<p>Los módulos de bajo nivel <code>Trees</code>, <code>Regions</code> y <code>Labels</code> siguen disponibles para flujos personalizados, pero sus tablas intermedias no son la salida canónica de alto nivel.</p>

@@ -1,89 +1,38 @@
 ---
 layout: default
 title: Experiments & Benchmarks
-description: Benchmark methodology and sample results for InsideForest.
+description: Data-driven evaluation of supervised region clustering.
 nav_order: 7
 ---
 
 <h1>Experiments &amp; Benchmarks</h1>
-<p>Use these guidelines to evaluate InsideForest consistently across datasets. The examples below summarize public experiments performed on open datasets.</p>
+<p>Evaluate InsideForest as supervised clustering and region discovery. Random-forest classification accuracy is intentionally excluded from the clusterer decision.</p>
 
-<h2>Methodology checklist</h2>
+<h2>Primary metrics</h2>
 <ul>
-  <li>Split data with stratified sampling to preserve class balance.</li>
-  <li>Compare InsideForest against standard baselines such as <code>RandomForestClassifier</code> or <code>GradientBoostingClassifier</code>.</li>
-  <li>Repeat experiments with at least five different seeds and report the mean ± standard deviation.</li>
-  <li>Track both predictive metrics (accuracy, F1, RMSE) and interpretability metrics (number of rules, coverage, purity).</li>
+  <li>Coverage and unmatched rate, always retaining cluster <code>-1</code> in clustering metrics.</li>
+  <li>AMI, NMI, ARI, homogeneity, completeness, and weighted cluster purity.</li>
+  <li>Region lift, entropy, support, target-class margin, and class-level coverage.</li>
+  <li>Number of raw leaves, final regions, compression, runtime, and memory.</li>
+  <li>Assignment and geometric stability across seeds or resamples.</li>
 </ul>
 
-<h2>Sample classification results</h2>
-<div class="scroll-table">
-<table>
-  <thead>
-    <tr>
-      <th>Dataset</th>
-      <th>Metric</th>
-      <th>InsideForest</th>
-      <th>Baseline</th>
-      <th>Notes</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Iris</td>
-      <td>Accuracy</td>
-      <td>0.964 ± 0.01</td>
-      <td>0.953 ± 0.02 (RandomForest)</td>
-      <td>InsideForest produced 6 descriptive rules covering 100% of samples.</td>
-    </tr>
-    <tr>
-      <td>Wine Quality</td>
-      <td>F1 weighted</td>
-      <td>0.732 ± 0.03</td>
-      <td>0.701 ± 0.04 (GradientBoosting)</td>
-      <td>Feature reduction kept 9 of 12 variables with no drop in accuracy.</td>
-    </tr>
-  </tbody>
-</table>
-</div>
+<h2>Current class-region benchmark</h2>
+<pre><code class="language-bash">python experiments/validate_class_region_clusters.py --profile quick
+</code></pre>
+<p>The benchmark compares <code>InsideForestRegionClusterer</code> and <code>InsideForestClassRegionClusterer</code> under the current no-fallback contract. In a local two-fold Iris smoke run, the class-aware clusterer reached coverage <code>1.000</code> and AMI about <code>0.824</code>; the general clusterer reached coverage <code>0.440–0.480</code> and AMI <code>0.537–0.548</code>. These values are smoke evidence, not a universal ranking.</p>
 
-<h2>Regression region validation</h2>
-<p>The reproducible script <code>experiments/validate_regression_regions.py</code> evaluates <code>InsideForestRegressor</code> as a region extractor for continuous targets. The quick profile uses Diabetes, Friedman1, a sparse linear regression problem, and a nonlinear synthetic signal with two seeds.</p>
-<pre><code class="language-bash">python experiments/validate_regression_regions.py --profile quick</code></pre>
-<p>Latest local quick run: median RF test R2 <code>0.6277</code>, median test rule coverage <code>0.9008</code>, median known-region coverage <code>0.7460</code>, median target-spread reduction <code>0.5450</code>, median region-mean RMSE lift vs train-mean baseline <code>0.1537</code>, and zero classification-style target warnings.</p>
-<div class="scroll-table">
-<table>
-  <thead>
-    <tr>
-      <th>Dataset</th>
-      <th>RF R2</th>
-      <th>RF RMSE</th>
-      <th>Mean RMSE</th>
-      <th>Region RMSE</th>
-      <th>Region Lift</th>
-      <th>Rule Coverage</th>
-      <th>Known Coverage</th>
-      <th>Std Reduction</th>
-      <th>Regions</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr><td>Diabetes</td><td>0.4173</td><td>56.1308</td><td>75.0765</td><td>64.9787</td><td>0.1342</td><td>0.9802</td><td>0.8452</td><td>0.5283</td><td>154.5</td></tr>
-    <tr><td>Friedman1</td><td>0.7170</td><td>2.5284</td><td>4.7960</td><td>3.5953</td><td>0.2501</td><td>0.9881</td><td>0.8849</td><td>0.5275</td><td>148.0</td></tr>
-    <tr><td>Linear sparse</td><td>0.7876</td><td>55.6702</td><td>119.0026</td><td>104.1888</td><td>0.1496</td><td>0.7143</td><td>0.6389</td><td>0.5599</td><td>108.0</td></tr>
-    <tr><td>Nonlinear signal</td><td>0.5801</td><td>1.5776</td><td>2.4551</td><td>2.2907</td><td>0.0694</td><td>0.7937</td><td>0.6825</td><td>0.5634</td><td>126.0</td></tr>
-  </tbody>
-</table>
-</div>
+<h2>Deciding whether branch aggregation adds value</h2>
+<p>Keep <code>branch_aggregation="none"</code> as the baseline. Adopt an aggregation only if repeated evaluation shows median compression of at least 20%, non-inferiority in coverage, AMI, and purity, no stability degradation, and acceptable compute cost. Aggregation must only combine regions with the same target class and must recompute their distribution, support, and score.</p>
 
-<h2>Reporting template</h2>
-<p>When documenting new experiments, include:</p>
-<ul>
-  <li>Dataset description and preprocessing steps.</li>
-  <li>Parameter grid with ranges for each model.</li>
-  <li>Evaluation scripts or notebook links.</li>
-  <li>Raw outputs (metrics, confusion matrices, rule exports).</li>
-</ul>
+<h2>Reproducible protocol</h2>
+<ol>
+  <li>Use stratified repeated splits and fixed seeds.</li>
+  <li>Fit only on train and evaluate assignments on untouched holdout rows.</li>
+  <li>Test string labels, remapped IDs, numeric permutations, and column permutations.</li>
+  <li>Report per-fold results and robust summaries, not only a single average.</li>
+  <li>Archive the exact parameters, package versions, raw regions, and final region table.</li>
+</ol>
 
-<h2>Reproducing published results</h2>
-<p>Clone the repository and explore the <code>experiments/</code> directory. Notebooks contain ready-to-run configurations that mirror the tables above.</p>
+<h2>Regression regions</h2>
+<p><code>python experiments/validate_regression_regions.py --profile quick</code> remains the dedicated validation for <code>InsideForestRegressor</code>. Its R² is the score of the underlying regression forest and is separate from the categorical region-clustering contract.</p>

@@ -2,7 +2,15 @@ from .labels import Labels
 from .regions import Regions
 from .trees import Trees
 from .models import Models
-from .inside_forest import InsideForestClassifier, InsideForestRegressor
+from .inside_forest import (
+    InsideForestClassifier,
+    InsideForestRegionClusterer,
+    InsideForestRegressor,
+)
+from .multiclass import (
+    InsideForestClassRegionClusterer,
+    InsideForestMulticlassClassifier,
+)
 from .metadata import (
     MetaExtractor,
     Profile,

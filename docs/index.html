@@ -14,22 +14,24 @@ has_children: true
 </div>
 
 <h2>Try it in a notebook</h2>
-<p>Train a classifier, label new observations, and retrieve feature importance scores in just a few lines.</p>
+<p>Fit a supervised region clusterer, assign cluster IDs, and inspect region quality in a few lines.</p>
 <pre><code class="language-python">from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
-from InsideForest import InsideForestClassifier
+from InsideForest import InsideForestRegionClusterer
 
 X, y = load_iris(return_X_y=True)
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, train_size=0.35, stratify=y, random_state=15
 )
 
-clf = InsideForestClassifier(auto_fast=True, auto_feature_reduce=True)
+clf = InsideForestRegionClusterer(auto_fast=True, auto_feature_reduce=True)
 clf.fit(X_train, y_train)
 labels = clf.predict(X_test)
+assignments = clf.assign_regions(X_test)
+quality = clf.region_quality_report(X_test, y_test)
 importances = clf.feature_importances_
 </code></pre>
-<p>Head to the <a href="quick_api.html">Quick API</a> to see additional classification and regression flows.</p>
+<p><code>labels</code> are region IDs; <code>-1</code> means that no region matched. Head to the <a href="quick_api.html">Quick API</a> for both clusterers and regression.</p>
 
 <h2>What makes InsideForest different?</h2>
 <ul>
@@ -51,7 +53,7 @@ importances = clf.feature_importances_
 <h2>Explore the API surface</h2>
 <p>Each component ships with detailed documentation:</p>
 <ul>
-  <li><a href="api/insideforestclassifier.html">InsideForestClassifier</a> and <a href="api/insideforestregressor.html">InsideForestRegressor</a> — high-level wrappers.</li>
+  <li><a href="api/insideforestregionclusterer.html">InsideForestRegionClusterer</a> and <a href="api/insideforestclassregionclusterer.html">InsideForestClassRegionClusterer</a> — canonical supervised clusterers.</li>
   <li><a href="api/trees.html">Trees</a>, <a href="api/regions.html">Regions</a>, and <a href="api/labels.html">Labels</a> — extraction, prioritization, and labeling.</li>
   <li><a href="api/models.html">Models</a> and <a href="api/metadata.html">Metadata helpers</a> — utilities for diagnostics and persistence.</li>
   <li><a href="api/clusterselector.html">Cluster selector helpers</a> — utilities to rebalance and consolidate segments.</li>

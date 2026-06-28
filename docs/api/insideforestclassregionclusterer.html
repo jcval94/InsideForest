@@ -1,0 +1,26 @@
+---
+layout: default
+title: InsideForestClassRegionClusterer
+parent: InsideForest
+nav_order: 52
+---
+
+<h1>InsideForestClassRegionClusterer</h1>
+<p>Extracts one class-enriched region per selected physical leaf. The forest is only a branch generator; no class prediction or forest fallback is part of the contract.</p>
+
+<pre><code class="language-python">from InsideForest import InsideForestClassRegionClusterer
+
+model = InsideForestClassRegionClusterer(
+    rf_params={"n_estimators": 50, "random_state": 42},
+    leaf_percentile=95,
+    min_support=2,
+)
+cluster_ids = model.fit_predict(X_train, y_train)
+assignments = model.assign_regions(X_test)
+quality = model.region_quality_report(X_test, y_test)
+</code></pre>
+
+<p>Uncovered rows receive <code>-1</code>. Use <code>regions_for_class</code>, <code>ambiguous_regions</code>, and <code>class_coverage_report</code> for class-aware diagnostics.</p>
+<h2>Selection and assignment</h2>
+<p>Each physical leaf is associated with only the class that maximizes the configured purity-lift-coverage objective. A selected leaf therefore produces at most one final region. Overlapping matches are resolved by region score, then lower entropy, higher support, and lower cluster ID.</p>
+<p><code>classes_</code> is metadata for class distributions; it is not the output space of <code>predict</code>. <code>branch_aggregation="none"</code> is the supported default, so IoU branch clustering is not required.</p>

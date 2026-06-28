@@ -9,6 +9,9 @@ from joblib import Parallel, delayed
 
 logger = logging.getLogger(__name__)
 
+
+_SUMMARY_ASSIGNMENT_MAX_BYTES = 64 * 1024 * 1024
+
 class Trees:
 
   def __init__(
@@ -323,12 +326,39 @@ class Trees:
                               no_branch_lim=None, verbose=0, n_jobs=1):
       """Resume las reglas evaluando las condiciones de manera vectorizada.
 
+      ``n_sample`` is empirical support on ``data1`` rather than geometric
+      hyperrectangle volume. ``ef_sample`` is the arithmetic mean of
+      ``var_obj`` among covered rows; for binary 0/1 targets it is the
+      positive-class rate, but it is not a label-invariant multiclass purity
+      measure.
+
       Parameters
       ----------
       no_branch_lim : int | None, optional
           Maximum number of trees to process. If ``None`` all available
           trees are used.
       """
+
+      return self._get_summary_optimizado_impl(
+          data1,
+          df_full_arboles,
+          var_obj,
+          no_branch_lim=no_branch_lim,
+          verbose=verbose,
+          n_jobs=n_jobs,
+      )
+
+  def _get_summary_optimizado_impl(
+      self,
+      data1,
+      df_full_arboles,
+      var_obj,
+      *,
+      no_branch_lim=None,
+      verbose=0,
+      n_jobs=1,
+  ):
+      """Internal implementation of the rule-by-rule scoring strategy."""
 
       # 1) Compute pivot summarizing by N_regla, N_arbol, feature, operator
       agrupacion = pd.pivot_table(
@@ -407,6 +437,203 @@ class Trees:
       resultado = pd.concat(resultados, ignore_index=True)
       resultado = resultado.sort_values(by=['ef_sample', 'n_sample'], ascending=False)
       return resultado
+
+
+  def _get_summary_from_fitted_forest(
+      self,
+      data1,
+      df_full_arboles,
+      var_obj,
+      regr,
+      *,
+      assignment_strategy='shared_prefix',
+      no_branch_lim=None,
+      max_work_bytes=_SUMMARY_ASSIGNMENT_MAX_BYTES,
+  ):
+      """Score selected sklearn leaves using the fitted tree structure.
+
+      ``shared_prefix`` traverses each tree once with the same six-decimal
+      thresholds exported by :meth:`get_rangos`.  This reuses common branch
+      prefixes and therefore preserves the historical public output.
+      ``native_apply`` delegates assignment to sklearn and intentionally uses
+      the estimator's full-precision thresholds; it exists for A/B analysis
+      and is not the compatibility path.
+      """
+
+      if assignment_strategy not in {'shared_prefix', 'native_apply'}:
+          raise ValueError(
+              "assignment_strategy must be 'shared_prefix' or 'native_apply'"
+          )
+      if not hasattr(regr, 'estimators_'):
+          return self.get_summary_optimizado(
+              data1,
+              df_full_arboles,
+              var_obj,
+              no_branch_lim=no_branch_lim,
+          )
+
+      agrupacion = pd.pivot_table(
+          df_full_arboles,
+          index=['N_regla', 'N_arbol', 'feature', 'operador'],
+          values=['rangos', 'Importancia'],
+          aggfunc=['min', 'max', 'mean'],
+      )
+      agrupacion_min = agrupacion['min'].reset_index()
+      agrupacion_min = agrupacion_min[agrupacion_min['operador'] == '<=']
+      agrupacion_max = agrupacion['max'].reset_index()
+      agrupacion_max = agrupacion_max[agrupacion_max['operador'] == '>']
+      agrupacion = pd.concat([agrupacion_min, agrupacion_max]).sort_values(
+          ['N_arbol', 'N_regla']
+      )
+
+      tree_ids = agrupacion['N_arbol'].unique()
+      if no_branch_lim is not None:
+          tree_ids = tree_ids[:no_branch_lim]
+      tree_id_set = set(tree_ids)
+
+      feature_columns = [col for col in data1.columns if col != var_obj]
+      X = data1[feature_columns].to_numpy()
+      y = data1[var_obj].to_numpy()
+      n_samples = len(data1)
+      results = []
+
+      for tree_id, tree_rules in agrupacion.groupby('N_arbol', sort=False):
+          if tree_id not in tree_id_set:
+              continue
+          estimator = regr.estimators_[int(tree_id)]
+          rule_to_leaf = self._selected_leaf_ids(estimator, int(tree_id))
+
+          if assignment_strategy == 'native_apply':
+              leaf_assignments = estimator.apply(X)
+          else:
+              leaf_assignments = self._rounded_leaf_assignments(
+                  estimator,
+                  X,
+                  max_work_bytes=max_work_bytes,
+              )
+              if leaf_assignments is None:
+                  return self.get_summary_optimizado(
+                      data1,
+                      df_full_arboles,
+                      var_obj,
+                      no_branch_lim=no_branch_lim,
+                  )
+
+          for rule_id, rule in tree_rules.groupby('N_regla', sort=False):
+              leaf_id = rule_to_leaf.get(int(rule_id))
+              if leaf_id is None:
+                  # A malformed or externally-built rule frame cannot be
+                  # mapped safely; preserve the established implementation.
+                  return self.get_summary_optimizado(
+                      data1,
+                      df_full_arboles,
+                      var_obj,
+                      no_branch_lim=no_branch_lim,
+                  )
+              mask = leaf_assignments == leaf_id
+              n_sample = int(mask.sum())
+              ef_sample = float(mask @ y / n_sample) if n_sample > 0 else 0.0
+              scored_rule = rule.copy()
+              scored_rule['n_sample'] = n_sample
+              scored_rule['ef_sample'] = ef_sample
+              results.append(scored_rule)
+
+      if not results:
+          return pd.DataFrame(
+              columns=[
+                  'N_regla', 'N_arbol', 'feature', 'operador', 'rangos',
+                  'Importancia', 'n_sample', 'ef_sample',
+              ]
+          )
+
+      result = pd.concat(results, ignore_index=True)
+      return result.sort_values(by=['ef_sample', 'n_sample'], ascending=False)
+
+
+  def _selected_leaf_ids(self, estimator, tree_index, random_state=0):
+      """Map exported rule ids to sklearn leaf node ids."""
+
+      tree = estimator.tree_
+      leaf_ids = []
+      leaf_values = []
+
+      def _walk(node):
+          if tree.feature[node] != _tree.TREE_UNDEFINED:
+              _walk(int(tree.children_left[node]))
+              _walk(int(tree.children_right[node]))
+              return
+          leaf_ids.append(int(node))
+          value = tree.value[node]
+          if hasattr(estimator, 'n_classes_'):
+              leaf_values.append(float(np.argmax(value)))
+          else:
+              leaf_values.append(float(value.ravel()[0]))
+
+      _walk(0)
+      if not leaf_values:
+          return {}
+
+      if self.percentil is None:
+          selected = list(range(len(leaf_ids)))
+      else:
+          threshold = np.percentile(leaf_values, self.percentil)
+          high = [i for i, value in enumerate(leaf_values) if value >= threshold]
+          low = [i for i, value in enumerate(leaf_values) if value < threshold]
+          sample_size = int(len(low) * self.low_frac)
+          rng = np.random.RandomState(random_state + tree_index)
+          sampled_low = (
+              rng.choice(low, size=sample_size, replace=False).tolist()
+              if sample_size > 0
+              else []
+          )
+          selected = high + sampled_low
+
+      return {
+          rule_id: leaf_ids[leaf_index]
+          for rule_id, leaf_index in enumerate(selected)
+      }
+
+
+  def _rounded_leaf_assignments(
+      self,
+      estimator,
+      X,
+      *,
+      max_work_bytes=_SUMMARY_ASSIGNMENT_MAX_BYTES,
+  ):
+      """Assign rows to leaves while preserving exported threshold precision."""
+
+      n_samples = X.shape[0]
+      tree = estimator.tree_
+      estimated_bytes = (
+          n_samples
+          * (int(tree.max_depth) + 2)
+          * (np.dtype(np.intp).itemsize + np.dtype(bool).itemsize)
+      )
+      if estimated_bytes > max(int(max_work_bytes), 0):
+          return None
+
+      assignments = np.full(n_samples, -1, dtype=np.intp)
+      stack = [(0, np.arange(n_samples, dtype=np.intp))]
+      while stack:
+          node, sample_indices = stack.pop()
+          if tree.feature[node] == _tree.TREE_UNDEFINED:
+              assignments[sample_indices] = node
+              continue
+
+          feature_index = int(tree.feature[node])
+          # get_rangos serializes thresholds with ``:.6f`` before the rules
+          # are parsed again, so use that exact precision here as well.
+          threshold = float(f"{tree.threshold[node]:.6f}")
+          goes_left = X[sample_indices, feature_index] <= threshold
+          stack.append(
+              (int(tree.children_right[node]), sample_indices[~goes_left])
+          )
+          stack.append(
+              (int(tree.children_left[node]), sample_indices[goes_left])
+          )
+
+      return assignments
 
 
 
@@ -550,13 +777,24 @@ class Trees:
        logger.info("Obtaining a summary of the trees")
     
     try:
-       df_summ = self.get_summary_optimizado(
-           df,
-           df_full_arboles,
-           var_obj,
-           no_branch_lim=no_trees_search,
-           verbose=verbose,
-       )
+       if self.lang == 'pyspark':
+           df_summ = self.get_summary_optimizado(
+               df,
+               df_full_arboles,
+               var_obj,
+               no_branch_lim=no_trees_search,
+               verbose=verbose,
+           )
+       else:
+           df_summ = self._get_summary_from_fitted_forest(
+               df,
+               df_full_arboles,
+               var_obj,
+               regr,
+               assignment_strategy='shared_prefix',
+               no_branch_lim=no_trees_search,
+               max_work_bytes=_SUMMARY_ASSIGNMENT_MAX_BYTES,
+           )
     except Exception as exc:
        logger.exception("Error generating tree summary: %s", exc)
        raise

@@ -1,0 +1,29 @@
+---
+layout: default
+title: InsideForestRegionClusterer
+parent: InsideForest
+nav_order: 91
+nav_exclude: true
+lang: es
+---
+
+<h1>InsideForestRegionClusterer</h1>
+<p>Clusterer regional supervisado canónico. El bosque genera ramas; <code>predict</code> devuelve IDs de cluster y <code>score</code> devuelve adjusted mutual information.</p>
+
+<pre><code class="language-python">from InsideForest import InsideForestRegionClusterer
+
+modelo = InsideForestRegionClusterer(rf_params={"random_state": 42})
+clusters = modelo.fit_predict(X_train, y_train)
+asignaciones = modelo.assign_regions(X_test)
+calidad = modelo.region_quality_report(X_test, y_test)
+</code></pre>
+
+<h2>Contrato de salida</h2>
+<ul>
+  <li><code>predict(X)</code> devuelve IDs de cluster regional, nunca clases.</li>
+  <li>Las filas fuera de toda región reciben <code>-1</code>.</li>
+  <li><code>transform(X)</code> devuelve la matriz muestra por región.</li>
+  <li><code>score(X, y)</code> es adjusted mutual information (AMI), incluido <code>-1</code>.</li>
+  <li><code>regions_</code>, <code>region_metrics_</code>, <code>labels_</code> y <code>raw_regions_</code> contienen los artefactos ajustados.</li>
+</ul>
+<p><code>forest_</code> y <code>feature_importances_</code> describen exclusivamente el bosque generador. <code>InsideForestClassifier</code> queda deprecado y sólo sirve para migración.</p>

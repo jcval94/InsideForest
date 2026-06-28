@@ -15,11 +15,13 @@ lang: es
 </code></pre>
 
 <h2>Cargar</h2>
-<pre><code class="language-python">from InsideForest import InsideForestClassifier
+<pre><code class="language-python">from InsideForest import InsideForestRegionClusterer
 
-modelo = InsideForestClassifier.load("artifacts/insideforest.joblib")
+modelo = InsideForestRegionClusterer.load("artifacts/insideforest.joblib")
 etiquetas = modelo.predict(X_nuevo)
+detalles = modelo.assign_regions(X_nuevo)
 </code></pre>
+<p><code>etiquetas</code> son IDs regionales y pueden contener <code>-1</code>. La carga conserva <code>regions_</code>, distribuciones, <code>region_metrics_</code> y <code>labels_</code> de entrenamiento.</p>
 
 <h2>Buenas prácticas</h2>
 <ul>

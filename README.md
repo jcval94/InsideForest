@@ -6,14 +6,18 @@ InsideForest is a Python library for explainable tabular modeling with decision 
 
 The core workflow is **supervised clustering**: the target variable guides the search for coherent regions instead of leaving the segmentation fully unsupervised. This makes the resulting clusters easier to connect to business outcomes, model behavior, and operational decisions.
 
-Version `0.4.0` adds an opt-in multiclass interpretation layer through `InsideForest.multiclass`. This layer keeps the full class distribution for each leaf, scores rules with class-aware purity, coverage, and lift, identifies prototype and conflict regions, and provides explicit RandomForest fallback behavior for observations that do not match a selected region.
+The canonical estimators are now region clusterers. `InsideForestRegionClusterer`
+builds general supervised regions and `InsideForestClassRegionClusterer` keeps the
+complete class distribution of every selected physical leaf. The random forest
+only generates candidate branches: `predict` returns cluster IDs and an
+observation outside every region receives `-1`, never a forest fallback.
 
 InsideForest is useful when you need more than a model score: it helps inspect why a forest separates classes, where a target concentrates, which conditions define useful segments, and how stable or efficient those explanations are across validation datasets.
 
 ## Example use cases
 
 - Analyze customer behavior to identify profitable segments.
-- Classify patients by medical history and symptoms.
+- Discover patient regions enriched for a clinical outcome.
 - Evaluate marketing channels using website traffic.
 - Build more accurate image-recognition systems.
 
@@ -21,7 +25,7 @@ InsideForest is useful when you need more than a model score: it helps inspect w
 
 Building and analyzing a random forest with InsideForest uncovers hidden trends and provides **insights** that support business decisions.
 
-[USE CASE NOTEBOOK](InsideForest/examples/InsideForest_Caso_de_Uso.ipynb) · [OPEN THE REPOSITORY VERSION IN COLAB](https://colab.research.google.com/github/jcval94/InsideForest/blob/master/InsideForest/examples/InsideForest_Caso_de_Uso.ipynb)
+[OPEN THE USE CASE NOTEBOOK DIRECTLY IN COLAB](https://colab.research.google.com/github/jcval94/InsideForest/blob/master/InsideForest/examples/InsideForest_Caso_de_Uso.ipynb)
 
 ## Installation
 
@@ -62,8 +66,8 @@ The typical order for applying InsideForest is:
 5. Optionally interpret results with `generate_descriptions` and `categorize_conditions`.
 6. Finally, use helpers such as `Models` and `Labels` for further analysis.
 
-## InsideForestClassifier and InsideForestRegressor wrappers
-For a simplified workflow you can use the `InsideForestClassifier` or
+## InsideForestRegionClusterer and InsideForestRegressor wrappers
+For a simplified workflow you can use the `InsideForestRegionClusterer` or
 `InsideForestRegressor` classes, which combine the random forest training and
 region labeling steps:
 
@@ -72,7 +76,7 @@ Note: InsideForest is typically run on a subset of the data, for example using 3
 ```python
 from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
-from InsideForest import InsideForestClassifier, InsideForestRegressor
+from InsideForest import InsideForestRegionClusterer, InsideForestRegressor
 
 iris = load_iris()
 X, y = iris.data, iris.target
@@ -82,14 +86,20 @@ X_train, X_rest, y_train, y_rest = train_test_split(
     X, y, train_size=0.35, stratify=y, random_state=15
 )
 
-in_f = InsideForestClassifier(
+in_f = InsideForestRegionClusterer(
     rf_params={"random_state": 15},
     tree_params={"mode": "py", "n_sample_multiplier": 0.05, "ef_sample_multiplier": 10},
 )
 
 in_f.fit(X_train, y_train)
 pred_labels = in_f.predict(X_rest)  # cluster labels for the remaining data
+assignments = in_f.assign_regions(X_rest)
+quality = in_f.region_quality_report(X_rest, y_rest)
 ```
+
+`InsideForestClassifier` remains as a deprecated compatibility name. Its
+legacy `score` reports forest accuracy; the canonical region clusterer's
+`score` reports adjusted mutual information for the returned cluster IDs.
 
 For `InsideForestRegressor`, `predict(X)` also returns region labels. Use
 `score(X, y)` for the underlying forest score, or call `regr.rf.predict(...)`
@@ -125,7 +135,7 @@ InsideForest can automatically pick faster training parameters and reduce
 features based on dataset size:
 
 ```python
-in_f = InsideForestClassifier(auto_fast=True, auto_feature_reduce=True)
+in_f = InsideForestRegionClusterer(auto_fast=True, auto_feature_reduce=True)
 in_f.fit(X_train, y_train)
 ```
 
@@ -154,12 +164,12 @@ ax = in_f.plot_importances()
 
 ### Saving and loading models
 
-Both `InsideForestClassifier` and `InsideForestRegressor` include
+Both `InsideForestRegionClusterer` and `InsideForestRegressor` include
 convenience methods to persist a fitted instance using `joblib`:
 
 ```python
 in_f.save("model.joblib")
-loaded = InsideForestClassifier.load("model.joblib")
+loaded = InsideForestRegionClusterer.load("model.joblib")
 ```
 
 The loaded model restores the underlying random forest and computed
@@ -167,7 +177,7 @@ attributes, allowing you to continue generating labels or predictions
 without re-fitting.
 
 ## Use case (Iris)
-The following summarizes the flow used in the [example notebook included with the library](InsideForest/examples/InsideForest_Caso_de_Uso.ipynb). The notebook also contains a complete three-class example using `InsideForestMulticlassClassifier`.
+The following summarizes the flow used in the [example notebook, which opens directly in Colab](https://colab.research.google.com/github/jcval94/InsideForest/blob/master/InsideForest/examples/InsideForest_Caso_de_Uso.ipynb). The notebook also contains a complete three-class region-clustering example using `InsideForestClassRegionClusterer`.
 
 ### 1. Model preparation
 
@@ -303,31 +313,16 @@ Compares clusters A and B using the rules provided by a row from the experiments
 
 ## Experiments
 
-The `experiments/benchmark.py` module runs supervised clustering
-benchmarks on datasets such as `Digits`, `Iris` and `Wine`. It compares
-`InsideForest` with traditional baselines like KMeans and DBSCAN,
-reporting purity, macro F1-score, accuracy, information-theoretic
-metrics and runtime. A basic sensitivity analysis is also provided for
-key hyperparameters: `K` for KMeans and `eps`/`min_samples` for DBSCAN.
+The canonical benchmark compares both region clusterers using coverage,
+unmatched rate, AMI, NMI, ARI, homogeneity, completeness, purity, lift,
+entropy, class coverage, stability, runtime, and memory. It includes cluster
+`-1` and intentionally excludes RandomForest classification accuracy and
+fallback behavior.
 
-Recent results are summarized below:
-
-| Dataset | Algorithm | Purity | Macro F1 | Accuracy | NMI | AMI | ARI | Bcubed F1 | Divergence | Time (s) |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Digits | InsideForest | 0.783 | 0.362 | 0.261 | 0.501 | 0.339 | 0.169 | 0.218 | 0.789 | 39.570 |
-| Digits | KMeans(k=10) | 0.673 | 0.620 | 0.666 | 0.672 | 0.669 | 0.531 | 0.633 | 0.711 | 0.047 |
-| Digits | DBSCAN(eps=0.5,min=5) | 0.102 | 0.018 | 0.102 | 0.000 | 0.000 | 0.000 | 0.182 | 0.000 | 0.014 |
-| Iris | InsideForest | 0.714 | 0.581 | 0.673 | 0.511 | 0.481 | 0.445 | 0.680 | 0.388 | 0.990 |
-| Iris | KMeans(k=3) | 0.667 | 0.531 | 0.580 | 0.590 | 0.584 | 0.433 | 0.710 | 0.427 | 0.002 |
-| Iris | DBSCAN(eps=0.5,min=5) | 0.680 | 0.674 | 0.680 | 0.511 | 0.505 | 0.442 | 0.651 | 0.402 | 0.002 |
-| Wine | InsideForest | 0.810 | 0.511 | 0.422 | 0.398 | 0.285 | 0.248 | 0.484 | 0.495 | 3.308 |
-| Wine | KMeans(k=3) | 0.966 | 0.967 | 0.966 | 0.876 | 0.875 | 0.897 | 0.937 | 0.628 | 0.004 |
-| Wine | DBSCAN(eps=0.5,min=5) | 0.399 | 0.190 | 0.399 | 0.000 | 0.000 | 0.000 | 0.509 | 0.000 | 0.002 |
-
-Execute the script with:
+Execute the quick validation with:
 
 ```
-python -m experiments.benchmark
+python experiments/validate_class_region_clusters.py --profile quick
 ```
 
 ## License
@@ -428,27 +423,28 @@ This produces a summary `DataFrame` where each condition is tagged by group alon
 
 InsideForest now includes a trust-region Newton optimizer for box-constrained problems. The helper function `_find_maximum` exposes an `optim_method` parameter to switch between standard gradient ascent and this trust-region approach, which uses analytic or finite-difference derivatives and typically converges in fewer evaluations while respecting bounds.
 
-## Multiclass interpretation
+## Class-aware supervised region clustering
 
-InsideForest also includes an opt-in multiclass interpretation layer that keeps the full class distribution for each forest leaf and ranks regions with class-aware purity, coverage and lift instead of numeric class IDs.
+`InsideForestClassRegionClusterer` uses a random forest only to generate candidate branches. It associates every physical leaf with the class that maximizes purity, lift and coverage, then returns region-cluster IDs rather than class predictions.
 
 ```python
-from InsideForest.multiclass import InsideForestMulticlassClassifier
+from InsideForest import InsideForestClassRegionClusterer
 
-model = InsideForestMulticlassClassifier(
+model = InsideForestClassRegionClusterer(
     rf_params={"n_estimators": 50, "random_state": 42},
-    percentil=95,
+    leaf_percentile=95,
     min_support=2,
 )
 model.fit(X_train, y_train)
 
-rules = model.explain(top_n=10)
+cluster_ids = model.predict(X_test)
 assignments = model.assign_regions(X_test)
-prototypes = model.prototype_regions(top_n=5)
-conflicts = model.confusion_regions(top_n=10)
+regions = model.explain_regions(top_n=10)
+class_regions = model.regions_for_class(y_train[0], top_n=5)
+ambiguous = model.ambiguous_regions(top_n=10)
 ```
 
-The detailed multiclass guide, benchmark, validation plan and latest local results are in [README.multiclass.md](README.multiclass.md). The validation script is `experiments/validate_multiclass_real_gain.py` and writes fold metrics, summaries, plots and confusion matrices to `experiments/results/multiclass_validation/`.
+Rows outside every selected region receive cluster `-1`; there is no fallback to the forest's class prediction. `InsideForestMulticlassClassifier` remains temporarily available as a deprecated compatibility name. The detailed guide and clustering validation protocol are in [README.multiclass.md](README.multiclass.md).
 
 ## Tests
 

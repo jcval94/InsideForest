@@ -38,7 +38,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import seaborn as sns
 
-from InsideForest import InsideForestClassifier
+from InsideForest import InsideForestRegionClusterer
 
 
 def _contingency(y_true: np.ndarray, y_pred: np.ndarray):
@@ -194,7 +194,7 @@ def _run_insideforest(X: np.ndarray, y: np.ndarray) -> Result:
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, train_size=0.35, stratify=y, random_state=42
     )
-    clf = InsideForestClassifier(rf_params={"random_state": 42})
+    clf = InsideForestRegionClusterer(rf_params={"random_state": 42})
     start = time.time()
     clf.fit(X_train, y_train)
     preds = clf.predict(X_test)

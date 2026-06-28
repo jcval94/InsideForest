@@ -26,6 +26,54 @@ if str(PROJECT_ROOT) not in sys.path:
 from InsideForest.trees import Trees
 
 
+SUMMARY_ID_COLUMNS = ["N_arbol", "N_regla", "feature", "operador", "rangos"]
+SUMMARY_ATOL = 1e-12
+
+
+def canonicalize_summary(frame: pd.DataFrame) -> pd.DataFrame:
+    """Return a deterministic branch-identity order for A/B comparisons."""
+
+    if frame.empty:
+        return frame.sort_index(axis=1).reset_index(drop=True)
+    missing = [column for column in SUMMARY_ID_COLUMNS if column not in frame.columns]
+    if missing:
+        raise KeyError(f"Summary is missing branch identity columns: {missing}")
+    return (
+        frame.sort_values(SUMMARY_ID_COLUMNS, kind="mergesort")
+        .sort_index(axis=1)
+        .reset_index(drop=True)
+    )
+
+
+def assert_summary_equivalent(
+    actual: pd.DataFrame,
+    expected: pd.DataFrame,
+    *,
+    atol: float = SUMMARY_ATOL,
+) -> float:
+    """Assert semantic equality and return the maximum float difference."""
+
+    actual_sorted = canonicalize_summary(actual)
+    expected_sorted = canonicalize_summary(expected)
+    pd.testing.assert_frame_equal(
+        actual_sorted,
+        expected_sorted,
+        check_dtype=False,
+        check_exact=False,
+        rtol=0.0,
+        atol=atol,
+    )
+
+    numeric_columns = actual_sorted.select_dtypes(include=[np.number]).columns
+    if len(numeric_columns) == 0 or actual_sorted.empty:
+        return 0.0
+    differences = np.abs(
+        actual_sorted[numeric_columns].to_numpy(dtype=float)
+        - expected_sorted[numeric_columns].to_numpy(dtype=float)
+    )
+    return float(np.nanmax(differences)) if differences.size else 0.0
+
+
 def _baseline_get_summary_optimizado(
     data1: pd.DataFrame,
     df_full_arboles: pd.DataFrame,
@@ -216,17 +264,11 @@ def _run_single_benchmark(
     )
     baseline_time = perf_counter() - start
 
-    optimized_sorted = optimized.sort_index(axis=1).reset_index(drop=True)
-    baseline_sorted = baseline.sort_index(axis=1).reset_index(drop=True)
-
     try:
-        pd.testing.assert_frame_equal(
-            optimized_sorted,
-            baseline_sorted,
-            check_dtype=False,
-        )
+        max_abs_diff = assert_summary_equivalent(optimized, baseline)
         outputs_match = True
     except AssertionError:
+        max_abs_diff = np.nan
         outputs_match = False
 
     if not outputs_match:
@@ -242,9 +284,10 @@ def _run_single_benchmark(
         "model_seed": rf_seed,
         "baseline_duration_seconds": baseline_time,
         "optimized_duration_seconds": optimized_time,
-        "baseline_n_rows": len(baseline_sorted),
-        "optimized_n_rows": len(optimized_sorted),
+        "baseline_n_rows": len(baseline),
+        "optimized_n_rows": len(optimized),
         "matches_baseline": outputs_match,
+        "max_abs_diff": max_abs_diff,
         "speedup_vs_baseline": speedup,
         "optimized_faster": optimized_time < baseline_time,
     }
@@ -308,6 +351,7 @@ def run_ab_test(
         "baseline_n_rows": int(results["baseline_n_rows"].median()),
         "optimized_n_rows": int(results["optimized_n_rows"].median()),
         "matches_baseline": results["matches_baseline"].all(),
+        "max_abs_diff": results["max_abs_diff"].max(),
         "speedup_vs_baseline": results["speedup_vs_baseline"].median(),
         "optimized_faster": results["optimized_faster"].all(),
         "n_rows_equal": results["n_rows_equal"].all(),

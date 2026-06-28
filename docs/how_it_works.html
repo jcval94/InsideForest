@@ -1,73 +1,41 @@
 ---
 layout: default
 title: How It Works
-description: Explanation of InsideForest's supervised clustering approach.
+description: InsideForest's supervised region-clustering contract.
 parent: InsideForest
 nav_order: 4
 ---
 
 <h1>How InsideForest Works</h1>
-<p>InsideForest takes a trained decision forest and turns it into interpretable regions. The full pipeline follows four stages: trees → rules → regions → labels.</p>
+<p>InsideForest searches for geometric regions whose target distribution is useful. It is supervised clustering, not an alternative class predictor.</p>
 
-<h2>1. Build or reuse a forest</h2>
-<p>You can train a <code>RandomForest</code> directly or provide a pre-trained forest from PySpark. The <code>InsideForestClassifier</code> and <code>InsideForestRegressor</code> wrappers accept common <code>scikit-learn</code> parameters, or you can use the <code>Trees</code> class to extract branches manually.</p>
-<pre><code class="language-python">from InsideForest import Trees
+<h2>1. Generate candidate leaves</h2>
+<p>A fitted <code>RandomForestClassifier</code> partitions feature space. InsideForest extracts bounds, support, and target distributions from its physical leaves. The fitted generator is available as <code>forest_</code>; its feature importance is diagnostic metadata.</p>
 
-trees = Trees("sklearn", n_sample_multiplier=0.05, ef_sample_multiplier=10)
-branches = trees.get_branches(X, y, fitted_model)
+<h2>2. Score and select regions</h2>
+<p><code>InsideForestClassRegionClusterer</code> evaluates purity, lift, and coverage for every class, then associates each physical leaf only with the class that maximizes the objective. Support, percentile, and per-class limits remove weak candidates. The default <code>branch_aggregation="none"</code> keeps this one-leaf/one-region geometry explicit.</p>
+
+<h2>3. Assign cluster IDs</h2>
+<p>For every observation, all matching regions are collected. The winning region has the highest score; ties use lower entropy, greater support, then lower cluster ID. If no region matches, the result is <code>-1</code>. The forest's class prediction is never used as a fallback.</p>
+<pre><code class="language-python">model.fit(X_train, y_train)
+cluster_ids = model.predict(X_test)
+details = model.assign_regions(X_test)
+memberships = model.transform(X_test)
 </code></pre>
 
-<h2>2. Prioritize candidate regions</h2>
-<p><code>Regions.prio_ranges</code> combines the rules from every tree, computes coverage metrics, and highlights regions that balance purity and size.</p>
-<pre><code class="language-python">from InsideForest import Regions
+<h2>4. Evaluate regions as clustering</h2>
+<p><code>region_quality_report</code> reports coverage, unmatched rate, purity, lift, entropy, AMI, NMI, ARI, homogeneity, completeness, and class-level diagnostics. <code>score(X, y)</code> is AMI including <code>-1</code>; forest accuracy is outside the clusterer contract.</p>
 
-regions = Regions()
-priority_ranges = regions.prio_ranges(branches, X)
-</code></pre>
-<p>This stage can also reduce features when <code>auto_feature_reduce=True</code>, keeping only the most discriminative variables.</p>
-
-<h2>3. Label observations</h2>
-<p>The prioritized regions are used to label new or existing observations. The <code>regions.labels</code> function assigns rules, calculates metrics, and—when <code>return_dfs=True</code>—returns detailed DataFrames.</p>
-<pre><code class="language-python">df = X.copy()
-df["target"] = y
-clustered, descriptive, labels = regions.labels(
-    df=df,
-    df_reres=priority_ranges,
-    n_clusters=None,
-    include_summary_cluster=False,
-    method="select_clusters",
-    return_dfs=True,
-    var_obj="target",
-)
-</code></pre>
-<p>Labels can be consolidated with strategies such as <code>select_clusters</code>, <code>menu</code>, or <code>match_class_distribution</code> using the helpers from <code>InsideForest.cluster_selector</code>.</p>
-
-<h2>4. Interpret and export</h2>
-<p>The <a href="api/labels.html">Labels</a> module summarizes metrics per cluster, while <a href="api/models.html">Models</a> offers tools to compare baselines and export rules.</p>
+<h2>Choose a clusterer</h2>
 <ul>
-  <li><code>generate_descriptions</code> produces short narratives for analysts.</li>
-  <li><code>categorize_conditions</code> groups rules by constraint type.</li>
-  <li><code>plot_multi_dims</code> visualizes regions in 2D or 3D.</li>
+  <li><code>InsideForestRegionClusterer</code>: general supervised regions produced by the established region-prioritization pipeline.</li>
+  <li><code>InsideForestClassRegionClusterer</code>: categorical targets, one target class per leaf, complete class distributions, ambiguity and class-coverage tools.</li>
 </ul>
 
-<h2>Putting it together</h2>
-<p>The snippet below illustrates the full flow using the high-level wrappers:</p>
-<pre><code class="language-python">from InsideForest import InsideForestClassifier
-
-clf = InsideForestClassifier(
-    auto_fast=True,
-    auto_feature_reduce=True,
-    method="menu",
-    get_detail=True,
-)
-clf.fit(X_train, y_train)
-labels = clf.predict(X_test)
-descriptions = clf.df_clusters_description_
+<h2>Inspect the result</h2>
+<pre><code class="language-python">regions = model.explain_regions(top_n=20)
+quality = model.region_quality_report(X_test, y_test)
+print(model.labels_)         # training cluster IDs
+print(model.region_metrics_) # region-level metrics
 </code></pre>
-
-<h2>Learn more</h2>
-<ul>
-  <li><a href="performance_tips.html">Performance Tips</a> to fine-tune parameters.</li>
-  <li><a href="experiments_benchmarks.html">Experiments &amp; Benchmarks</a> to review quantitative results.</li>
-  <li><a href="reproducibility.html">Reproducibility</a> to guarantee reliable experiments.</li>
-</ul>
+<p>The lower-level <code>Trees</code>, <code>Regions</code>, and <code>Labels</code> modules remain available for custom pipelines, but their intermediate tables are not the canonical high-level output.</p>
