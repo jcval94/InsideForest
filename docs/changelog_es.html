@@ -13,6 +13,7 @@ lang: es
 <h2>Actual — clusterers regionales supervisados</h2>
 <ul>
   <li>Nuevos contratos canónicos <code>InsideForestRegionClusterer</code> e <code>InsideForestClassRegionClusterer</code>.</li>
+  <li>Nuevo <code>InsideForestContinuousRegionClusterer</code> con score η² y estadísticas continuas por región.</li>
   <li><code>predict</code> devuelve IDs y <code>-1</code> explícito; se eliminan predicción de clases y fallback del contrato público.</li>
   <li><code>labels_</code> queda reservado para asignaciones y las métricas pasan a <code>region_metrics_</code>.</li>
   <li>Se añaden distribuciones, ambigüedad, cobertura por clase, métricas de clustering, aliases de migración, pruebas, benchmark y notebook actualizado.</li>

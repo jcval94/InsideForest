@@ -35,4 +35,4 @@ nav_order: 7
 </ol>
 
 <h2>Regression regions</h2>
-<p><code>python experiments/validate_regression_regions.py --profile quick</code> remains the dedicated validation for <code>InsideForestRegressor</code>. Its R² is the score of the underlying regression forest and is separate from the categorical region-clustering contract.</p>
+<p><code>python experiments/validate_regression_regions.py --profile quick</code> validates <code>InsideForestContinuousRegionClusterer</code> through η², coverage, unmatched rate, target dispersion reduction, compression, stability, runtime, and memory. Forest R²/RMSE remains a separate generator diagnostic.</p>

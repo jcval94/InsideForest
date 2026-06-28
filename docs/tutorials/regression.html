@@ -1,41 +1,31 @@
 ---
 layout: default
-title: Regression
+title: Continuous-target regions
 parent: Tutorials
 nav_order: 2
 ---
 
-<h1>Regression tutorial</h1>
-<p>Model continuous values with InsideForest and explain each resulting region.</p>
+<h1>Continuous-target region clustering</h1>
+<p>Discover Diabetes regions with internally similar numeric targets. This workflow assigns region IDs; it does not predict disease progression values.</p>
 
-<h2>Goal</h2>
-<p>Predict diabetes progression using the classic Diabetes dataset included in scikit-learn.</p>
-
-<h2>Step 1: load data</h2>
 <pre><code class="language-python">from sklearn.datasets import load_diabetes
+from sklearn.model_selection import train_test_split
+from InsideForest import InsideForestContinuousRegionClusterer
 
-X, y = load_diabetes(return_X_y=True)
+X, y = load_diabetes(return_X_y=True, as_frame=True)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.25, random_state=42
+)
+model = InsideForestContinuousRegionClusterer(
+    rf_params={"n_estimators": 50, "max_depth": 6, "random_state": 42},
+    leaf_percentile=90,
+    min_support=3,
+)
+train_ids = model.fit_predict(X_train, y_train)
+test_ids = model.predict(X_test)
+assignments = model.assign_regions(X_test)
+quality = model.region_quality_report(X_test, y_test)
 </code></pre>
 
-<h2>Step 2: train the regressor</h2>
-<pre><code class="language-python">from InsideForest import InsideForestRegressor
-
-regr = InsideForestRegressor(auto_feature_reduce=True, auto_fast=True, get_detail=True)
-regr.fit(X, y)
-region_labels = regr.predict(X)
-r2 = regr.score(X, y)
-</code></pre>
-
-<h2>Step 3: analyze results</h2>
-<ul>
-  <li><code>region_labels</code> contains interpretable region labels; continuous estimates come from the fitted random forest with the same feature frame used during training.</li>
-  <li>Inspect <code>regr.df_clusters_description_</code> and <code>regr.df_datos_explain_</code> for rules and metrics.</li>
-  <li>Identify segments with high residuals for corrective actions.</li>
-  <li>Save the model with <code>regr.save("models/housing.joblib")</code>.</li>
-</ul>
-
-<h2>Step 4: validate on multiple regression datasets</h2>
-<pre><code class="language-bash">python experiments/validate_regression_regions.py --profile quick</code></pre>
-<p>The latest local quick run reports median test rule coverage of <code>0.9008</code>, target-spread reduction of <code>0.5450</code>, and region-mean RMSE lift of <code>0.1537</code>. Full CSV outputs and the README are stored in <code>experiments/results/regression_region_validation/</code>.</p>
-
-<p>Repeat the analysis with your data and compare with <a href="../performance_tips.html">Performance Tips</a>.</p>
+<p>Interpret <code>quality["target_variance_explained"]</code> as η² and always report coverage and unmatched rate beside it. Region rows retain target mean, median, deviation, IQR, range, mean shift, and dispersion reduction.</p>
+<p>Run <code>python experiments/validate_regression_regions.py --profile quick</code> for repeated validation. Forest R²/RMSE is reported separately as generator diagnostics.</p>

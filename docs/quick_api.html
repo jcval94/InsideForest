@@ -50,4 +50,15 @@ assert (loaded.predict(X) == model.predict(X)).all()
 <p>Persistence retains the forest generator, regions, distributions, metrics, and training assignments. Legacy serialized models can be migrated, but <code>labels_</code> must be recalculated when it previously stored a metrics table.</p>
 
 <h2>Regression</h2>
-<p><code>InsideForestRegressor</code> keeps its existing region-extraction contract. Its <code>predict</code> output is a region label, while <code>score</code> remains the underlying forest R².</p>
+<pre><code class="language-python">from InsideForest import InsideForestContinuousRegionClusterer
+
+continuous = InsideForestContinuousRegionClusterer(
+    leaf_percentile=90,
+    min_support=3,
+    branch_aggregation="none",
+)
+region_ids = continuous.fit_predict(X, y_continuous)
+eta_squared = continuous.score(X, y_continuous)
+details = continuous.assign_regions(X)
+</code></pre>
+<p><code>predict</code> returns region IDs and <code>score</code> is η², including <code>-1</code>. <code>InsideForestRegressor</code> is deprecated and retains forest R² only for migration.</p>

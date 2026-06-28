@@ -1,55 +1,11 @@
 ---
 layout: default
-title: InsideForestRegressor
+title: InsideForestRegressor (deprecated)
 parent: InsideForest
-nav_order: 52
+nav_order: 54
+nav_exclude: true
 ---
 
-<h1>InsideForestRegressor</h1>
-<p>Regression-oriented variant that uses forests to discover regions with similar numeric values and interpretable rules.</p>
-<p><code>predict(X)</code> returns region labels, not continuous target estimates. Use <code>score(X, y)</code> for the underlying forest score, or call <code>regr.rf.predict(...)</code> with a feature frame that matches the fitted forest when you need numeric predictions.</p>
-
-<h2>Signature</h2>
-<pre><code class="language-python">InsideForestRegressor(
-    rf_params=None,
-    tree_params=None,
-    auto_fast=False,
-    auto_feature_reduce=False,
-    method="select_clusters",
-    get_detail=False,
-    divide=5,
-    random_state=None,
-)
-</code></pre>
-
-<h2>Usage</h2>
-<pre><code class="language-python">from InsideForest import InsideForestRegressor
-
-regr = InsideForestRegressor(
-    auto_feature_reduce=True,
-    auto_fast=True,
-    get_detail=True,
-    rf_params={"random_state": 42, "n_estimators": 500},
-)
-regr.fit(X_train, y_train)
-region_labels = regr.predict(X_test)
-clusters = regr.df_clusters_description_
-</code></pre>
-
-<h2>When to use</h2>
-<ul>
-  <li>You need to explain customer segments by spending, income, or risk levels.</li>
-  <li>You want human-readable rules for pricing or forecasting audits.</li>
-  <li>You aim to reduce dimensionality automatically before grouping.</li>
-</ul>
-
-<h2>Attributes</h2>
-<ul>
-  <li><code>feature_importances_</code></li>
-  <li><code>feature_names_out_</code></li>
-  <li><code>df_clusters_description_</code> and <code>df_datos_explain_</code> (with <code>get_detail=True</code>)</li>
-  <li><code>df_reres_</code></li>
-</ul>
-
-<p>For advanced options see <a href="clusterselector.html">cluster selector helpers</a> and the <a href="metadata.html">metadata helpers</a>.</p>
-<p>Regression validation results are documented in <code>experiments/results/regression_region_validation/README.md</code> and can be reproduced with <code>python experiments/validate_regression_regions.py --profile quick</code>.</p>
+<h1>InsideForestRegressor (deprecated)</h1>
+<p>Use <a href="insideforestcontinuousregionclusterer.html">InsideForestContinuousRegionClusterer</a> in new code. This compatibility name emits <code>FutureWarning</code>, accepts historical parameters, and temporarily keeps forest R² as <code>score</code>.</p>
+<p>The canonical class returns region IDs, explicit <code>-1</code> for unmatched rows, and η² from <code>score</code>. Parameters <code>method</code>, <code>n_clusters</code>, <code>include_summary_cluster</code>, <code>divide</code>, and <code>balance_clusters</code> are accepted only for migration.</p>
