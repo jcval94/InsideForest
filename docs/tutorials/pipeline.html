@@ -5,32 +5,42 @@ parent: Tutorials
 nav_order: 3
 ---
 
-<h1>Automate pipelines</h1>
-<p>Integrate InsideForest into an automated flow with validation and persistence.</p>
-
-<h2>Goal</h2>
-<p>Create a reproducible pipeline that runs daily on new data.</p>
+<h1>Automate region-assignment pipelines</h1>
+<p>Integrate InsideForest 0.4.1 into a repeatable flow with explicit inputs, regional quality diagnostics, and persistence.</p>
 
 <h2>Step 1: organize the project</h2>
-<pre><code class="language-bash">mkdir -p pipelines
-cp templates/daily_pipeline.py pipelines/
-</code></pre>
+<pre><code class="language-bash">mkdir -p pipelines artifacts</code></pre>
 
 <h2>Step 2: define the script</h2>
 <pre><code class="language-python"># pipelines/daily_pipeline.py
+from pathlib import Path
+import pandas as pd
 from InsideForest import InsideForestRegionClusterer
-from insideforest.utils import load_data
 
-X_train, X_new, y_train = load_data()
-clf = InsideForestRegionClusterer(auto_fast=True, auto_feature_reduce=True)
-clf.fit(X_train, y_train)
-assignments = clf.assign_regions(X_new)
-quality = clf.region_quality_report()
-clf.save("artifacts/insideforest.joblib")
+TARGET = "target"
+train = pd.read_parquet("data/train.parquet")
+new = pd.read_parquet("data/new.parquet")
+
+model = InsideForestRegionClusterer(
+    rf_params={"random_state": 42},
+    seed=42,
+    auto_fast=True,
+    auto_feature_reduce=True,
+)
+model.fit(train.drop(columns=TARGET), train[TARGET])
+
+assignments = model.assign_regions(new)
+quality = model.region_quality_report(new)
+
+Path("artifacts").mkdir(exist_ok=True)
+assignments.to_parquet("artifacts/assignments.parquet")
+model.save("artifacts/insideforest.joblib")
 </code></pre>
 
+<p>The assignment table records cluster <code>-1</code> for unmatched rows. Persist the quality report beside the model when the pipeline needs an auditable coverage history.</p>
+
 <h2>Step 3: validate in CI</h2>
-<pre><code class="language-bash">PYTHONPATH=src pytest tests/test_basic.py -q
+<pre><code class="language-bash">python -m pytest tests -q
 python pipelines/daily_pipeline.py
 </code></pre>
 

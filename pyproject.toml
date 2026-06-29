@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "InsideForest"
-version = "0.4.0"
+version = "0.4.1"
 description = "Supervised forest-based region clustering for categorical and continuous tabular targets"
 readme = "README.md"
 requires-python = ">=3.9"

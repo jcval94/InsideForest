@@ -7,6 +7,7 @@ has_children: true
 ---
 
 <h1>InsideForest</h1>
+<p><strong>Current release: 0.4.1.</strong></p>
 <p><strong>InsideForest</strong> turns decision forests into region explorers. The library performs supervised clustering to uncover label-guided segments and explain them with concise rules.</p>
 
 <div class="doc-hero">
@@ -31,7 +32,7 @@ assignments = clf.assign_regions(X_test)
 quality = clf.region_quality_report(X_test, y_test)
 importances = clf.feature_importances_
 </code></pre>
-<p><code>labels</code> are region IDs; <code>-1</code> means that no region matched. Head to the <a href="quick_api.html">Quick API</a> for both clusterers and regression.</p>
+<p><code>labels</code> are region IDs; <code>-1</code> means that no region matched. Head to the <a href="quick_api.html">Quick API</a> for the general, class-aware, and continuous region clusterers.</p>
 
 <h2>What makes InsideForest different?</h2>
 <ul>

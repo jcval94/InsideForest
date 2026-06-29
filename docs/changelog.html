@@ -6,46 +6,20 @@ nav_order: 8
 ---
 
 <h1>Changelog</h1>
-<p>This log highlights notable updates. Dates reference repository tags.</p>
+<p>This log follows the package versions declared in <code>pyproject.toml</code>.</p>
 
-<h2>Current — supervised region clusterers</h2>
+<h2>v0.4.1 — 2026-06-28</h2>
 <ul>
-  <li>Added canonical <code>InsideForestRegionClusterer</code> and <code>InsideForestClassRegionClusterer</code> contracts.</li>
-  <li>Added <code>InsideForestContinuousRegionClusterer</code> with η² scoring and continuous-target region statistics.</li>
-  <li>Changed <code>predict</code> to return cluster IDs with explicit <code>-1</code>; removed class prediction and forest fallback from the public contract.</li>
-  <li>Reserved <code>labels_</code> for training assignments and moved region metrics to <code>region_metrics_</code>.</li>
-  <li>Added class distributions, ambiguity, class coverage, clustering metrics, migration aliases, tests, benchmark, and updated notebook.</li>
+  <li>Redefined the canonical estimators as supervised region clusterers: <code>InsideForestRegionClusterer</code>, <code>InsideForestClassRegionClusterer</code>, and <code>InsideForestContinuousRegionClusterer</code>.</li>
+  <li>The forest now generates candidate leaves only. <code>predict</code> returns cluster IDs, unmatched observations receive <code>-1</code>, and the canonical API has no class/value prediction fallback.</li>
+  <li>Added canonical region tables, assignment details, transformations, quality reports, persistence, class-aware diagnostics, continuous-target statistics, AMI scoring for categorical targets, and η² scoring for continuous targets.</li>
+  <li>Reserved <code>labels_</code> for training cluster assignments and moved per-region measurements to <code>region_metrics_</code>.</li>
+  <li>Made branch aggregation opt-in and initialized the canonical estimators with <code>branch_aggregation="none"</code>.</li>
+  <li>Deprecated <code>InsideForestClassifier</code>, <code>InsideForestMulticlassClassifier</code>, and <code>InsideForestRegressor</code> as migration aliases.</li>
+  <li>Updated the bilingual documentation, Colab notebook, benchmarks, package metadata, migration notes, and acceptance tests for the regional contract.</li>
 </ul>
 
-<h2>v0.6.0 — 2024-02-15</h2>
+<h2>v0.4.0 — 2026-06-06</h2>
 <ul>
-  <li>Added language selector and refreshed documentation layout.</li>
-  <li>Expanded API reference with dedicated pages per module.</li>
-  <li>Introduced automated performance presets via <code>auto_fast</code>.</li>
-</ul>
-
-<h2>v0.5.2 — 2023-11-03</h2>
-<ul>
-  <li>Refined cluster selector helpers for class balancing.</li>
-  <li>Documented <code>df_clusters_description_</code> outputs for regressors.</li>
-  <li>Optimized branch extraction to reduce memory usage by 12%.</li>
-</ul>
-
-<h2>v0.5.0 — 2023-08-22</h2>
-<ul>
-  <li>Released InsideForestRegressor with parity to the classifier interface.</li>
-  <li>Implemented metadata export helpers for rule auditing.</li>
-  <li>Published reproducibility and benchmarking guides.</li>
-</ul>
-
-<h2>v0.4.1 — 2023-05-10</h2>
-<ul>
-  <li>Stabilized PySpark integration and added DataFrame validation.</li>
-  <li>Improved documentation for persistence workflows.</li>
-</ul>
-
-<h2>v0.4.0 — 2023-03-18</h2>
-<ul>
-  <li>First public release of InsideForestClassifier.</li>
-  <li>Provided tutorials covering classification, regression, and pipelines.</li>
+  <li>Previous public package release, based on the legacy classifier/regressor interfaces.</li>
 </ul>

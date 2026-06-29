@@ -8,41 +8,20 @@ lang: es
 ---
 
 <h1>Registro de cambios</h1>
-<p>Resumen de versiones y entregables destacados. Consulta el repositorio para un detalle línea por línea.</p>
+<p>Este registro sigue las versiones del paquete declaradas en <code>pyproject.toml</code>.</p>
 
-<h2>Actual — clusterers regionales supervisados</h2>
+<h2>v0.4.1 — 28 jun 2026</h2>
 <ul>
-  <li>Nuevos contratos canónicos <code>InsideForestRegionClusterer</code> e <code>InsideForestClassRegionClusterer</code>.</li>
-  <li>Nuevo <code>InsideForestContinuousRegionClusterer</code> con score η² y estadísticas continuas por región.</li>
-  <li><code>predict</code> devuelve IDs y <code>-1</code> explícito; se eliminan predicción de clases y fallback del contrato público.</li>
-  <li><code>labels_</code> queda reservado para asignaciones y las métricas pasan a <code>region_metrics_</code>.</li>
-  <li>Se añaden distribuciones, ambigüedad, cobertura por clase, métricas de clustering, aliases de migración, pruebas, benchmark y notebook actualizado.</li>
+  <li>Se redefinen los estimadores canónicos como clusterers regionales supervisados: <code>InsideForestRegionClusterer</code>, <code>InsideForestClassRegionClusterer</code> e <code>InsideForestContinuousRegionClusterer</code>.</li>
+  <li>El bosque sólo genera hojas candidatas. <code>predict</code> devuelve IDs de cluster, las observaciones sin región reciben <code>-1</code> y la API canónica no hace fallback a predicciones de clase o valores.</li>
+  <li>Se añaden tablas regionales canónicas, detalles de asignación, transformaciones, reportes de calidad, persistencia, diagnósticos por clase, estadísticas continuas, AMI para objetivos categóricos y η² para objetivos continuos.</li>
+  <li><code>labels_</code> queda reservado para las asignaciones de entrenamiento y las mediciones por región pasan a <code>region_metrics_</code>.</li>
+  <li>La agregación de ramas pasa a ser opcional y los estimadores canónicos comienzan con <code>branch_aggregation="none"</code>.</li>
+  <li><code>InsideForestClassifier</code>, <code>InsideForestMulticlassClassifier</code> e <code>InsideForestRegressor</code> quedan deprecados como aliases de migración.</li>
+  <li>Se actualizan documentación bilingüe, notebook de Colab, benchmarks, metadatos del paquete, notas de migración y pruebas de aceptación.</li>
 </ul>
 
-<h2>0.6.0 — En progreso</h2>
+<h2>v0.4.0 — 6 jun 2026</h2>
 <ul>
-  <li>Actualización de la documentación con navegación bilingüe y botones de copiado.</li>
-  <li>Nuevas páginas de rendimiento, reproducibilidad y benchmarks.</li>
-  <li>Optimización de <code>df_clusters_description_</code> con métricas adicionales.</li>
+  <li>Versión pública anterior, basada en las interfaces heredadas de clasificación y regresión.</li>
 </ul>
-
-<h2>0.5.1 — 12 oct 2023</h2>
-<ul>
-  <li>Ajustes en presets automáticos para clases desbalanceadas.</li>
-  <li>Soporte para exportar modelos comprimidos.</li>
-</ul>
-
-<h2>0.5.0 — 3 ago 2023</h2>
-<ul>
-  <li>Lanzamiento de <code>InsideForestRegressor</code>.</li>
-  <li>Mejoras en reportes de interpretación del módulo <code>Labels</code>.</li>
-  <li>Compatibilidad con PySpark para extraer reglas.</li>
-</ul>
-
-<h2>0.4.0 — 18 abr 2023</h2>
-<ul>
-  <li>Nuevos auxiliares de selección con estrategias configurables.</li>
-  <li>Automatización de reducción de características.</li>
-</ul>
-
-<p>Para conocer planes futuros visita la <a href="roadmap_es.html">hoja de ruta</a> y consulta <a href="reproducibility_es.html">reproducibilidad</a> si necesitas replicar versiones previas.</p>

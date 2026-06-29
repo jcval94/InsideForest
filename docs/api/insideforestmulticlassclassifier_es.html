@@ -1,0 +1,20 @@
+---
+layout: default
+title: InsideForestMulticlassClassifier (deprecado)
+parent: InsideForest
+nav_order: 97
+nav_exclude: true
+lang: es
+---
+
+<h1>InsideForestMulticlassClassifier (deprecado)</h1>
+<p>Usa <code>InsideForestClassRegionClusterer</code> en código nuevo. Este alias de compatibilidad emite <code>FutureWarning</code> y existe para migrar modelos serializados e imports anteriores.</p>
+
+<pre><code class="language-python">from InsideForest import InsideForestClassRegionClusterer
+
+modelo = InsideForestClassRegionClusterer(...).fit(X, y)
+cluster_ids = modelo.predict(X_nuevo)
+asignaciones = modelo.assign_regions(X_nuevo)
+</code></pre>
+
+<p>El estimador canónico hace clustering regional supervisado: no predice clases, no expone <code>predict_proba</code> y no utiliza fallback al bosque. Usa <code>regions_for_class</code>, <code>ambiguous_regions</code> y <code>class_coverage_report</code> para el análisis por clase.</p>

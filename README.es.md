@@ -2,429 +2,136 @@
 
 # InsideForest
 
-InsideForest es una técnica de **clustering supervisado** construida sobre bosques de decisión para identificar y describir categorías dentro de un conjunto de datos, como un *gato* ordenando cada *coco* en la canasta adecuada. Descubre regiones relevantes, asigna etiquetas y produce descripciones interpretables.
+Versión actual: **0.4.1**
 
-*El clustering supervisado* agrupa observaciones utilizando la variable objetivo para guiar la segmentación. En lugar de dejar que el algoritmo encuentre grupos por sí solo, las etiquetas existentes orientan la búsqueda de patrones coherentes.
+InsideForest descubre regiones interpretables en datos tabulares mediante **clustering supervisado**. El Random Forest se usa únicamente para generar hojas candidatas; los estimadores públicos seleccionan regiones útiles, las describen y asignan las observaciones a IDs de clusters regionales.
 
-Ya sea que trabajes con datos de clientes, ventas u otra fuente, la biblioteca te ayuda a comprender tu información y tomar decisiones informadas.
+Los estimadores canónicos son:
 
-## Casos de uso de ejemplo
+- `InsideForestRegionClusterer` para objetivos categóricos generales.
+- `InsideForestClassRegionClusterer` cuando cada región debe conservar la distribución completa de clases y diagnósticos específicos por clase.
+- `InsideForestContinuousRegionClusterer` para objetivos continuos.
 
-- Analizar el comportamiento de los clientes para identificar segmentos rentables.
-- Descubrir regiones de pacientes enriquecidas para un desenlace clínico.
-- Evaluar canales de marketing usando el tráfico del sitio web.
-- Construir sistemas de reconocimiento de imágenes más precisos.
-
-## Beneficios
-
-Construir y analizar un bosque aleatorio con InsideForest revela tendencias ocultas y proporciona **insights** que respaldan decisiones de negocio.
-
-[ABRIR EL NOTEBOOK DEL CASO DE USO DIRECTAMENTE EN COLAB](https://colab.research.google.com/github/jcval94/InsideForest/blob/master/InsideForest/examples/InsideForest_Caso_de_Uso.ipynb)
+`predict(X)` siempre devuelve IDs de cluster. Una observación fuera de todas las regiones seleccionadas recibe `-1`; no existe fallback a `RandomForest.predict` ni `predict_proba`.
 
 ## Instalación
 
 ```bash
-pip install InsideForest
+python -m pip install InsideForest==0.4.1
 ```
 
-## Dependencias principales
-- scikit-learn
-- numpy
-- pandas
-- matplotlib
-- seaborn
-- openai
-
-## Flujo básico
-El orden típico para aplicar InsideForest es:
-1. Entrenar un modelo de bosque de decisión o `RandomForest`.
-2. Usar `Trees.get_branches` para extraer las ramas de cada árbol.
-3. Aplicar `Regions.prio_ranges` para priorizar áreas de interés.
-4. Vincular cada observación con `Regions.labels`.
-5. Opcionalmente interpretar resultados con `generate_descriptions` y `categorize_conditions`.
-6. Finalmente, usar utilidades como `Models` y `Labels` para un análisis adicional.
-
-## Clusterers regionales canónicos
-Usa `InsideForestRegionClusterer` para regiones supervisadas generales e
-`InsideForestContinuousRegionClusterer` para objetivos continuos:
-
-Nota: InsideForest está pensado para ejecutarse sobre un subconjunto de los datos, por ejemplo usar el 35% de las observaciones y reservar el 65% restante para otros fines.
-
-```python
-from sklearn.datasets import load_iris
-from sklearn.model_selection import train_test_split
-from InsideForest import InsideForestRegionClusterer, InsideForestContinuousRegionClusterer
-
-iris = load_iris()
-X, y = iris.data, iris.target
-
-# Entrena con el 35% de los datos y reserva el resto para análisis posterior
-X_train, X_rest, y_train, y_rest = train_test_split(
-    X, y, train_size=0.35, stratify=y, random_state=15
-)
-
-in_f = InsideForestRegionClusterer(
-    rf_params={"random_state": 15},
-    tree_params={"mode": "py", "n_sample_multiplier": 0.05, "ef_sample_multiplier": 10},
-)
-
-in_f.fit(X_train, y_train)
-pred_labels = in_f.predict(X_rest)  # etiquetas de cluster para los datos restantes
-asignaciones = in_f.assign_regions(X_rest)
-calidad = in_f.region_quality_report(X_rest, y_rest)
-```
-
-`InsideForestClassifier` permanece como nombre de compatibilidad deprecado. Su
-`score` histórico reporta accuracy del bosque; el `score` del clusterer
-canónico reporta adjusted mutual information para los IDs de cluster.
-
-En `InsideForestContinuousRegionClusterer`, `predict(X)` devuelve IDs regionales
-y `score(X, y)` devuelve varianza explicada del objetivo (η²), incluido `-1`.
-Las estimaciones numéricas no forman parte de la salida; `forest_` queda para
-diagnosticar el generador. `InsideForestRegressor` permanece deprecado con R² legado.
-
-### Validación de regiones de regresión
-
-`experiments/validate_regression_regions.py` valida
-`InsideForestContinuousRegionClusterer` sobre Diabetes, Friedman1, un
-problema lineal disperso y una señal no lineal sintética. El perfil rápido
-guarda métricas crudas y un reporte completo en
-`experiments/results/regression_region_validation/`.
-
-Última corrida local del perfil rápido:
-
-- η² mediana en test: `0.6459`
-- Cobertura mediana de regiones en test: `1.0000`
-- Reducción mediana de dispersión: `0.4810`
-- ARI mediano de estabilidad de asignaciones: `0.2875`
-- Jaccard mediano de variables seleccionadas: `1.0000`
-- Lift mediano de RMSE por media regional: `0.2225`
-- Compresión mediana de ramas: `79.45%`
-- Warnings de clasificación sobre targets continuos: `0`
-
-Reproduce con:
+Para desarrollo:
 
 ```bash
-python experiments/validate_regression_regions.py --profile quick
+git clone https://github.com/jcval94/InsideForest.git
+cd InsideForest
+python -m pip install -e .
+python -m pip install -r requirements-dev.txt
 ```
 
-### Presets FAST y reducción de características
+[ABRIR EL NOTEBOOK COMPLETO DEL CASO DE USO DIRECTAMENTE EN COLAB](https://colab.research.google.com/github/jcval94/InsideForest/blob/master/InsideForest/examples/InsideForest_Caso_de_Uso.ipynb)
 
-InsideForest puede elegir automáticamente parámetros de entrenamiento más
-rápidos y reducir características según el tamaño del conjunto de datos:
+## Regiones guiadas por clase
 
 ```python
-in_f = InsideForestRegionClusterer(auto_fast=True, auto_feature_reduce=True)
-in_f.fit(X_train, y_train)
-```
-
-Usa `explicit_k_features` para fijar el número de características
-conservadas y `fast_overrides` para ajustar los presets automáticos.
-Tras el entrenamiento, los atributos `_feature_mask_`, `feature_names_in_`,
-`feature_names_out_`, `_size_bucket_` y `_fast_params_used_` muestran la
-configuración aplicada.
-
-Puedes controlar cómo se eligen las etiquetas finales mediante el parámetro
-`method`. Las estrategias disponibles son:
-
-- `"select_clusters"`: selección directa basada en reglas (por defecto)
-- `"balance_lists_n_clusters"`: balancea el número de asignaciones por clúster
-- `"max_prob_clusters"`: prioriza los clústers con mayor probabilidad
-- `"menu"`: aplica `MenuClusterSelector` para maximizar un objetivo informativo global
-
-Después del ajuste, puedes consultar las importancias de las variables del
-bosque aleatorio y visualizarlas opcionalmente:
-
-```python
-importancias = in_f.feature_importances_
-ejes = in_f.plot_importances()
-```
-
-### Guardar y cargar modelos
-
-Todos los clusterers regionales canónicos incluyen
-métodos para persistir un modelo entrenado utilizando `joblib`:
-
-```python
-in_f.save("modelo.joblib")
-cargado = InsideForestRegionClusterer.load("modelo.joblib")
-```
-
-El modelo cargado restaura el bosque aleatorio y los atributos
-calculados, permitiendo continuar generando etiquetas o predicciones
-sin volver a entrenar.
-
-## Caso de uso (Iris)
-Lo siguiente resume el flujo utilizado en el [notebook, que se abre directamente en Colab](https://colab.research.google.com/github/jcval94/InsideForest/blob/master/InsideForest/examples/InsideForest_Caso_de_Uso.ipynb). El notebook también contiene un ejemplo completo de clustering regional para tres clases con `InsideForestClassRegionClusterer`.
-
-### 1. Preparación del modelo
-
-```python
-from pyspark.sql import SparkSession
-from sklearn.datasets import load_iris
-from pyspark.ml.feature import VectorAssembler, StringIndexer
-from pyspark.ml.classification import RandomForestClassifier
-
-spark = SparkSession.builder.appName('Iris').getOrCreate()
-
-# Cargar datos en Spark
-iris = load_iris()
-df = pd.DataFrame(iris.data, columns=iris.feature_names)
-df['species'] = iris.target
-```
-
-```python
-import seaborn as sns
-import matplotlib.pyplot as plt
-
-sns.scatterplot(x=df.columns[0], y=df.columns[1], hue='species', data=df,
-                palette='coolwarm')
-plt.show()
-```
-
-![Dataset](./data/iris_ds.png)
-
-```python
-from InsideForest import Trees, Regions, Labels
-treesSP = Trees('pyspark', n_sample_multiplier=0.05, ef_sample_multiplier=10)
-regions = Regions()
-labels = Labels()
-```
-
-### 2. Obtención de ramas y clusters
-
-```python
-pyspark_mod = treesSP.get_branches(df, 'species', model)
-rangos_priorizados = regions.prio_ranges(pyspark_mod, df)
-clusterized, descriptive = regions.labels(df, rangos_priorizados, False)
-```
-
-### 3. Visualización
-
-```python
-for rango_df in rangos_priorizados[:3]:
-    if len(rango_df['linf'].columns) > 3:
-        continue
-    regions.plot_multi_dims(rango_df, df, 'species')
-```
-
-![Plot 1](./data/plot_1.png)
-
-![Plot 2](./data/plot_2.png)
-
-Las zonas azules resaltan las ramas más relevantes del bosque, revelando dónde se concentra la variable objetivo.
-
-### `Models`
-
-```python
-from InsideForest.models import Models
-
-m = Models()
-fp_rows, rest = m.get_knn_rows(df_train, 'target', criterio_fp=True)
-param_grid = {'n_estimators': [50, 100], 'max_depth': [None, 5]}
-cv_model = m.get_cvRF(X_train, y_train, param_grid)
-```
-
-Proporciona métodos para recuperar observaciones críticas con KNN y ajustar un bosque aleatorio con validación cruzada.
-
-### `Labels`
-
-```python
-from InsideForest.labels import Labels
-
-lb = Labels()
-resumenes_ramas = lb.get_labels(
-    rangos_priorizados,
-    df,
-    target_var="target",
-    max_labels=5,
-    num_branches=3,
-)
-
-for rama in resumenes_ramas:
-    for descripcion, (score, poblacion) in rama.items():
-        media_objetivo, conteo = score
-        print(f"{descripcion} → media={media_objetivo:.3f}, tamaño={conteo}")
-        print(poblacion.head())
-```
-
-Genera etiquetas descriptivas para las ramas y clusters obtenidos del modelo.
-
-### `plot_experiments`
-
-```python
-from InsideForest.regions import Regions
-from sklearn.datasets import load_iris
-import pandas as pd
-
-# Fila de ejemplo de una tabla de experimentos
-experimento = {
-    "intersection": "[5.45 <= petal_length <= 8.9]",
-    "only_cluster_a": "[-0.9 <= sepal_width <= 1.55, 4.75 <= sepal_length <= 6.0]",
-    "only_cluster_b": "[1.0 <= petal_width <= 3.0, 1.7 <= sepal_width <= 3.3]",
-    "variables_a": "['sepal_length', 'sepal_width']",
-    "variables_b": "['petal_width', 'sepal_length', 'sepal_width']"
-}
-
-iris = load_iris()
-df = pd.DataFrame(
-    iris.data,
-    columns=[c.replace(' (cm)', '').replace(' ', '_') for c in iris.feature_names]
-)
-
-regions = Regions()
-regions.plot_experiments(df, experimento, interactive=False)
-```
-
-Compara los clusters A y B usando las reglas de una fila de la tabla de experimentos.
-
-## Experimentos
-
-El módulo `experiments/benchmark.py` ejecuta comparativas de clustering
-supervisado en conjuntos de datos como `Digits`, `Iris` y `Wine`.
-Compara `InsideForest` con baselines tradicionales como KMeans y DBSCAN,
-reportando pureza, F1 macro, exactitud, métricas de información y tiempo
-de ejecución. También realiza un análisis de sensibilidad para los
-hiperparámetros clave: `K` en KMeans y `eps`/`min_samples` en DBSCAN.
-
-Los resultados recientes se resumen a continuación:
-
-| Dataset | Algoritmo | Pureza | F1 Macro | Exactitud | NMI | AMI | ARI | Bcubed F1 | Divergencia | Tiempo (s) |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Digits | InsideForest | 0.783 | 0.362 | 0.261 | 0.501 | 0.339 | 0.169 | 0.218 | 0.789 | 39.570 |
-| Digits | KMeans(k=10) | 0.673 | 0.620 | 0.666 | 0.672 | 0.669 | 0.531 | 0.633 | 0.711 | 0.047 |
-| Digits | DBSCAN(eps=0.5,min=5) | 0.102 | 0.018 | 0.102 | 0.000 | 0.000 | 0.000 | 0.182 | 0.000 | 0.014 |
-| Iris | InsideForest | 0.714 | 0.581 | 0.673 | 0.511 | 0.481 | 0.445 | 0.680 | 0.388 | 0.990 |
-| Iris | KMeans(k=3) | 0.667 | 0.531 | 0.580 | 0.590 | 0.584 | 0.433 | 0.710 | 0.427 | 0.002 |
-| Iris | DBSCAN(eps=0.5,min=5) | 0.680 | 0.674 | 0.680 | 0.511 | 0.505 | 0.442 | 0.651 | 0.402 | 0.002 |
-| Wine | InsideForest | 0.810 | 0.511 | 0.422 | 0.398 | 0.285 | 0.248 | 0.484 | 0.495 | 3.308 |
-| Wine | KMeans(k=3) | 0.966 | 0.967 | 0.966 | 0.876 | 0.875 | 0.897 | 0.937 | 0.628 | 0.004 |
-| Wine | DBSCAN(eps=0.5,min=5) | 0.399 | 0.190 | 0.399 | 0.000 | 0.000 | 0.000 | 0.509 | 0.000 | 0.002 |
-
-Ejecuta el script con:
-
-```
-python -m experiments.benchmark
-```
-
-## Licencia
-
-Este proyecto se distribuye bajo la licencia MIT. Consulta [LICENSE](LICENSE) para más detalles.
-
-## Uso de OpenAI para descripciones
-`generate_descriptions` de `InsideForest.descrip` usa la biblioteca `openai`. Se requiere una clave API mediante el argumento `OPENAI_API_KEY` o la variable de entorno del mismo nombre.
-
-Usando las condiciones del ejemplo **Iris** puedes generar descripciones automáticas:
-
-```python
-from InsideForest.descrip import generate_descriptions
-import os
-
-iris_conds = [
-    "4.3 <= sepal length (cm) <= 5.8 and 1.0 <= petal width (cm) <= 1.8"
-]
-os.environ["OPENAI_API_KEY"] = "sk-your-key"
-res = generate_descriptions(iris_conds, OPENAI_API_KEY=os.getenv("OPENAI_API_KEY"))
-```
-
-También puedes interactuar directamente con la API de OpenAI:
-
-```python
-from openai import OpenAI
-import os
-
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-respuesta = client.chat.completions.create(
-    model="gpt-4o-mini",
-    messages=[
-        {"role": "system", "content": "Eres un asistente útil."},
-        {
-            "role": "user",
-            "content": (
-                "Resume: 4.3 <= sepal length (cm) <= 5.8 y "
-                "1.0 <= petal width (cm) <= 1.8"
-            ),
-        },
-    ],
-)
-print(respuesta.choices[0].message.content)
-```
-
-### `categorize_conditions`
-
-```python
-from InsideForest.descrip import categorize_conditions
-from sklearn.datasets import load_iris
-import pandas as pd
-
-iris = load_iris(as_frame=True)
-df = iris.frame
-df['species'] = iris.target
-
-categories = categorize_conditions(iris_conds, df, n_groups=3)
-```
-
-Generaliza las condiciones de variables numéricas en categorías por niveles.
-
-### `categorize_conditions_generalized`
-
-Ofrece la misma generalización que `categorize_conditions` pero acepta columnas booleanas.
-
-```python
-from InsideForest.descrip import categorize_conditions_generalized
-from sklearn.datasets import load_iris
-import pandas as pd
-
-iris = load_iris(as_frame=True)
-df = iris.frame
-df['species'] = iris.target
-df['large_petal'] = df['petal length (cm)'] > 4
-
-bool_conds = [
-    "large_petal == True and 1.0 <= petal width (cm) <= 1.8",
-]
-categories_bool = categorize_conditions_generalized(bool_conds, df, n_groups=2)
-```
-
-### `build_conditions_table`
-
-Construye una tabla ordenada con condiciones categorizadas y sus métricas.
-
-```python
-from InsideForest.descrip import build_conditions_table
-
-effectiveness = [0.75]
-weights = [len(df)]
-
-table = build_conditions_table(bool_conds, df, effectiveness, weights, n_groups=2)
-```
-
-Esto produce un `DataFrame` resumen donde cada condición se etiqueta por grupo junto con la efectividad y el peso proporcionados.
-
-## Utilidades de optimización
-
-InsideForest ahora incluye un optimizador de Newton con región de confianza para problemas con restricciones de caja. La función auxiliar `_find_maximum` expone el parámetro `optim_method` para alternar entre el ascenso por gradiente estándar y este enfoque de región de confianza, que usa derivadas analíticas o por diferencias finitas y suele converger con menos evaluaciones respetando los límites.
-
-## Clustering supervisado de regiones por clase
-
-`InsideForestClassRegionClusterer` usa un Random Forest únicamente como generador de ramas candidatas. Asocia cada hoja física con la clase que maximiza pureza, lift y cobertura, y devuelve IDs de clusters regionales, no predicciones de clase.
-
-```python
+from sklearn.datasets import load_wine
+from sklearn.model_selection import train_test_split
 from InsideForest import InsideForestClassRegionClusterer
+
+X, y = load_wine(return_X_y=True, as_frame=True)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, stratify=y, random_state=42
+)
 
 model = InsideForestClassRegionClusterer(
     rf_params={"n_estimators": 50, "random_state": 42},
-    leaf_percentile=95,
     min_support=2,
+    leaf_percentile=90,
+    branch_aggregation="none",
+)
+clusters_train = model.fit_predict(X_train, y_train)
+clusters_test = model.predict(X_test)
+
+asignaciones = model.assign_regions(X_test)
+scores_regionales = model.transform(X_test)
+regiones = model.explain_regions(top_n=10)
+calidad = model.region_quality_report(X_test, y_test)
+regiones_clase = model.regions_for_class(model.classes_[0], top_n=5)
+ambiguas = model.ambiguous_regions(top_n=10)
+```
+
+Cada hoja física puede producir como máximo una región final. Su `region_target_class` es la clase que maximiza el objetivo configurado de pureza, lift y cobertura. Los solapamientos se resuelven por score regional, entropía, soporte e ID estable del cluster.
+
+Para objetivos categóricos, `score(X, y)` es información mutua ajustada (AMI), incluido el cluster `-1`. Los reportes también incluyen cobertura, tasa sin asignar, NMI, ARI, homogeneidad, completitud, pureza, lift, entropía y diagnósticos por clase.
+
+## Regiones para objetivos continuos
+
+```python
+from sklearn.datasets import load_diabetes
+from sklearn.model_selection import train_test_split
+from InsideForest import InsideForestContinuousRegionClusterer
+
+X, y = load_diabetes(return_X_y=True, as_frame=True)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42
+)
+
+model = InsideForestContinuousRegionClusterer(
+    rf_params={"n_estimators": 50, "random_state": 42},
+    min_support=3,
+    leaf_percentile=90,
+    branch_aggregation="none",
 )
 model.fit(X_train, y_train)
 
 clusters = model.predict(X_test)
 asignaciones = model.assign_regions(X_test)
-regiones = model.explain_regions(top_n=10)
-regiones_clase = model.regions_for_class(y_train[0], top_n=5)
-ambiguas = model.ambiguous_regions(top_n=10)
+calidad = model.region_quality_report(X_test, y_test)
+eta_cuadrada = model.score(X_test, y_test)
 ```
 
-Las filas fuera de toda región reciben el cluster `-1`; no existe fallback a la predicción del bosque. `InsideForestMulticlassClassifier` permanece temporalmente como nombre de compatibilidad deprecado. La guía y el protocolo de validación están en [README.multiclass.md](README.multiclass.md).
+Las regiones continuas guardan soporte, cobertura, media, mediana, desviación estándar, IQR, rango, desplazamiento del objetivo, reducción de dispersión, separación y score regional. El score canónico es η²: la fracción de varianza del objetivo explicada por todos los clusters devueltos, incluido `-1`. La predicción numérica queda deliberadamente fuera del contrato.
 
+## API compartida y atributos ajustados
+
+Todos los clusterers canónicos exponen:
+
+- `fit`, `fit_predict`, `predict` y `transform`.
+- `assign_regions`, `explain_regions` y `region_quality_report`.
+- `score`, `get_params`, `set_params`, `save` y `load`.
+- `forest_`, `raw_regions_`, `regions_`, `region_metrics_` y asignaciones de entrenamiento en `labels_`.
+- `feature_importances_` y `plot_importances`, que describen exclusivamente el bosque generador.
+
+`InsideForestClassRegionClusterer` añade `regions_for_class`, `ambiguous_regions`, `class_coverage_report` y el metadato `classes_`.
+
+## Compatibilidad
+
+`InsideForestClassifier`, `InsideForestMulticlassClassifier` e `InsideForestRegressor` son aliases de migración deprecados. Emiten `FutureWarning`; los aliases de clasificador y regresor conservan temporalmente su comportamiento histórico de `score` basado en el bosque. El código nuevo debe usar los clusterers canónicos.
+
+Los auxiliares históricos de bajo nivel (`Trees`, `Regions`, `Labels`, metadatos y generación de descripciones) siguen disponibles, pero no forman parte del contrato canónico de los estimadores.
+
+## Validación
+
+El benchmark categórico evalúa cobertura, tasa sin asignar, acuerdo de clustering, calidad regional, estabilidad, tiempo y memoria:
+
+```bash
+python experiments/validate_class_region_clusters.py --profile quick
+```
+
+El benchmark continuo evalúa η², cobertura, reducción de dispersión, estabilidad de asignaciones y geometría, y compresión de ramas. R²/RMSE del bosque se reportan por separado como diagnóstico del generador:
+
+```bash
+python experiments/validate_regression_regions.py --profile quick
+```
+
+Ejecuta todas las pruebas con:
+
+```bash
+python -m pytest tests -q
+```
+
+Consulta el [sitio de documentación](https://jcval94.github.io/InsideForest/), la [API rápida](docs/quick_api_es.html), las [páginas de migración](docs/api/index_es.html) y el [registro de v0.4.1](docs/changelog_es.html).
+
+## Licencia
+
+InsideForest se distribuye bajo la [Licencia MIT](LICENSE).
