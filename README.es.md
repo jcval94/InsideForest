@@ -44,17 +44,16 @@ El orden típico para aplicar InsideForest es:
 5. Opcionalmente interpretar resultados con `generate_descriptions` y `categorize_conditions`.
 6. Finalmente, usar utilidades como `Models` y `Labels` para un análisis adicional.
 
-## InsideForestRegionClusterer e InsideForestRegressor
-Para un flujo simplificado puedes utilizar las clases `InsideForestRegionClusterer` o
-`InsideForestRegressor`, que combinan el entrenamiento del bosque aleatorio y la
-asignación de regiones:
+## Clusterers regionales canónicos
+Usa `InsideForestRegionClusterer` para regiones supervisadas generales e
+`InsideForestContinuousRegionClusterer` para objetivos continuos:
 
 Nota: InsideForest está pensado para ejecutarse sobre un subconjunto de los datos, por ejemplo usar el 35% de las observaciones y reservar el 65% restante para otros fines.
 
 ```python
 from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
-from InsideForest import InsideForestRegionClusterer, InsideForestRegressor
+from InsideForest import InsideForestRegionClusterer, InsideForestContinuousRegionClusterer
 
 iris = load_iris()
 X, y = iris.data, iris.target
@@ -79,26 +78,28 @@ calidad = in_f.region_quality_report(X_rest, y_rest)
 `score` histórico reporta accuracy del bosque; el `score` del clusterer
 canónico reporta adjusted mutual information para los IDs de cluster.
 
-En `InsideForestRegressor`, `predict(X)` tambien devuelve etiquetas de region.
-Usa `score(X, y)` para medir el bosque interno, o llama
-`regr.rf.predict(...)` con un conjunto de caracteristicas que coincida con el
-bosque ajustado cuando necesites estimaciones continuas del objetivo.
+En `InsideForestContinuousRegionClusterer`, `predict(X)` devuelve IDs regionales
+y `score(X, y)` devuelve varianza explicada del objetivo (η²), incluido `-1`.
+Las estimaciones numéricas no forman parte de la salida; `forest_` queda para
+diagnosticar el generador. `InsideForestRegressor` permanece deprecado con R² legado.
 
 ### Validación de regiones de regresión
 
-`experiments/validate_regression_regions.py` valida `InsideForestRegressor`
-como extractor de regiones interpretables sobre Diabetes, Friedman1, un
+`experiments/validate_regression_regions.py` valida
+`InsideForestContinuousRegionClusterer` sobre Diabetes, Friedman1, un
 problema lineal disperso y una señal no lineal sintética. El perfil rápido
 guarda métricas crudas y un reporte completo en
 `experiments/results/regression_region_validation/`.
 
 Última corrida local del perfil rápido:
 
-- R2 mediano del bosque en test: `0.6277`
-- Cobertura mediana de reglas en test: `0.9008`
-- Cobertura mediana de regiones vistas en train: `0.7460`
-- Reducción mediana de dispersión del target dentro de regiones: `0.5450`
-- Lift mediano de RMSE por media de región vs baseline de media train: `0.1537`
+- η² mediana en test: `0.6459`
+- Cobertura mediana de regiones en test: `1.0000`
+- Reducción mediana de dispersión: `0.4810`
+- ARI mediano de estabilidad de asignaciones: `0.2875`
+- Jaccard mediano de variables seleccionadas: `1.0000`
+- Lift mediano de RMSE por media regional: `0.2225`
+- Compresión mediana de ramas: `79.45%`
 - Warnings de clasificación sobre targets continuos: `0`
 
 Reproduce con:
@@ -141,7 +142,7 @@ ejes = in_f.plot_importances()
 
 ### Guardar y cargar modelos
 
-Las clases `InsideForestRegionClusterer` e `InsideForestRegressor` incluyen
+Todos los clusterers regionales canónicos incluyen
 métodos para persistir un modelo entrenado utilizando `joblib`:
 
 ```python

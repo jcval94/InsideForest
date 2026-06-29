@@ -25,6 +25,7 @@ from .region_quality import (
     score_region_rules,
     summarize_region_quality,
 )
+from .continuous_interpreter import InsideForestContinuousRegionClusterer
 
 
 _DEFAULT_NO_TREES_SEARCH = object()
@@ -1249,14 +1250,8 @@ class InsideForestClassifier(InsideForestRegionClusterer):
         return _BaseInsideForest.score(self, X, y)
 
 
-class InsideForestRegressor(_BaseInsideForest):
-    """Wrapper model that combines a ``RandomForestRegressor`` with the
-    Trees/Regions utilities to provide interpretable region labels.
-
-    ``predict`` returns region labels for compatibility with earlier
-    InsideForest releases. Continuous target estimates are available from the
-    fitted ``rf`` estimator; ``score`` reports the estimator's R2 score.
-    """
+class InsideForestRegressor(InsideForestContinuousRegionClusterer):
+    """Deprecated compatibility name for the continuous region clusterer."""
 
     def __init__(
         self,
@@ -1279,27 +1274,163 @@ class InsideForestRegressor(_BaseInsideForest):
         fast_overrides: Optional[Dict[str, Any]] = None,
         seed: int = 42,
     ):
+        warnings.warn(
+            "InsideForestRegressor is deprecated; use "
+            "InsideForestContinuousRegionClusterer",
+            FutureWarning,
+            stacklevel=2,
+        )
+        effective_percentile = tree_params.get("percentil", leaf_percentile) if isinstance(tree_params, dict) else leaf_percentile
+        effective_low_fraction = tree_params.get("low_frac", low_leaf_fraction) if isinstance(tree_params, dict) else low_leaf_fraction
         super().__init__(
-            RandomForestRegressor,
+            forest=None,
             rf_params=rf_params,
-            tree_params=tree_params,
-            no_trees_search=no_trees_search,
-            var_obj=var_obj,
-            n_clusters=n_clusters,
-            include_summary_cluster=include_summary_cluster,
-            method=method,
-            divide=divide,
-            get_detail=get_detail,
-            leaf_percentile=leaf_percentile,
-            low_leaf_fraction=low_leaf_fraction,
+            leaf_percentile=effective_percentile,
+            low_leaf_fraction=effective_low_fraction,
+            min_support=1,
+            max_regions=None,
+            region_score="dispersion_separation_coverage",
+            random_state=seed,
+            n_jobs=(rf_params or {}).get("n_jobs", 1),
+            branch_aggregation="none",
             max_cases=max_cases,
-            balance_clusters=balance_clusters,
-            auto_fast=auto_fast,
             auto_feature_reduce=auto_feature_reduce,
             explicit_k_features=explicit_k_features,
-            fast_overrides=fast_overrides,
-            seed=seed,
         )
+        # Historical constructor attributes retained for get_params and model
+        # loading. They no longer control canonical region assignment.
+        self.tree_params = tree_params if tree_params is not None else {}
+        self.no_trees_search = (
+            300 if no_trees_search is _DEFAULT_NO_TREES_SEARCH else no_trees_search
+        )
+        self.var_obj = var_obj
+        self.n_clusters = n_clusters
+        self.include_summary_cluster = include_summary_cluster
+        self.method = method
+        self.divide = divide
+        self.get_detail = get_detail
+        self.balance_clusters = balance_clusters
+        self.auto_fast = auto_fast
+        self.fast_overrides = fast_overrides if fast_overrides is not None else {}
+        self.seed = seed
+        self.rf = None
+        self._fast_params_used_ = None
+        self._size_bucket_ = None
+        self.df_clusters_description_ = None
+        self.df_reres_ = None
+        self.df_datos_explain_ = None
+        self.frontiers_ = None
+
+    def fit(self, X, y=None, rf=None):
+        """Fit through the canonical contract while accepting legacy inputs."""
+
+        if y is None:
+            if not isinstance(X, pd.DataFrame) or self.var_obj not in X.columns:
+                raise ValueError(
+                    f"Target column '{self.var_obj}' not found; pass y explicitly"
+                )
+            y = X[self.var_obj].to_numpy()
+            X = X.drop(columns=[self.var_obj])
+
+        if isinstance(X, pd.DataFrame):
+            X = X.copy()
+            X.columns = [str(column).replace(" ", "_") for column in X.columns]
+
+        if self.auto_fast and self.forest is None and rf is None:
+            n_rows = len(X)
+            n_columns = X.shape[1] if hasattr(X, "shape") else np.asarray(X).shape[1]
+            fast = _choose_fast_params(n_rows, n_columns)
+            params = {**fast["rf_params"], **dict(self.rf_params or {})}
+            if self.fast_overrides:
+                params.update(self.fast_overrides.get("rf_params", {}))
+            self.rf_params = params
+            self._fast_params_used_ = {**fast, "rf_params": params, "method": self.method}
+            self._size_bucket_ = _size_bucket(n_rows, n_columns)
+
+        if rf is not None:
+            self.forest = rf
+        fitted = super().fit(X, y)
+        self.rf = self.forest_
+        self.feature_names_ = list(self.feature_names_out_)
+        self.region_quality_ = self.region_metrics_.copy()
+        for column in (
+            "dominant_probability",
+            "prior_probability",
+            "lift",
+            "entropy",
+        ):
+            if column not in self.region_quality_:
+                self.region_quality_[column] = np.nan
+        self.region_rules_ = self.regions_
+        self.df_reres_ = self.regions_
+        if self.get_detail:
+            self.df_clusters_description_ = self.regions_.copy()
+            self.df_datos_explain_ = self.assign_regions(X)
+        return fitted
+
+    @staticmethod
+    def _mutual_info_score(X, y):
+        return mutual_info_regression(X, y)
+
+    def _coerce_X_predict(self, X):
+        if isinstance(X, pd.DataFrame):
+            X = X.copy()
+            X.columns = [str(column).replace(" ", "_") for column in X.columns]
+        return super()._coerce_X_predict(X)
+
+    def _require_fitted(self):
+        try:
+            return super()._require_fitted()
+        except NotFittedError as exc:
+            raise RuntimeError(str(exc)) from exc
+
+    def region_quality_report(self, X=None, y=None):
+        report = super().region_quality_report(X=X, y=y)
+        report.setdefault("weighted_region_purity", np.nan)
+        return report
+
+    def score(self, X, y):
+        """Return legacy forest R2; the canonical clusterer returns eta squared."""
+
+        warnings.warn(
+            "InsideForestRegressor.score() reports legacy forest R2; "
+            "InsideForestContinuousRegionClusterer.score() reports target "
+            "variance explained by clusters",
+            FutureWarning,
+            stacklevel=2,
+        )
+        self._require_fitted()
+        return float(self.forest_.score(self._coerce_X_predict(X), y))
+
+    @classmethod
+    def load(cls, filepath: str):
+        """Load canonical or legacy artifacts into the compatibility wrapper."""
+
+        payload = joblib.load(filepath)
+        if isinstance(payload, dict) and isinstance(payload.get("estimator"), cls):
+            return payload["estimator"]
+        if isinstance(payload, cls):
+            return payload
+        if isinstance(payload, dict) and "rf" in payload:
+            canonical = InsideForestContinuousRegionClusterer._from_legacy_payload(
+                payload
+            )
+            model = cls(
+                rf_params=payload.get("rf_params"),
+                tree_params=payload.get("tree_params"),
+                var_obj=payload.get("var_obj", "target"),
+                leaf_percentile=payload.get("leaf_percentile", 96),
+                low_leaf_fraction=payload.get("low_leaf_fraction", 0.03),
+                max_cases=payload.get("max_cases", 750),
+                seed=payload.get("seed", 42),
+            )
+            model.__dict__.update(canonical.__dict__)
+            model.rf = model.forest_
+            model.feature_names_ = list(model.feature_names_out_)
+            model.region_quality_ = model.region_metrics_
+            model.region_rules_ = model.regions_
+            return model
+        raise TypeError("File does not contain a compatible InsideForest model")
 
 
 # Backward compatibility alias

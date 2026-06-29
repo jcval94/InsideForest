@@ -52,4 +52,15 @@ assert (cargado.predict(X) == modelo.predict(X)).all()
 <p>Se conservan bosque, regiones, distribuciones, métricas y asignaciones. Los modelos antiguos pueden migrarse, pero deben recalcular <code>labels_</code> si antes almacenaba una tabla de métricas.</p>
 
 <h2>Regresión</h2>
-<p><code>InsideForestRegressor</code> conserva su contrato actual: <code>predict</code> devuelve regiones y <code>score</code> continúa siendo el R² del bosque interno.</p>
+<pre><code class="language-python">from InsideForest import InsideForestContinuousRegionClusterer
+
+continuo = InsideForestContinuousRegionClusterer(
+    leaf_percentile=90,
+    min_support=3,
+    branch_aggregation="none",
+)
+region_ids = continuo.fit_predict(X, y_continuo)
+eta_cuadrada = continuo.score(X, y_continuo)
+detalles = continuo.assign_regions(X)
+</code></pre>
+<p><code>predict</code> devuelve IDs y <code>score</code> es η², incluido <code>-1</code>. <code>InsideForestRegressor</code> queda deprecado y conserva R² únicamente para migración.</p>

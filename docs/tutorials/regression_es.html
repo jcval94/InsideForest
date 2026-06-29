@@ -1,39 +1,33 @@
 ---
 layout: default
-title: Regresión
+title: Regiones para objetivos continuos
 parent: Tutoriales
 nav_order: 2
 nav_exclude: true
 lang: es
 ---
 
-<h1>Tutorial de regresión</h1>
-<p>Predice valores continuos y explica segmentos con InsideForest.</p>
+<h1>Clustering regional para objetivos continuos</h1>
+<p>Descubre regiones de Diabetes con objetivos numéricos internamente semejantes. Este flujo asigna IDs regionales; no predice valores de progresión.</p>
 
-<h2>Objetivo</h2>
-<p>Modelar la progresión de la diabetes con el dataset clásico de scikit-learn.</p>
-
-<h2>Paso 1: cargar datos</h2>
 <pre><code class="language-python">from sklearn.datasets import load_diabetes
+from sklearn.model_selection import train_test_split
+from InsideForest import InsideForestContinuousRegionClusterer
 
-X, y = load_diabetes(return_X_y=True)
+X, y = load_diabetes(return_X_y=True, as_frame=True)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.25, random_state=42
+)
+modelo = InsideForestContinuousRegionClusterer(
+    rf_params={"n_estimators": 50, "max_depth": 6, "random_state": 42},
+    leaf_percentile=90,
+    min_support=3,
+)
+ids_train = modelo.fit_predict(X_train, y_train)
+ids_test = modelo.predict(X_test)
+asignaciones = modelo.assign_regions(X_test)
+calidad = modelo.region_quality_report(X_test, y_test)
 </code></pre>
 
-<h2>Paso 2: entrenar</h2>
-<pre><code class="language-python">from InsideForest import InsideForestRegressor
-
-regr = InsideForestRegressor(auto_feature_reduce=True, auto_fast=True, get_detail=True)
-regr.fit(X, y)
-etiquetas_region = regr.predict(X)
-r2 = regr.score(X, y)
-</code></pre>
-
-<h2>Paso 3: interpretar</h2>
-<ul>
-  <li><code>etiquetas_region</code> contiene etiquetas interpretables de region; las estimaciones continuas vienen del bosque ajustado con el mismo conjunto de caracteristicas usado durante el entrenamiento.</li>
-  <li><code>regr.df_clusters_description_</code> y <code>regr.df_datos_explain_</code> para reglas y métricas.</li>
-  <li>Localiza segmentos con error alto y genera acciones.</li>
-  <li>Guarda el modelo con <code>regr.save("modelos/housing.joblib")</code>.</li>
-</ul>
-
-<p>Consulta también <a href="../performance_tips_es.html">Rendimiento</a> para optimizar tiempos.</p>
+<p>Interpreta <code>calidad["target_variance_explained"]</code> como η² y repórtala junto con cobertura y tasa sin asignar. Cada región conserva media, mediana, desviación, IQR, rango, desplazamiento y reducción de dispersión.</p>
+<p>Ejecuta <code>python experiments/validate_regression_regions.py --profile quick</code> para validación repetida. R²/RMSE del bosque quedan separados como diagnóstico.</p>

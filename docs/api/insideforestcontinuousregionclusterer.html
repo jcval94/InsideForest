@@ -1,0 +1,34 @@
+---
+layout: default
+title: InsideForestContinuousRegionClusterer
+parent: InsideForest
+nav_order: 53
+---
+
+<h1>InsideForestContinuousRegionClusterer</h1>
+<p>The canonical supervised clusterer for continuous targets. A <code>RandomForestRegressor</code> generates physical leaves; <code>predict</code> returns region IDs and <code>score</code> returns target variance explained (η²), including cluster <code>-1</code>.</p>
+
+<pre><code class="language-python">from InsideForest import InsideForestContinuousRegionClusterer
+
+model = InsideForestContinuousRegionClusterer(
+    rf_params={"n_estimators": 50, "max_depth": 6, "random_state": 42},
+    leaf_percentile=90,
+    min_support=3,
+    branch_aggregation="none",
+)
+cluster_ids = model.fit_predict(X_train, y_train)
+assignments = model.assign_regions(X_test)
+quality = model.region_quality_report(X_test, y_test)
+</code></pre>
+
+<h2>Region objective</h2>
+<p>Every physical leaf is scored once using coverage, reduction in target variance, and normalized distance from the global target mean. Regions with the highest score are selected; overlap ties use lower target deviation, higher support, and lower cluster ID.</p>
+
+<h2>Output contract</h2>
+<ul>
+  <li><code>predict</code> never returns numeric target estimates. Unmatched rows receive <code>-1</code>.</li>
+  <li><code>transform</code> returns sample-by-region membership scores.</li>
+  <li><code>assign_regions</code> includes target mean, median, standard deviation, IQR, range, mean shift, and dispersion reduction.</li>
+  <li><code>regions_</code>, <code>region_metrics_</code>, <code>labels_</code>, and <code>raw_regions_</code> are the canonical fitted artifacts.</li>
+  <li><code>forest_</code> and <code>feature_importances_</code> describe only the branch generator. Numeric estimates remain available through <code>forest_.predict</code> as a separate diagnostic.</li>
+</ul>

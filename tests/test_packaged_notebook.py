@@ -25,6 +25,7 @@ def test_use_case_notebook_is_packaged_and_contains_multiclass_example():
 
     assert notebook["nbformat"] == 4
     assert "InsideForestClassRegionClusterer" in source
+    assert "InsideForestContinuousRegionClusterer" in source
     assert "load_wine" in source
     assert "regions_for_class" in source
     assert "ambiguous_regions" in source
@@ -36,6 +37,8 @@ def test_use_case_notebook_is_packaged_and_contains_multiclass_example():
     assert "df_clusters_description_" not in source
     assert "frontiers_" not in source
     assert "model_fallback" not in source
+    assert "InsideForestRegressor" not in source
+    assert '"eta_squared"' in source
     assert "cluster `-1`" in source
 
 

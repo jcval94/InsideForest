@@ -4,6 +4,7 @@ from .trees import Trees
 from .models import Models
 from .inside_forest import (
     InsideForestClassifier,
+    InsideForestContinuousRegionClusterer,
     InsideForestRegionClusterer,
     InsideForestRegressor,
 )

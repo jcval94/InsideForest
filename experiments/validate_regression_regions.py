@@ -1,9 +1,8 @@
-"""Validate InsideForestRegressor on regression datasets.
+"""Validate InsideForestContinuousRegionClusterer on regression datasets.
 
-The regressor is evaluated as a region extractor for continuous targets.  The
-base RandomForestRegressor is still measured with R2/RMSE, while the region
-labels are measured by coverage, unmatched rate, reduction in target spread,
-and the RMSE obtained by assigning each region its train-target mean.
+The clusterer is evaluated through coverage, eta squared, target dispersion,
+stability and region-mean diagnostics. The RandomForestRegressor R2/RMSE is
+reported separately and never used as the clusterer score.
 """
 
 from __future__ import annotations
@@ -20,7 +19,7 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 from sklearn.datasets import load_diabetes, make_friedman1, make_regression
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import adjusted_rand_score, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
@@ -28,7 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from InsideForest import InsideForestRegressor
+from InsideForest import InsideForestContinuousRegionClusterer
 
 
 OUT_DIR = ROOT / "experiments" / "results" / "regression_region_validation"
@@ -169,6 +168,36 @@ def target_std_reduction(labels, y) -> float:
     return float(1.0 - (weighted / max(total, 1)) / global_std)
 
 
+def build_clusterer(config: RegressionValidationConfig, X, n_train: int, seed: int):
+    return InsideForestContinuousRegionClusterer(
+        auto_feature_reduce=True,
+        explicit_k_features=min(config.explicit_k_features, X.shape[1]),
+        max_cases=min(config.max_cases, n_train),
+        leaf_percentile=config.leaf_percentile,
+        low_leaf_fraction=config.low_leaf_fraction,
+        min_support=3,
+        branch_aggregation="none",
+        rf_params={
+            "n_estimators": config.rf_n_estimators,
+            "max_depth": config.rf_max_depth,
+            "min_samples_leaf": 3,
+            "random_state": seed,
+            "n_jobs": 1,
+        },
+        random_state=seed,
+        n_jobs=1,
+    )
+
+
+def region_feature_set(model) -> set[str]:
+    features = set()
+    for bounds in model.regions_["lower_bounds"]:
+        features.update(bounds)
+    for bounds in model.regions_["upper_bounds"]:
+        features.update(bounds)
+    return features
+
+
 def evaluate_dataset(name: str, X: pd.DataFrame, y: np.ndarray, seed: int, config: RegressionValidationConfig):
     X, y = downsample(scale_frame(X), y, config.max_rows, seed)
     X_train, X_test, y_train, y_test = train_test_split(
@@ -178,23 +207,7 @@ def evaluate_dataset(name: str, X: pd.DataFrame, y: np.ndarray, seed: int, confi
         random_state=seed,
     )
 
-    model = InsideForestRegressor(
-        auto_fast=True,
-        auto_feature_reduce=True,
-        explicit_k_features=min(config.explicit_k_features, X.shape[1]),
-        no_trees_search=config.no_trees_search,
-        max_cases=min(config.max_cases, len(X_train)),
-        leaf_percentile=config.leaf_percentile,
-        low_leaf_fraction=config.low_leaf_fraction,
-        rf_params={
-            "n_estimators": config.rf_n_estimators,
-            "max_depth": config.rf_max_depth,
-            "min_samples_leaf": 3,
-            "random_state": seed,
-            "n_jobs": 1,
-        },
-        seed=seed,
-    )
+    model = build_clusterer(config, X, len(X_train), seed)
 
     start = time.perf_counter()
     with warnings.catch_warnings(record=True) as caught:
@@ -204,8 +217,14 @@ def evaluate_dataset(name: str, X: pd.DataFrame, y: np.ndarray, seed: int, confi
 
     train_labels = model.labels_
     test_labels = model.predict(X_test)
-    X_test_forest = model._prepare_prediction_frame(X_test)
-    rf_pred = model.rf.predict(X_test_forest)
+    stability_model = build_clusterer(config, X, len(X_train), seed + 10_000)
+    stability_model.fit(X_train, y_train)
+    stability_labels = stability_model.predict(X_test)
+    primary_features = region_feature_set(model)
+    stability_features = region_feature_set(stability_model)
+    feature_union = primary_features | stability_features
+    X_test_forest = model._coerce_X_predict(X_test)
+    rf_pred = model.forest_.predict(X_test_forest)
     mean_pred = np.full_like(y_test, float(np.mean(y_train)), dtype=float)
     region_pred_all, region_pred_covered, y_covered, known_region = region_mean_predictions(
         train_labels,
@@ -214,7 +233,8 @@ def evaluate_dataset(name: str, X: pd.DataFrame, y: np.ndarray, seed: int, confi
         y_test,
     )
     rule_covered = np.asarray(test_labels) != -1
-    report = model.region_quality_report()
+    train_report = model.region_quality_report()
+    test_report = model.region_quality_report(X_test, y_test)
     warning_text = "\n".join(str(w.message) for w in caught)
 
     return {
@@ -223,7 +243,7 @@ def evaluate_dataset(name: str, X: pd.DataFrame, y: np.ndarray, seed: int, confi
         "n_train": int(len(X_train)),
         "n_test": int(len(X_test)),
         "n_features_in": int(X.shape[1]),
-        "n_features_used": int(len(model.feature_names_)),
+        "n_features_used": int(len(model.feature_names_out_)),
         "fit_seconds": float(fit_seconds),
         "rf_r2_test": float(r2_score(y_test, rf_pred)),
         "rf_rmse_test": rmse(y_test, rf_pred),
@@ -231,19 +251,30 @@ def evaluate_dataset(name: str, X: pd.DataFrame, y: np.ndarray, seed: int, confi
         "region_mean_rmse_all_test": rmse(y_test, region_pred_all),
         "region_mean_rmse_covered_test": rmse(y_covered, region_pred_covered) if len(y_covered) else math.nan,
         "region_rmse_lift_vs_mean": float(1.0 - rmse(y_test, region_pred_all) / rmse(y_test, mean_pred)),
-        "train_coverage": float(report["coverage"]),
-        "train_unmatched_rate": float(report["unmatched_rate"]),
+        "train_coverage": float(train_report["coverage"]),
+        "train_unmatched_rate": float(train_report["unmatched_rate"]),
+        "test_eta_squared": float(test_report["target_variance_explained"]),
+        "assignment_stability_ari": float(
+            adjusted_rand_score(test_labels, stability_labels)
+        ),
+        "region_feature_jaccard": float(
+            len(primary_features & stability_features) / len(feature_union)
+        )
+        if feature_union
+        else 1.0,
+        "test_report_std_reduction": float(test_report["target_std_reduction"]),
         "test_rule_coverage": float(np.mean(rule_covered)),
         "test_rule_unmatched_rate": float(np.mean(~rule_covered)),
         "test_known_region_coverage": float(np.mean(known_region)),
         "test_known_region_unmatched_rate": float(np.mean(~known_region)),
-        "n_regions": int(report["n_regions"]),
-        "n_train_clusters": int(report["n_clusters"]),
+        "n_regions": int(train_report["n_regions"]),
+        "n_raw_regions": int(train_report["n_raw_regions"]),
+        "compression_ratio": float(train_report["compression_ratio"]),
+        "n_train_clusters": int(train_report["n_clusters"]),
         "n_test_clusters": int(len(set(np.asarray(test_labels)[rule_covered].tolist()))),
         "train_target_std_reduction": target_std_reduction(train_labels, y_train),
         "test_target_std_reduction": target_std_reduction(test_labels, y_test),
-        "method": model.method,
-        "size_bucket": model._size_bucket_,
+        "region_score": model.region_score,
         "warning_count": int(len(caught)),
         "classification_warning": "could represent a regression problem" in warning_text
         or "unique classes" in warning_text,
@@ -265,8 +296,8 @@ def build_readme(metrics: pd.DataFrame, summary: pd.DataFrame, config: Regressio
     lines = [
         "# Regression Region Validation",
         "",
-        "This report validates `InsideForestRegressor` as an interpretable region extractor for continuous targets.",
-        "`predict(X)` is evaluated as region labels; the internal random forest is evaluated separately with R2/RMSE.",
+        "This report validates `InsideForestContinuousRegionClusterer` as supervised clustering for continuous targets.",
+        "`predict(X)` returns region IDs and `score(X, y)` is eta squared including `-1`; forest R2/RMSE is diagnostic only.",
         "",
         "## Reproduction",
         "",
@@ -280,6 +311,9 @@ def build_readme(metrics: pd.DataFrame, summary: pd.DataFrame, config: Regressio
     lines.extend(
         [
             f"- Median RF test R2 across all runs: `{metrics['rf_r2_test'].median():.4f}`.",
+            f"- Median test eta squared: `{metrics['test_eta_squared'].median():.4f}`.",
+            f"- Median assignment stability ARI: `{metrics['assignment_stability_ari'].median():.4f}`.",
+            f"- Median selected-feature Jaccard: `{metrics['region_feature_jaccard'].median():.4f}`.",
             f"- Median test rule coverage: `{metrics['test_rule_coverage'].median():.4f}`.",
             f"- Median test known-region coverage: `{metrics['test_known_region_coverage'].median():.4f}`.",
             f"- Median test target spread reduction inside regions: `{metrics['test_target_std_reduction'].median():.4f}`.",
@@ -292,18 +326,17 @@ def build_readme(metrics: pd.DataFrame, summary: pd.DataFrame, config: Regressio
             "",
             "## Dataset Summary",
             "",
-            "| Dataset | Runs | RF R2 | RF RMSE | Mean RMSE | Region RMSE | Region Lift | Rule Coverage | Known Coverage | Std Reduction | Regions | Clusters | Fit s |",
-            "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+            "| Dataset | Runs | Eta2 | Stability ARI | Feature Jaccard | Coverage | Std Reduction | Compression | Regions | RF R2 | Fit s |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
         ]
     )
     for _, row in summary.iterrows():
         lines.append(
             f"| {row['dataset']} | {int(row['runs'])} | "
-            f"{fmt(row.get('rf_r2_test_median'))} | {fmt(row.get('rf_rmse_test_median'))} | "
-            f"{fmt(row.get('baseline_mean_rmse_test_median'))} | {fmt(row.get('region_mean_rmse_all_test_median'))} | "
-            f"{fmt(row.get('region_rmse_lift_vs_mean_median'))} | {fmt(row.get('test_rule_coverage_median'))} | "
-            f"{fmt(row.get('test_known_region_coverage_median'))} | {fmt(row.get('test_target_std_reduction_median'))} | {fmt(row.get('n_regions_median'))} | "
-            f"{fmt(row.get('n_train_clusters_median'))} | {fmt(row.get('fit_seconds_median'))} |"
+            f"{fmt(row.get('test_eta_squared_median'))} | {fmt(row.get('assignment_stability_ari_median'))} | "
+            f"{fmt(row.get('region_feature_jaccard_median'))} | {fmt(row.get('test_rule_coverage_median'))} | "
+            f"{fmt(row.get('test_report_std_reduction_median'))} | {fmt(row.get('compression_ratio_median'))} | "
+            f"{fmt(row.get('n_regions_median'))} | {fmt(row.get('rf_r2_test_median'))} | {fmt(row.get('fit_seconds_median'))} |"
         )
 
     lines.extend(
@@ -312,6 +345,8 @@ def build_readme(metrics: pd.DataFrame, summary: pd.DataFrame, config: Regressio
             "## Interpretation",
             "",
             "- Positive `region_rmse_lift_vs_mean` means region labels produce better region-mean estimates than a train-mean baseline.",
+            "- `test_eta_squared` is the canonical score: variance explained by all assigned clusters, including `-1`.",
+            "- `assignment_stability_ari` compares holdout assignments from two forest seeds without assuming matching numeric cluster IDs.",
             "- Positive target spread reduction means covered observations are grouped into regions with tighter target values than the overall target spread.",
             "- `test_rule_coverage` counts observations assigned to any learned rule.",
             "- `test_known_region_coverage` counts observations assigned to a region label observed during training; unknown labels use the train mean in the all-row RMSE.",

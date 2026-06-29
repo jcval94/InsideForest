@@ -1,0 +1,27 @@
+---
+layout: default
+title: InsideForestContinuousRegionClusterer
+parent: InsideForest
+nav_order: 94
+nav_exclude: true
+lang: es
+---
+
+<h1>InsideForestContinuousRegionClusterer</h1>
+<p>Clusterer supervisado canónico para objetivos continuos. Un <code>RandomForestRegressor</code> genera hojas físicas; <code>predict</code> devuelve IDs regionales y <code>score</code> devuelve varianza explicada del objetivo (η²), incluido el cluster <code>-1</code>.</p>
+
+<pre><code class="language-python">from InsideForest import InsideForestContinuousRegionClusterer
+
+modelo = InsideForestContinuousRegionClusterer(
+    rf_params={"n_estimators": 50, "max_depth": 6, "random_state": 42},
+    leaf_percentile=90,
+    min_support=3,
+    branch_aggregation="none",
+)
+clusters = modelo.fit_predict(X_train, y_train)
+asignaciones = modelo.assign_regions(X_test)
+calidad = modelo.region_quality_report(X_test, y_test)
+</code></pre>
+
+<p>Cada hoja se puntúa una vez por cobertura, reducción de varianza y separación de la media global. Los empates se resuelven por menor desviación, mayor soporte y menor ID.</p>
+<p><code>predict</code> nunca devuelve estimaciones numéricas; una fila sin región recibe <code>-1</code>. <code>forest_</code> e <code>feature_importances_</code> describen exclusivamente el generador de ramas.</p>

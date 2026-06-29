@@ -37,4 +37,4 @@ lang: es
 </ol>
 
 <h2>Regiones de regresión</h2>
-<p><code>python experiments/validate_regression_regions.py --profile quick</code> sigue siendo la validación de <code>InsideForestRegressor</code>. Su R² corresponde al bosque de regresión y no al contrato categórico.</p>
+<p><code>python experiments/validate_regression_regions.py --profile quick</code> valida <code>InsideForestContinuousRegionClusterer</code> mediante η², cobertura, tasa sin asignar, reducción de dispersión, compresión, estabilidad, tiempo y memoria. R²/RMSE del bosque queda como diagnóstico separado.</p>
