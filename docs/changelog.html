@@ -8,6 +8,18 @@ nav_order: 8
 <h1>Changelog</h1>
 <p>This log follows the package versions declared in <code>pyproject.toml</code>.</p>
 
+<h2>v0.4.3 — 2026-06-29</h2>
+<ul>
+  <li>Published the canonical supervised-region API from the package root so fresh and upgraded Colab runtimes can import all three region clusterers.</li>
+  <li>Made the packaged Colab notebook install the exact release, verify its exports, and run independently of repository-local result files.</li>
+  <li>Added a self-contained Diabetes continuous-target example with regional η², coverage, unmatched rate, dispersion reduction, and separate forest R²/RMSE diagnostics.</li>
+  <li>Normalized low-level multiclass parameters to <code>leaf_percentile</code>, <code>low_leaf_fraction</code>, <code>max_regions_per_class</code>, and <code>rule_score</code>; legacy spellings remain available with <code>FutureWarning</code>.</li>
+  <li>Confirmed that deprecated classes, methods, and attributes remain migration aliases throughout 0.4.x and are scheduled for removal in 0.5.0.</li>
+  <li>Added wheel-level import, stale-install upgrade, and isolated notebook execution regression coverage.</li>
+</ul>
+
+<p><strong>Version note:</strong> 0.4.2 was not published; 0.4.3 is the first public release after the internal 0.4.1 API transition.</p>
+
 <h2>v0.4.1 — 2026-06-28</h2>
 <ul>
   <li>Redefined the canonical estimators as supervised region clusterers: <code>InsideForestRegionClusterer</code>, <code>InsideForestClassRegionClusterer</code>, and <code>InsideForestContinuousRegionClusterer</code>.</li>

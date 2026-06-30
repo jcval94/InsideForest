@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: InsideForest
-Version: 0.4.1
+Version: 0.4.3
 Summary: Supervised forest-based region clustering for categorical and continuous tabular targets
 Author: Jose Carlos Del Valle
 License-Expression: MIT
@@ -29,7 +29,7 @@ Dynamic: license-file
 
 # InsideForest
 
-Current release: **0.4.1**
+Current release: **0.4.3**
 
 InsideForest discovers interpretable regions in tabular data through **supervised clustering**. A random forest is used only to generate candidate leaves; the public estimators select useful regions, describe them, and assign observations to region-cluster IDs.
 
@@ -44,7 +44,7 @@ The canonical estimators are:
 ## Install
 
 ```bash
-python -m pip install InsideForest==0.4.1
+python -m pip install InsideForest==0.4.3
 ```
 
 For development:
@@ -133,7 +133,7 @@ All canonical clusterers expose:
 
 ## Compatibility
 
-`InsideForestClassifier`, `InsideForestMulticlassClassifier`, and `InsideForestRegressor` are deprecated migration aliases. They emit `FutureWarning`; the classifier/regressor aliases temporarily preserve their legacy forest-based `score` behavior. New code should use the canonical clusterers above.
+`InsideForestClassifier`, `InsideForestMulticlassClassifier`, and `InsideForestRegressor` are deprecated migration aliases. They emit `FutureWarning`; the classifier/regressor aliases temporarily preserve their legacy forest-based `score` behavior. New code should use the canonical clusterers above. These compatibility names are scheduled for removal in `0.5.0`.
 
 Historical low-level helpers (`Trees`, `Regions`, `Labels`, metadata utilities, and description helpers) remain available, but they are not the canonical estimator contract.
 
@@ -157,7 +157,7 @@ Run the complete test suite with:
 python -m pytest tests -q
 ```
 
-See the [documentation site](https://jcval94.github.io/InsideForest/), [quick API](docs/quick_api.html), [migration API pages](docs/api/index.html), and [v0.4.1 changelog](docs/changelog.html) for details.
+See the [documentation site](https://jcval94.github.io/InsideForest/), [quick API](docs/quick_api.html), [migration API pages](docs/api/index.html), and [v0.4.3 changelog](docs/changelog.html) for details.
 
 ## License
 

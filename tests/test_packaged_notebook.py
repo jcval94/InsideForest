@@ -1,6 +1,10 @@
 import json
+import os
 from importlib.resources import as_file
 from pathlib import Path
+
+import nbformat
+from nbclient import NotebookClient
 
 from InsideForest.examples import use_case_notebook
 
@@ -38,8 +42,18 @@ def test_use_case_notebook_is_packaged_and_contains_multiclass_example():
     assert "frontiers_" not in source
     assert "model_fallback" not in source
     assert "InsideForestRegressor" not in source
+    assert "InsideForest==0.4.3" in source
+    assert "--upgrade" in source
+    assert "--no-cache-dir" in source
+    assert "find_spec" not in source
+    assert "percentil=" not in source
+    assert "low_frac=" not in source
+    assert "max_rules_per_class=" not in source
     assert '"eta_squared"' in source
+    assert '"forest_r2"' in source
+    assert '"forest_rmse"' in source
     assert "cluster `-1`" in source
+    assert "regression_region_validation/summary.csv" not in source
 
 
 def test_all_notebook_code_cells_compile():
@@ -67,3 +81,53 @@ def test_readme_colab_links_point_to_default_branch_notebook():
         assert COLAB_NOTEBOOK_URL in readme_text
         assert f"]({NOTEBOOK_RELATIVE_PATH})" not in readme_text
         assert "/blob/main/" not in readme_text
+
+
+def test_notebook_executes_from_empty_working_directory(tmp_path, monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    notebook_path = repo_root / NOTEBOOK_RELATIVE_PATH
+    notebook = nbformat.read(notebook_path, as_version=4)
+
+    # The release installation is verified separately from the wheel. During
+    # source tests, replace only the networked bootstrap cell.
+    notebook.cells[1].source = """
+from importlib.metadata import version
+import InsideForest as _insideforest
+
+assert version("InsideForest") == "0.4.3"
+for _name in (
+    "InsideForestRegionClusterer",
+    "InsideForestClassRegionClusterer",
+    "InsideForestContinuousRegionClusterer",
+):
+    assert hasattr(_insideforest, _name)
+"""
+
+    pythonpath = os.environ.get("PYTHONPATH")
+    paths = [str(repo_root)]
+    if pythonpath:
+        paths.append(pythonpath)
+    monkeypatch.setenv("PYTHONPATH", os.pathsep.join(paths))
+    for name in (
+        "IPYTHONDIR",
+        "JUPYTER_CONFIG_DIR",
+        "JUPYTER_DATA_DIR",
+        "JUPYTER_RUNTIME_DIR",
+    ):
+        directory = tmp_path / name.lower()
+        directory.mkdir()
+        monkeypatch.setenv(name, str(directory))
+
+    client = NotebookClient(
+        notebook,
+        timeout=240,
+        kernel_name="python3",
+        resources={"metadata": {"path": str(tmp_path)}},
+    )
+    executed = client.execute()
+
+    assert all(
+        output.get("output_type") != "error"
+        for cell in executed.cells
+        for output in cell.get("outputs", [])
+    )

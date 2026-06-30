@@ -75,7 +75,7 @@ El nombre antiguo sigue disponible temporalmente:
 from InsideForest.multiclass import InsideForestMulticlassClassifier
 ```
 
-Emite `FutureWarning` y traduce los parámetros anteriores:
+Emite `FutureWarning`, traduce los parámetros anteriores y se retirará en `0.5.0`:
 
 | Anterior | Canónico |
 | --- | --- |

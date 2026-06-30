@@ -703,8 +703,11 @@ def encode_features(
     enc = df[feats].copy()
 
     for c in feats:
-        # map only objects (categorical/ordinal)
-        if enc[c].dtype == object:
+        # pandas 3 uses StringDtype by default, while older releases used
+        # object. Both represent the ordinal labels consumed by ord_map.
+        if pd.api.types.is_object_dtype(enc[c].dtype) or pd.api.types.is_string_dtype(
+            enc[c].dtype
+        ):
             enc[c] = enc[c].map(ord_map)
 
         # rescale if it has more than one distinct value

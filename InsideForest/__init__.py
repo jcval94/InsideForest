@@ -42,7 +42,7 @@ from .region_quality import (
     cluster_label_quality,
 )
 
-__version__ = "0.4.1"
+__version__ = "0.4.3"
 
 # Backward compatibility
 InsideForest = InsideForestClassifier

@@ -16,7 +16,7 @@ def test_multiclass_labels_support_string_targets_without_target_mean():
         rf,
         X,
         y,
-        percentil=95,
+        leaf_percentile=95,
         random_state=3,
     )
 

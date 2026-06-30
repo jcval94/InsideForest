@@ -6,7 +6,7 @@ from pathlib import Path
 import InsideForest
 
 
-RELEASE_VERSION = "0.4.1"
+RELEASE_VERSION = "0.4.3"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -32,7 +32,7 @@ def test_release_version_is_used_by_docs_and_notebook():
         "".join(cell.get("source", [])) for cell in notebook["cells"]
     )
 
-    assert "InsideForest>=0.4.1" in notebook_source
+    assert "InsideForest==0.4.3" in notebook_source
 
     for relative_path in (
         "README.md",
@@ -43,6 +43,11 @@ def test_release_version_is_used_by_docs_and_notebook():
         "docs/installation_es.html",
         "docs/changelog.html",
         "docs/changelog_es.html",
+        "docs/quick_api.html",
+        "docs/quick_api_es.html",
+        "docs/search-data.json",
+        "docs/tutorials/pipeline.html",
+        "docs/tutorials/pipeline_es.html",
     ):
         content = (REPO_ROOT / relative_path).read_text(encoding="utf-8")
         assert RELEASE_VERSION in content, relative_path

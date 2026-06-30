@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Sequence
 
 import numpy as np
@@ -14,20 +15,27 @@ from sklearn.tree import _tree
 from .multiclass_metrics import build_class_priors, normalize_counts, score_multiclass_rules
 
 
+_LEGACY_UNSET = object()
+
+
 def extract_multiclass_leaf_rules(
     model: RandomForestClassifier,
     X,
     y,
     feature_names: Sequence[str] | None = None,
     *,
-    percentil: float | None = 95,
-    low_frac: float = 0.05,
+    leaf_percentile: float | None = 95,
+    low_leaf_fraction: float = 0.05,
     min_support: int = 1,
-    max_rules_per_class: int | None = None,
+    max_regions_per_class: int | None = None,
     class_priors: pd.Series | dict | Sequence[float] | None = None,
-    score: str = "purity_lift_coverage",
+    rule_score: str = "purity_lift_coverage",
     random_state: int = 42,
     n_jobs: int = 1,
+    percentil=_LEGACY_UNSET,
+    low_frac=_LEGACY_UNSET,
+    max_rules_per_class=_LEGACY_UNSET,
+    score=_LEGACY_UNSET,
 ) -> pd.DataFrame:
     """Extract one-vs-rest multiclass rule rows from a fitted forest.
 
@@ -35,6 +43,23 @@ def extract_multiclass_leaf_rules(
     Each row preserves the full class vector in ``class_distribution`` and
     ranks that leaf from the perspective of ``target_class``.
     """
+
+    leaf_percentile = _resolve_legacy_parameter(
+        "percentil", percentil, "leaf_percentile", leaf_percentile, 95
+    )
+    low_leaf_fraction = _resolve_legacy_parameter(
+        "low_frac", low_frac, "low_leaf_fraction", low_leaf_fraction, 0.05
+    )
+    max_regions_per_class = _resolve_legacy_parameter(
+        "max_rules_per_class",
+        max_rules_per_class,
+        "max_regions_per_class",
+        max_regions_per_class,
+        None,
+    )
+    rule_score = _resolve_legacy_parameter(
+        "score", score, "rule_score", rule_score, "purity_lift_coverage"
+    )
 
     _validate_model(model)
     X_df = _as_dataframe(X, feature_names)
@@ -154,13 +179,13 @@ def extract_multiclass_leaf_rules(
     if rule_df.empty:
         return _empty_rule_frame(classes)
 
-    scored = score_multiclass_rules(rule_df, priors, score=score)
+    scored = score_multiclass_rules(rule_df, priors, rule_score=rule_score)
     scored.attrs["classes_"] = tuple(classes)
     selected = _filter_by_class_score(
         scored,
-        percentil=percentil,
-        low_frac=low_frac,
-        max_rules_per_class=max_rules_per_class,
+        percentil=leaf_percentile,
+        low_frac=low_leaf_fraction,
+        max_rules_per_class=max_regions_per_class,
         random_state=random_state,
     )
     selected = selected.sort_values(
@@ -170,6 +195,28 @@ def extract_multiclass_leaf_rules(
     selected.insert(0, "region_id", np.arange(len(selected), dtype=int))
     selected.attrs["classes_"] = tuple(classes)
     return selected
+
+
+def _resolve_legacy_parameter(
+    legacy_name,
+    legacy_value,
+    canonical_name,
+    canonical_value,
+    canonical_default,
+):
+    if legacy_value is _LEGACY_UNSET:
+        return canonical_value
+    warnings.warn(
+        f"{legacy_name} is deprecated; use {canonical_name}. "
+        "The legacy name will be removed in InsideForest 0.5.0.",
+        FutureWarning,
+        stacklevel=3,
+    )
+    if canonical_value != canonical_default and canonical_value != legacy_value:
+        raise TypeError(
+            f"Received conflicting values for {canonical_name} and {legacy_name}"
+        )
+    return legacy_value
 
 
 def _filter_by_class_score(

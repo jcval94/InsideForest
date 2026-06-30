@@ -2,7 +2,7 @@
 
 # InsideForest
 
-Versión actual: **0.4.1**
+Versión actual: **0.4.3**
 
 InsideForest descubre regiones interpretables en datos tabulares mediante **clustering supervisado**. El Random Forest se usa únicamente para generar hojas candidatas; los estimadores públicos seleccionan regiones útiles, las describen y asignan las observaciones a IDs de clusters regionales.
 
@@ -17,7 +17,7 @@ Los estimadores canónicos son:
 ## Instalación
 
 ```bash
-python -m pip install InsideForest==0.4.1
+python -m pip install InsideForest==0.4.3
 ```
 
 Para desarrollo:
@@ -106,7 +106,7 @@ Todos los clusterers canónicos exponen:
 
 ## Compatibilidad
 
-`InsideForestClassifier`, `InsideForestMulticlassClassifier` e `InsideForestRegressor` son aliases de migración deprecados. Emiten `FutureWarning`; los aliases de clasificador y regresor conservan temporalmente su comportamiento histórico de `score` basado en el bosque. El código nuevo debe usar los clusterers canónicos.
+`InsideForestClassifier`, `InsideForestMulticlassClassifier` e `InsideForestRegressor` son aliases de migración deprecados. Emiten `FutureWarning`; los aliases de clasificador y regresor conservan temporalmente su comportamiento histórico de `score` basado en el bosque. El código nuevo debe usar los clusterers canónicos. Estos nombres de compatibilidad se retirarán en `0.5.0`.
 
 Los auxiliares históricos de bajo nivel (`Trees`, `Regions`, `Labels`, metadatos y generación de descripciones) siguen disponibles, pero no forman parte del contrato canónico de los estimadores.
 
@@ -130,7 +130,7 @@ Ejecuta todas las pruebas con:
 python -m pytest tests -q
 ```
 
-Consulta el [sitio de documentación](https://jcval94.github.io/InsideForest/), la [API rápida](docs/quick_api_es.html), las [páginas de migración](docs/api/index_es.html) y el [registro de v0.4.1](docs/changelog_es.html).
+Consulta el [sitio de documentación](https://jcval94.github.io/InsideForest/), la [API rápida](docs/quick_api_es.html), las [páginas de migración](docs/api/index_es.html) y el [registro de v0.4.3](docs/changelog_es.html).
 
 ## Licencia
 

@@ -7,7 +7,7 @@ nav_exclude: true
 ---
 
 <h1>InsideForestClassifier (deprecated)</h1>
-<p>Use <a href="insideforestregionclusterer.html">InsideForestRegionClusterer</a> in new code. This compatibility class emits <code>FutureWarning</code> and exists only to load or migrate historical workflows.</p>
+<p>Use <a href="insideforestregionclusterer.html">InsideForestRegionClusterer</a> in new code. This compatibility class emits <code>FutureWarning</code>, exists only to load or migrate historical workflows, and is scheduled for removal in 0.5.0.</p>
 <p>The compatibility alias keeps its former forest-accuracy <code>score</code>. The canonical clusterer instead returns region IDs from <code>predict</code>, explicit <code>-1</code> for unmatched rows, and AMI from <code>score</code>.</p>
 <pre><code class="language-python"># Migration
 from InsideForest import InsideForestRegionClusterer

@@ -8,7 +8,7 @@ lang: es
 ---
 
 <h1>InsideForestClassifier (deprecado)</h1>
-<p>Usa <a href="insideforestregionclusterer_es.html">InsideForestRegionClusterer</a> en código nuevo. Esta clase emite <code>FutureWarning</code> y sólo existe para cargar o migrar flujos históricos.</p>
+<p>Usa <a href="insideforestregionclusterer_es.html">InsideForestRegionClusterer</a> en código nuevo. Esta clase emite <code>FutureWarning</code>, sólo existe para cargar o migrar flujos históricos y se retirará en 0.5.0.</p>
 <p>El alias conserva su <code>score</code> anterior de accuracy del bosque. El clusterer canónico devuelve IDs regionales en <code>predict</code>, <code>-1</code> explícito para filas sin región y AMI en <code>score</code>.</p>
 <pre><code class="language-python"># Migración
 from InsideForest import InsideForestRegionClusterer

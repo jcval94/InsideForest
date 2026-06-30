@@ -1232,7 +1232,8 @@ class InsideForestClassifier(InsideForestRegionClusterer):
 
     def __init__(self, *args, **kwargs):
         warnings.warn(
-            "InsideForestClassifier is deprecated; use InsideForestRegionClusterer",
+            "InsideForestClassifier is deprecated; use InsideForestRegionClusterer. "
+            "The compatibility name will be removed in InsideForest 0.5.0.",
             FutureWarning,
             stacklevel=2,
         )
@@ -1276,7 +1277,8 @@ class InsideForestRegressor(InsideForestContinuousRegionClusterer):
     ):
         warnings.warn(
             "InsideForestRegressor is deprecated; use "
-            "InsideForestContinuousRegionClusterer",
+            "InsideForestContinuousRegionClusterer. The compatibility name "
+            "will be removed in InsideForest 0.5.0.",
             FutureWarning,
             stacklevel=2,
         )

@@ -7,5 +7,5 @@ nav_exclude: true
 ---
 
 <h1>InsideForestRegressor (deprecated)</h1>
-<p>Use <a href="insideforestcontinuousregionclusterer.html">InsideForestContinuousRegionClusterer</a> in new code. This compatibility name emits <code>FutureWarning</code>, accepts historical parameters, and temporarily keeps forest R² as <code>score</code>.</p>
+<p>Use <a href="insideforestcontinuousregionclusterer.html">InsideForestContinuousRegionClusterer</a> in new code. This compatibility name emits <code>FutureWarning</code>, accepts historical parameters, temporarily keeps forest R² as <code>score</code>, and is scheduled for removal in 0.5.0.</p>
 <p>The canonical class returns region IDs, explicit <code>-1</code> for unmatched rows, and η² from <code>score</code>. Parameters <code>method</code>, <code>n_clusters</code>, <code>include_summary_cluster</code>, <code>divide</code>, and <code>balance_clusters</code> are accepted only for migration.</p>

@@ -10,6 +10,18 @@ lang: es
 <h1>Registro de cambios</h1>
 <p>Este registro sigue las versiones del paquete declaradas en <code>pyproject.toml</code>.</p>
 
+<h2>v0.4.3 — 29 jun 2026</h2>
+<ul>
+  <li>Se publica desde la raíz del paquete la API canónica de regiones supervisadas para que entornos nuevos y actualizados de Colab importen los tres clusterers.</li>
+  <li>El Colab empaquetado instala la versión exacta, verifica sus exportaciones y se ejecuta sin depender de archivos locales del repositorio.</li>
+  <li>Se añade un ejemplo autocontenido sobre Diabetes con η² regional, cobertura, tasa sin asignar, reducción de dispersión y diagnósticos R²/RMSE del bosque por separado.</li>
+  <li>Los parámetros multiclass de bajo nivel se normalizan a <code>leaf_percentile</code>, <code>low_leaf_fraction</code>, <code>max_regions_per_class</code> y <code>rule_score</code>; los nombres anteriores siguen disponibles con <code>FutureWarning</code>.</li>
+  <li>Las clases, métodos y atributos deprecados permanecen como compatibilidad durante 0.4.x y se retirarán en 0.5.0.</li>
+  <li>Se añaden regresiones sobre el wheel, la actualización de instalaciones antiguas y la ejecución aislada del notebook.</li>
+</ul>
+
+<p><strong>Nota de versión:</strong> 0.4.2 no fue publicada; 0.4.3 es la primera versión pública posterior a la transición interna de API realizada en 0.4.1.</p>
+
 <h2>v0.4.1 — 28 jun 2026</h2>
 <ul>
   <li>Se redefinen los estimadores canónicos como clusterers regionales supervisados: <code>InsideForestRegionClusterer</code>, <code>InsideForestClassRegionClusterer</code> e <code>InsideForestContinuousRegionClusterer</code>.</li>
