@@ -1,3 +1,6 @@
 # Development and testing dependencies only.
 # Runtime dependencies are declared in pyproject.toml ([project.dependencies]).
 pytest
+ipykernel
+nbclient
+nbformat

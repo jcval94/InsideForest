@@ -60,3 +60,26 @@ def test_score_multiclass_rules_uses_class_labels_not_numeric_magnitude():
     assert math.isfinite(scored.loc[0, "score"])
     assert scored.loc[0, "prior_probability"] == pytest.approx(0.25)
     assert scored.loc[1, "prior_probability"] == pytest.approx(0.25)
+
+
+def test_legacy_score_parameter_warns_and_matches_rule_score():
+    rules = pd.DataFrame(
+        [{
+            "target_class": "a",
+            "target_probability": 0.75,
+            "coverage": 0.5,
+            "class_distribution": np.array([0.75, 0.25]),
+        }]
+    )
+    rules.attrs["classes_"] = ("a", "b")
+    priors = {"a": 0.5, "b": 0.5}
+
+    canonical = score_multiclass_rules(
+        rules, priors, rule_score="purity_lift_coverage"
+    )
+    with pytest.warns(FutureWarning, match="removed in InsideForest 0.5.0"):
+        legacy = score_multiclass_rules(
+            rules, priors, score="purity_lift_coverage"
+        )
+
+    pd.testing.assert_frame_equal(canonical, legacy)

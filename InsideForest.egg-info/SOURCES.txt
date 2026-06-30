@@ -60,5 +60,6 @@ tests/test_numeric_utils.py
 tests/test_packaged_notebook.py
 tests/test_region_clusterer_contract.py
 tests/test_regions_search_original_tree.py
+tests/test_release_artifacts.py
 tests/test_release_version.py
 tests/test_trees.py

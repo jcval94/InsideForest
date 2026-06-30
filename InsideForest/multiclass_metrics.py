@@ -9,6 +9,7 @@ ordered magnitudes.
 from __future__ import annotations
 
 import math
+import warnings
 from typing import Iterable, Sequence
 
 import numpy as np
@@ -98,7 +99,8 @@ def score_multiclass_rules(
     rule_df: pd.DataFrame,
     class_priors: pd.Series | dict | Sequence[float],
     *,
-    score: str = "purity_lift_coverage",
+    rule_score: str = "purity_lift_coverage",
+    score: str | None = None,
 ) -> pd.DataFrame:
     """Add semantic multiclass metrics and score columns to rule rows.
 
@@ -106,6 +108,17 @@ def score_multiclass_rules(
     ``class_distribution``, ``target_probability``, ``target_class`` and
     ``coverage`` columns.
     """
+
+    if score is not None:
+        warnings.warn(
+            "score is deprecated; use rule_score. The legacy name will be "
+            "removed in InsideForest 0.5.0.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        if rule_score != "purity_lift_coverage" and rule_score != score:
+            raise TypeError("Received conflicting values for rule_score and score")
+        rule_score = score
 
     if rule_df.empty:
         return rule_df.copy()
@@ -129,8 +142,10 @@ def score_multiclass_rules(
         prior_probability = float(priors[target_class])
         class_lift = lift(target_probability, prior_probability)
 
-        if score != "purity_lift_coverage":
-            raise ValueError("Only score='purity_lift_coverage' is supported")
+        if rule_score != "purity_lift_coverage":
+            raise ValueError(
+                "Only rule_score='purity_lift_coverage' is supported"
+            )
 
         prior_values.append(prior_probability)
         lift_values.append(class_lift)

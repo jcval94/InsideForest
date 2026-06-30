@@ -143,12 +143,12 @@ class InsideForestClassRegionClusterer(TransformerMixin, ClusterMixin, BaseEstim
             X_df,
             y_array,
             feature_names=list(self.feature_names_in_),
-            percentil=None,
-            low_frac=0.0,
+            leaf_percentile=None,
+            low_leaf_fraction=0.0,
             min_support=self.min_support,
-            max_rules_per_class=None,
+            max_regions_per_class=None,
             class_priors=self.class_priors_,
-            score=self.rule_score,
+            rule_score=self.rule_score,
             random_state=self.random_state,
             n_jobs=self.n_jobs,
         )
@@ -479,7 +479,8 @@ class InsideForestClassRegionClusterer(TransformerMixin, ClusterMixin, BaseEstim
     # Temporary method aliases -------------------------------------------------
     def explain(self, class_label=None, top_n=None) -> pd.DataFrame:
         warnings.warn(
-            "explain() is deprecated; use explain_regions() or regions_for_class()",
+            "explain() is deprecated; use explain_regions() or "
+            "regions_for_class(). It will be removed in InsideForest 0.5.0.",
             FutureWarning,
             stacklevel=2,
         )
@@ -489,7 +490,8 @@ class InsideForestClassRegionClusterer(TransformerMixin, ClusterMixin, BaseEstim
 
     def prototype_regions(self, class_label=None, top_n=10) -> pd.DataFrame:
         warnings.warn(
-            "prototype_regions() is deprecated; use regions_for_class()",
+            "prototype_regions() is deprecated; use regions_for_class(). "
+            "It will be removed in InsideForest 0.5.0.",
             FutureWarning,
             stacklevel=2,
         )
@@ -506,7 +508,8 @@ class InsideForestClassRegionClusterer(TransformerMixin, ClusterMixin, BaseEstim
 
     def confusion_regions(self, top_n=20) -> pd.DataFrame:
         warnings.warn(
-            "confusion_regions() is deprecated; use ambiguous_regions()",
+            "confusion_regions() is deprecated; use ambiguous_regions(). "
+            "It will be removed in InsideForest 0.5.0.",
             FutureWarning,
             stacklevel=2,
         )
@@ -515,7 +518,12 @@ class InsideForestClassRegionClusterer(TransformerMixin, ClusterMixin, BaseEstim
     # Temporary attribute aliases ---------------------------------------------
     @property
     def rf_(self):
-        warnings.warn("rf_ is deprecated; use forest_", FutureWarning, stacklevel=2)
+        warnings.warn(
+            "rf_ is deprecated; use forest_. It will be removed in "
+            "InsideForest 0.5.0.",
+            FutureWarning,
+            stacklevel=2,
+        )
         return self.forest_
 
     @rf_.setter
@@ -524,7 +532,12 @@ class InsideForestClassRegionClusterer(TransformerMixin, ClusterMixin, BaseEstim
 
     @property
     def rules_(self):
-        warnings.warn("rules_ is deprecated; use regions_", FutureWarning, stacklevel=2)
+        warnings.warn(
+            "rules_ is deprecated; use regions_. It will be removed in "
+            "InsideForest 0.5.0.",
+            FutureWarning,
+            stacklevel=2,
+        )
         return self.regions_
 
     @rules_.setter
@@ -816,7 +829,8 @@ class InsideForestMulticlassClassifier(InsideForestClassRegionClusterer):
     ):
         warnings.warn(
             "InsideForestMulticlassClassifier is deprecated; use "
-            "InsideForestClassRegionClusterer",
+            "InsideForestClassRegionClusterer. The compatibility name will "
+            "be removed in InsideForest 0.5.0.",
             FutureWarning,
             stacklevel=2,
         )
