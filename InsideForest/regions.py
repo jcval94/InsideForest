@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.cluster import DBSCAN, KMeans
 from sklearn.metrics import pairwise_distances

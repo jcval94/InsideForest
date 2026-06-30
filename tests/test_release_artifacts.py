@@ -13,6 +13,11 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _release_wheel():
+    configured = os.environ.get("INSIDEFOREST_RELEASE_WHEEL")
+    if configured:
+        wheel = Path(configured).resolve()
+        assert wheel.is_file(), wheel
+        return wheel
     matches = sorted((REPO_ROOT / "dist").glob(f"insideforest-{RELEASE_VERSION}-*.whl"))
     if not matches:
         pytest.skip("Build the 0.4.3 wheel before running artifact checks")

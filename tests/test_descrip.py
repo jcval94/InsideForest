@@ -8,10 +8,28 @@ from InsideForest.descrip import (
     categorize_conditions,
     categorize_conditions_generalized,
     build_conditions_table,
+    encode_features,
     _gpt_hypothesis,
     generate_hypothesis,
     get_frontiers,
 )
+
+
+def test_encode_features_supports_pandas_string_dtype():
+    frame = pd.DataFrame(
+        {
+            "cluster_desc_relative": ["a", "b"],
+            "segment": pd.Series(
+                ["PERCENTILE 1", "PERCENTILE 2"], dtype="string"
+            ),
+        }
+    )
+
+    encoded = encode_features(
+        frame, {"PERCENTILE 1": 1, "PERCENTILE 2": 2}
+    )
+
+    assert encoded["segment"].tolist() == [0.0, 1.0]
 
 
 def test_categorize_conditions_basic():
