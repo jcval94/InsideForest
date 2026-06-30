@@ -5,7 +5,9 @@ setup.py
 InsideForest/__init__.py
 InsideForest/ab_testing.py
 InsideForest/cluster_selector.py
+InsideForest/continuous_interpreter.py
 InsideForest/descrip.py
+InsideForest/group_priority.py
 InsideForest/inside_forest.py
 InsideForest/labels.py
 InsideForest/legacy_select_clusters.py
@@ -16,6 +18,7 @@ InsideForest/multiclass_interpreter.py
 InsideForest/multiclass_labels.py
 InsideForest/multiclass_metrics.py
 InsideForest/multiclass_rules.py
+InsideForest/region_quality.py
 InsideForest/regions.py
 InsideForest/trees.py
 InsideForest.egg-info/PKG-INFO
@@ -23,6 +26,8 @@ InsideForest.egg-info/SOURCES.txt
 InsideForest.egg-info/dependency_links.txt
 InsideForest.egg-info/requires.txt
 InsideForest.egg-info/top_level.txt
+InsideForest/examples/InsideForest_Caso_de_Uso.ipynb
+InsideForest/examples/__init__.py
 experiments/__init__.py
 experiments/ab_test_rule_extraction.py
 experiments/benchmark.py
@@ -34,9 +39,11 @@ experiments/select_clusters_hyperparam.py
 experiments/summary_benchmark.py
 tests/test_chimera_values_selector.py
 tests/test_cluster_selector.py
+tests/test_continuous_region_clusterer.py
 tests/test_descrip.py
 tests/test_descrip_helpers.py
 tests/test_eps_search_perf.py
+tests/test_group_priority.py
 tests/test_inside_forest_fit_predict.py
 tests/test_inside_forest_params.py
 tests/test_inside_forest_regressor_fit_predict.py
@@ -50,5 +57,8 @@ tests/test_multiclass_labels.py
 tests/test_multiclass_metrics.py
 tests/test_multiclass_rules.py
 tests/test_numeric_utils.py
+tests/test_packaged_notebook.py
+tests/test_region_clusterer_contract.py
 tests/test_regions_search_original_tree.py
+tests/test_release_version.py
 tests/test_trees.py

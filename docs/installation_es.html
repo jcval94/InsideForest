@@ -8,7 +8,7 @@ lang: es
 ---
 
 <h1>Instalación</h1>
-<p>InsideForest está disponible en PyPI y también puede instalarse desde el repositorio para contribuir con nuevas funciones. Se recomienda trabajar dentro de un entorno virtual.</p>
+<p>Esta página documenta InsideForest <strong>0.4.1</strong>. El paquete puede instalarse desde PyPI o desde el repositorio; se recomienda trabajar dentro de un entorno virtual.</p>
 
 <h2>Requisitos previos</h2>
 <ul>
@@ -18,9 +18,9 @@ lang: es
 </ul>
 
 <h2>Instalación desde PyPI</h2>
-<pre><code class="language-bash">pip install insideforest</code></pre>
+<pre><code class="language-bash">python -m pip install InsideForest==0.4.1</code></pre>
 <p>Valida que la importación funcione:</p>
-<pre><code class="language-python">python -c "from InsideForest import InsideForestRegionClusterer; print('InsideForest listo')"</code></pre>
+<pre><code class="language-bash">python -c "import InsideForest; print(InsideForest.__version__)"</code></pre>
 
 <h2>Instalación desde el código fuente</h2>
 <pre><code class="language-bash">git clone https://github.com/jcval94/InsideForest.git
@@ -29,15 +29,12 @@ pip install -e .</code></pre>
 <p>El modo editable permite iterar sobre el código sin reinstalar el paquete en cada cambio.</p>
 
 <h2>Dependencias para desarrollo</h2>
-<pre><code class="language-bash">pip install -e .[dev]
-# o
-pip install -r requirements-dev.txt
-</code></pre>
+<pre><code class="language-bash">python -m pip install -r requirements-dev.txt</code></pre>
 <p>Incluyen linters, herramientas de documentación y dependencias de pruebas.</p>
 
 <h2>Comprueba la instalación</h2>
-<pre><code class="language-bash">PYTHONPATH=src pytest tests/test_basic.py::test_import_and_fit -q</code></pre>
-<p>Esta prueba realiza un entrenamiento mínimo para asegurarse de que la configuración está completa.</p>
+<pre><code class="language-bash">python -m pytest tests -q</code></pre>
+<p>La suite valida los contratos regionales categórico y continuo, persistencia, ejemplos documentados y el notebook empaquetado.</p>
 
 <h2>Resolución de problemas</h2>
 <ul>

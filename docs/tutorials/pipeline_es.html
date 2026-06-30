@@ -7,31 +7,42 @@ nav_exclude: true
 lang: es
 ---
 
-<h1>Automatiza pipelines</h1>
-<p>Integra InsideForest en un proceso repetible con pruebas y almacenamiento de artefactos.</p>
+<h1>Automatiza pipelines de asignación regional</h1>
+<p>Integra InsideForest 0.4.1 en un flujo repetible con entradas explícitas, diagnósticos de calidad regional y persistencia.</p>
 
-<h2>Objetivo</h2>
-<p>Construir un pipeline diario que entrene, guarde el modelo y genere reportes.</p>
+<h2>Paso 1: preparar la estructura</h2>
+<pre><code class="language-bash">mkdir -p pipelines artifacts</code></pre>
 
-<h2>Paso 1: preparar estructura</h2>
-<pre><code class="language-bash">mkdir -p pipelines
-cp templates/daily_pipeline.py pipelines/
+<h2>Paso 2: definir el script</h2>
+<pre><code class="language-python"># pipelines/daily_pipeline.py
+from pathlib import Path
+import pandas as pd
+from InsideForest import InsideForestRegionClusterer
+
+OBJETIVO = "target"
+train = pd.read_parquet("data/train.parquet")
+nuevo = pd.read_parquet("data/new.parquet")
+
+modelo = InsideForestRegionClusterer(
+    rf_params={"random_state": 42},
+    seed=42,
+    auto_fast=True,
+    auto_feature_reduce=True,
+)
+modelo.fit(train.drop(columns=OBJETIVO), train[OBJETIVO])
+
+asignaciones = modelo.assign_regions(nuevo)
+calidad = modelo.region_quality_report(nuevo)
+
+Path("artifacts").mkdir(exist_ok=True)
+asignaciones.to_parquet("artifacts/asignaciones.parquet")
+modelo.save("artifacts/insideforest.joblib")
 </code></pre>
 
-<h2>Paso 2: script principal</h2>
-<pre><code class="language-python">from InsideForest import InsideForestRegionClusterer
-from insideforest.utils import load_data
+<p>La tabla de asignaciones registra el cluster <code>-1</code> para filas sin región. Conserva también el reporte de calidad si necesitas auditar la cobertura histórica.</p>
 
-X_train, X_new, y_train = load_data()
-clf = InsideForestRegionClusterer(auto_fast=True, auto_feature_reduce=True)
-clf.fit(X_train, y_train)
-asignaciones = clf.assign_regions(X_new)
-calidad = clf.region_quality_report()
-clf.save("artifacts/insideforest.joblib")
-</code></pre>
-
-<h2>Paso 3: validar</h2>
-<pre><code class="language-bash">PYTHONPATH=src pytest tests/test_basic.py -q
+<h2>Paso 3: validar en CI</h2>
+<pre><code class="language-bash">python -m pytest tests -q
 python pipelines/daily_pipeline.py
 </code></pre>
 

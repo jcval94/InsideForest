@@ -9,6 +9,7 @@ lang: es
 ---
 
 <h1>InsideForest</h1>
+<p><strong>Versión actual: 0.4.1.</strong></p>
 <p><strong>InsideForest</strong> transforma los bosques aleatorios en exploradores de regiones. El clustering supervisado guía la segmentación y produce descripciones basadas en reglas fáciles de comunicar.</p>
 
 <div class="doc-hero">
@@ -33,7 +34,7 @@ asignaciones = clf.assign_regions(X_test)
 calidad = clf.region_quality_report(X_test, y_test)
 importances = clf.feature_importances_
 </code></pre>
-<p><code>labels</code> son IDs regionales; <code>-1</code> indica que ninguna región coincidió. Visita <a href="quick_api_es.html">API rápida</a> para ver ambos clusterers y regresión.</p>
+<p><code>labels</code> son IDs regionales; <code>-1</code> indica que ninguna región coincidió. Visita <a href="quick_api_es.html">API rápida</a> para los clusterers general, por clase y continuo.</p>
 
 <h2>¿Por qué InsideForest?</h2>
 <ul>
