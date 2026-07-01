@@ -1069,6 +1069,418 @@ def _local_hypothesis_text(
     )
 
 
+def _call_openai_text(
+    payload: dict[str, Any],
+    *,
+    system_prompt: str,
+    model: str,
+    temperature: float,
+    api_key: Optional[str] = None,
+    client: Any | None = None,
+) -> Optional[str]:
+    """Return one OpenAI response, or ``None`` so callers can fall back."""
+    if client is None:
+        client = get_openai_client(api_key)
+    if client is None:
+        logger.warning("OpenAI client unavailable; using the local report")
+        return None
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            temperature=temperature,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+            ],
+        )
+        choices = getattr(response, "choices", None)
+        content = (
+            getattr(getattr(choices[0], "message", None), "content", None)
+            if choices
+            else None
+        )
+        if not content:
+            logger.warning("OpenAI returned no text; using the local report")
+            return None
+        return str(content).strip()
+    except Exception as exc:
+        logger.warning("OpenAI request failed; using the local report: %s", exc)
+        return None
+
+
+def _model_hypothesis_task(regions: pd.DataFrame) -> str:
+    """Infer an InsideForest task from its public region schema."""
+    columns = set(regions.columns)
+    if "target_mean" in columns and (
+        "mean_shift" in columns or "dispersion_reduction" in columns
+    ):
+        return "regression"
+    if "class_distribution" in columns and (
+        "region_target_class" in columns
+        or "target_class" in columns
+        or "dominant_class" in columns
+    ):
+        return "multiclass"
+    if "target_distribution" in columns and "dominant_target" in columns:
+        return "classification"
+    raise ValueError(
+        "Could not infer the task from explain_regions(); expected an "
+        "InsideForest traditional, multiclass, or regression schema"
+    )
+
+
+def _finite_float(value: Any) -> Optional[float]:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if np.isfinite(number) else None
+
+
+def _json_value(value: Any) -> Any:
+    if isinstance(value, np.ndarray):
+        return [_json_value(item) for item in value.tolist()]
+    if isinstance(value, (list, tuple)):
+        return [_json_value(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _json_value(item) for key, item in value.items()}
+    if isinstance(value, np.generic):
+        value = value.item()
+    try:
+        return None if pd.isna(value) else value
+    except (TypeError, ValueError):
+        return value
+
+
+def _class_distribution(value: Any, classes: Any = None) -> dict[str, float]:
+    if isinstance(value, str):
+        try:
+            value = ast.literal_eval(value)
+        except (SyntaxError, ValueError):
+            return {}
+    if isinstance(value, dict):
+        items = value.items()
+    elif isinstance(value, (list, tuple, np.ndarray)):
+        values = list(value)
+        labels = list(classes) if classes is not None else list(range(len(values)))
+        items = zip(labels, values)
+    else:
+        return {}
+    result = {}
+    for label, raw_value in items:
+        number = _finite_float(raw_value)
+        if number is not None:
+            result[str(label)] = number
+    return result
+
+
+def _region_id_column(regions: pd.DataFrame) -> str:
+    for column in ("region_id", "cluster_id"):
+        if column in regions.columns:
+            return column
+    raise ValueError("explain_regions() must expose region_id or cluster_id")
+
+
+def _dominant_class(row: pd.Series, task: str) -> Any:
+    columns = (
+        ("dominant_target", "region_target_class")
+        if task == "classification"
+        else ("dominant_class", "target_class", "region_target_class")
+    )
+    for column in columns:
+        value = _json_value(row.get(column))
+        if value is not None:
+            return value
+    return None
+
+
+def _row_score(row: pd.Series) -> float:
+    for column in ("region_score", "score", "weight", "support"):
+        value = _finite_float(row.get(column))
+        if value is not None:
+            return value
+    return 0.0
+
+
+def _select_model_regions(
+    regions: pd.DataFrame, task: str, region_ids: Optional[Any]
+) -> tuple[pd.Series, pd.Series, str]:
+    id_column = _region_id_column(regions)
+    if region_ids is not None:
+        requested = list(region_ids)
+        if len(requested) != 2 or requested[0] == requested[1]:
+            raise ValueError("region_ids must contain exactly two distinct IDs")
+        selected = []
+        for region_id in requested:
+            match = regions[regions[id_column] == region_id]
+            if match.empty:
+                raise ValueError(f"Unknown region ID: {region_id!r}")
+            selected.append(match.iloc[0])
+        return selected[0], selected[1], id_column
+
+    if task == "regression":
+        means = pd.to_numeric(regions["target_mean"], errors="coerce")
+        valid = regions.loc[means.notna()].copy()
+        valid["__mean"] = means[means.notna()]
+        if len(valid) < 2:
+            raise ValueError("At least two regions with numeric target_mean are required")
+        ordered = valid.sort_values("__mean", kind="stable")
+        return ordered.iloc[0], ordered.iloc[-1], id_column
+
+    order = sorted(
+        range(len(regions)),
+        key=lambda index: _row_score(regions.iloc[index]),
+        reverse=True,
+    )
+    first = regions.iloc[order[0]]
+    first_class = _dominant_class(first, task)
+    for index in order[1:]:
+        candidate = regions.iloc[index]
+        if _dominant_class(candidate, task) != first_class:
+            return first, candidate, id_column
+    return first, regions.iloc[order[1]], id_column
+
+
+def _normalized_model_region(
+    row: pd.Series, *, task: str, id_column: str, classes: Any = None
+) -> dict[str, Any]:
+    region = {
+        "region_id": _json_value(row.get(id_column)),
+        "description": str(row.get("description", "—")),
+        "support": _json_value(row.get("support")),
+        "coverage": _json_value(row.get("coverage")),
+        "region_score": _json_value(
+            row.get("region_score", row.get("score", row.get("weight")))
+        ),
+    }
+    if task == "classification":
+        region.update(
+            dominant_class=_dominant_class(row, task),
+            dominant_probability=_json_value(row.get("dominant_probability")),
+            class_distribution=_class_distribution(
+                row.get("target_distribution"), classes
+            ),
+            lift=_json_value(row.get("lift")),
+        )
+    elif task == "multiclass":
+        region.update(
+            dominant_class=_dominant_class(row, task),
+            target_probability=_json_value(
+                row.get("target_probability", row.get("dominant_probability"))
+            ),
+            class_distribution=_class_distribution(
+                row.get("class_distribution"), classes
+            ),
+            class_margin=_json_value(row.get("class_margin")),
+            lift=_json_value(row.get("lift")),
+            entropy=_json_value(row.get("entropy")),
+        )
+    else:
+        for column in (
+            "target_mean",
+            "target_median",
+            "target_std",
+            "target_iqr",
+            "mean_shift",
+            "standardized_mean_shift",
+            "dispersion_reduction",
+        ):
+            region[column] = _json_value(row.get(column))
+    return region
+
+
+def _number_text(value: Any) -> str:
+    number = _finite_float(value)
+    return "—" if number is None else f"{number:,.3f}"
+
+
+def _probability_text(value: Any) -> str:
+    number = _finite_float(value)
+    return "—" if number is None else f"{number:.2%}"
+
+
+def _distribution_text(distribution: dict[str, float]) -> str:
+    if not distribution:
+        return "—"
+    return ", ".join(
+        f"{label}: {_probability_text(value)}"
+        for label, value in distribution.items()
+    )
+
+
+def _local_model_hypothesis(payload: dict[str, Any]) -> str:
+    task, lang = payload["task"], payload["lang"]
+    target = payload["target"]
+    a, b = payload["regions"]
+    if lang == "es" and task == "regression":
+        difference = (_finite_float(b["target_mean"]) or 0.0) - (
+            _finite_float(a["target_mean"]) or 0.0
+        )
+        return (
+            f"# Comparación de regiones — regresión ({target})\n\n"
+            f"## Región {a['region_id']}\n- Reglas: **{a['description']}**\n"
+            f"- Media del objetivo: **{_number_text(a['target_mean'])}**\n"
+            f"- Mediana: **{_number_text(a['target_median'])}**\n"
+            f"- Desviación estándar: **{_number_text(a['target_std'])}**\n"
+            f"- Desplazamiento de la media: **{_number_text(a['mean_shift'])}**\n\n"
+            f"## Región {b['region_id']}\n- Reglas: **{b['description']}**\n"
+            f"- Media del objetivo: **{_number_text(b['target_mean'])}**\n"
+            f"- Mediana: **{_number_text(b['target_median'])}**\n"
+            f"- Desviación estándar: **{_number_text(b['target_std'])}**\n"
+            f"- Reducción de dispersión: **{_number_text(b['dispersion_reduction'])}**\n\n"
+            f"## Hipótesis\nLa región {b['region_id']} presenta una media "
+            f"**{difference:+,.3f}** mayor que la región {a['region_id']}. "
+            "Conviene validar las reglas diferenciales fuera de muestra."
+        )
+    if lang == "es" and task == "multiclass":
+        return (
+            f"# Comparación de regiones — multiclase ({target})\n\n"
+            f"## Región {a['region_id']}\n- Reglas: **{a['description']}**\n"
+            f"- Clase dominante: **{a['dominant_class']}**\n"
+            f"- Distribución: **{_distribution_text(a['class_distribution'])}**\n"
+            f"- Margen / lift / entropía: **{_number_text(a['class_margin'])} / "
+            f"{_number_text(a['lift'])} / {_number_text(a['entropy'])}**\n\n"
+            f"## Región {b['region_id']}\n- Reglas: **{b['description']}**\n"
+            f"- Clase dominante: **{b['dominant_class']}**\n"
+            f"- Distribución: **{_distribution_text(b['class_distribution'])}**\n"
+            f"- Margen / lift / entropía: **{_number_text(b['class_margin'])} / "
+            f"{_number_text(b['lift'])} / {_number_text(b['entropy'])}**\n\n"
+            "## Hipótesis\nLas reglas separan clases dominantes distintas. Un margen "
+            "bajo o una entropía alta señalan mayor ambigüedad."
+        )
+    if lang == "es":
+        return (
+            f"# Comparación de regiones — clasificación ({target})\n\n"
+            f"## Región {a['region_id']}\n- Reglas: **{a['description']}**\n"
+            f"- Clase dominante: **{a['dominant_class']}**\n"
+            f"- Probabilidad dominante: **{_probability_text(a['dominant_probability'])}**\n"
+            f"- Distribución: **{_distribution_text(a['class_distribution'])}**\n\n"
+            f"## Región {b['region_id']}\n- Reglas: **{b['description']}**\n"
+            f"- Clase dominante: **{b['dominant_class']}**\n"
+            f"- Probabilidad dominante: **{_probability_text(b['dominant_probability'])}**\n"
+            f"- Distribución: **{_distribution_text(b['class_distribution'])}**\n\n"
+            "## Hipótesis\nLas condiciones diferenciales concentran clases distintas; "
+            "la probabilidad dominante estima la pureza de cada región."
+        )
+    if task == "regression":
+        difference = (_finite_float(b["target_mean"]) or 0.0) - (
+            _finite_float(a["target_mean"]) or 0.0
+        )
+        return (
+            f"# Region comparison — regression ({target})\n\n"
+            f"## Region {a['region_id']}\n- Rules: **{a['description']}**\n"
+            f"- Target mean: **{_number_text(a['target_mean'])}**\n"
+            f"- Median: **{_number_text(a['target_median'])}**\n"
+            f"- Standard deviation: **{_number_text(a['target_std'])}**\n\n"
+            f"## Region {b['region_id']}\n- Rules: **{b['description']}**\n"
+            f"- Target mean: **{_number_text(b['target_mean'])}**\n"
+            f"- Median: **{_number_text(b['target_median'])}**\n"
+            f"- Standard deviation: **{_number_text(b['target_std'])}**\n\n"
+            f"## Hypothesis\nRegion {b['region_id']} has a **{difference:+,.3f}** "
+            f"higher mean than region {a['region_id']}; validate it out of sample."
+        )
+    noun = "multiclass" if task == "multiclass" else "classification"
+    probability_a = (
+        _distribution_text(a["class_distribution"])
+        if task == "multiclass"
+        else _probability_text(a["dominant_probability"])
+    )
+    probability_b = (
+        _distribution_text(b["class_distribution"])
+        if task == "multiclass"
+        else _probability_text(b["dominant_probability"])
+    )
+    return (
+        f"# Region comparison — {noun} ({target})\n\n"
+        f"## Region {a['region_id']}\n- Rules: **{a['description']}**\n"
+        f"- Dominant class: **{a['dominant_class']}**\n- Profile: **{probability_a}**\n\n"
+        f"## Region {b['region_id']}\n- Rules: **{b['description']}**\n"
+        f"- Dominant class: **{b['dominant_class']}**\n- Profile: **{probability_b}**\n\n"
+        "## Hypothesis\nThe differing rules concentrate different target profiles."
+    )
+
+
+def generate_model_hypothesis(
+    estimator: Any,
+    *,
+    target: Optional[str] = None,
+    meta_df: Optional[pd.DataFrame] = None,
+    lang: str = "es",
+    use_gpt: bool = False,
+    openai_model: str = "gpt-4o-mini",
+    temperature: float = 0.2,
+    region_ids: Optional[Any] = None,
+    top_n: int = 50,
+    api_key: Optional[str] = None,
+    client: Any | None = None,
+) -> str:
+    """Compare regions from any fitted canonical InsideForest estimator."""
+    if not hasattr(estimator, "explain_regions"):
+        raise TypeError("estimator must expose an explain_regions() method")
+    if lang not in {"es", "en"}:
+        raise ValueError("lang must be 'es' or 'en'")
+    try:
+        regions = estimator.explain_regions(
+            top_n=None if region_ids is not None else top_n
+        )
+    except Exception as exc:
+        raise ValueError(
+            "The estimator must be fitted before generating a hypothesis"
+        ) from exc
+    if not isinstance(regions, pd.DataFrame):
+        regions = pd.DataFrame(regions)
+    if len(regions) < 2:
+        raise ValueError("At least two explained regions are required")
+
+    task = _model_hypothesis_task(regions)
+    row_a, row_b, id_column = _select_model_regions(regions, task, region_ids)
+    target_label = target or ("objetivo" if lang == "es" else "target")
+    if target is not None and meta_df is not None:
+        try:
+            target_label = _meta_lookup(target, meta_df, lang=lang)[0]
+        except Exception:
+            target_label = target
+    payload = {
+        "lang": lang,
+        "task": task,
+        "target": target_label,
+        "regions": [
+            _normalized_model_region(
+                row_a,
+                task=task,
+                id_column=id_column,
+                classes=getattr(estimator, "classes_", None),
+            ),
+            _normalized_model_region(
+                row_b,
+                task=task,
+                id_column=id_column,
+                classes=getattr(estimator, "classes_", None),
+            ),
+        ],
+    }
+    local_report = _local_model_hypothesis(payload)
+    if not use_gpt:
+        return local_report
+    generated = _call_openai_text(
+        payload,
+        system_prompt=(
+            "You are a data-science expert. Return one concise Markdown report "
+            "in the requested language. Compare exactly the supplied regions "
+            "without inventing metrics. Adapt terminology to the task: class "
+            "probabilities for classification; distributions, margin, lift and "
+            "entropy for multiclass; numeric means, medians and dispersion for "
+            "regression. Never format continuous target values as percentages. "
+            "End with a testable, non-causal hypothesis."
+        ),
+        model=openai_model,
+        temperature=temperature,
+        api_key=api_key,
+        client=client,
+    )
+    return generated or local_report
+
+
 def _gpt_hypothesis(
     payload: dict[str, Any], *, model: str, temperature: float, client: Any | None = None
 ) -> Optional[str]:
@@ -1128,6 +1540,8 @@ def generate_hypothesis(
     use_gpt: bool = False,
     gpt_model: str = "gpt-4o-mini",
     temperature: float = 0.2,
+    api_key: Optional[str] = None,
+    client: Any | None = None,
 ) -> str:
     """Create a hypothesis report comparing two subgroups."""
     row = exp_df.iloc[0]
@@ -1146,8 +1560,8 @@ def generate_hypothesis(
 
     # ===== GPT PATH =====
     if use_gpt:
-        client = _client
-        if client is not None:
+        resolved_client = client or get_openai_client(api_key)
+        if resolved_client is not None:
             payload = {
                 "lang": lang,
                 "target": _meta_lookup(target, meta_df, lang=lang)[0],
@@ -1175,11 +1589,22 @@ def generate_hypothesis(
                 },
             }
 
-            txt = _gpt_hypothesis(
-                payload, model=gpt_model, temperature=temperature, client=client
+            txt = _call_openai_text(
+                payload,
+                system_prompt=(
+                    "You are a data-science expert assistant. Return one concise "
+                    "Markdown report in the language specified by 'lang'. Compare "
+                    "the two subgroups using only the supplied rules and metrics, "
+                    "then propose a testable A/B hypothesis."
+                ),
+                model=gpt_model,
+                temperature=temperature,
+                client=resolved_client,
             )
             if txt:
                 return txt
+        else:
+            logger.warning("OpenAI client unavailable; using the local report")
 
     # ===== LOCAL PATH =====
     inter_txt = _list_rules_to_text(_get("intersection", ""), meta_df, lang=lang)

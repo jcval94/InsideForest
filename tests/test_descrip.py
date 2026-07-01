@@ -11,6 +11,7 @@ from InsideForest.descrip import (
     encode_features,
     _gpt_hypothesis,
     generate_hypothesis,
+    generate_model_hypothesis,
     get_frontiers,
 )
 
@@ -121,6 +122,7 @@ def test_gpt_hypothesis_handles_empty_choices(monkeypatch):
 def test_generar_hypotesis_fallback_without_gpt(monkeypatch):
     from InsideForest import descrip
     monkeypatch.setattr(descrip, "_client", None)
+    monkeypatch.setattr(descrip, "get_openai_client", lambda api_key=None: None)
     meta_df = pd.DataFrame({"rule_token": ["tok"], "identity.label_i18n.es": ["Etiqueta"]})
     exp_df = pd.DataFrame({
         "intersection": ["tok"],
@@ -168,6 +170,199 @@ def test_generar_hypotesis_handles_lowercase_columns(monkeypatch):
     result = generate_hypothesis(meta_df, exp_df, target="tok", use_gpt=False, lang="es")
     assert "Etiqueta" in result
     assert "10.00%" in result
+
+
+class FakeRegionEstimator:
+    def __init__(self, regions, classes=None):
+        self._regions = regions
+        if classes is not None:
+            self.classes_ = classes
+
+    def explain_regions(self, top_n=None):
+        result = self._regions.copy()
+        return result if top_n is None else result.head(top_n)
+
+
+def _traditional_regions():
+    return pd.DataFrame(
+        {
+            "region_id": [10, 20, 30],
+            "description": ["x <= 1", "x > 1", "x > 2"],
+            "target_distribution": [
+                {"no": 0.8, "yes": 0.2},
+                {"no": 0.3, "yes": 0.7},
+                {"no": 0.2, "yes": 0.8},
+            ],
+            "dominant_target": ["no", "yes", "yes"],
+            "dominant_probability": [0.8, 0.7, 0.8],
+            "region_score": [0.9, 0.8, 0.7],
+            "support": [30, 25, 20],
+        }
+    )
+
+
+def _multiclass_regions():
+    return pd.DataFrame(
+        {
+            "cluster_id": [1, 2, 3],
+            "description": ["a <= 1", "a > 1", "a > 2"],
+            "class_distribution": [
+                [0.8, 0.1, 0.1],
+                [0.1, 0.7, 0.2],
+                [0.1, 0.2, 0.7],
+            ],
+            "region_target_class": ["setosa", "versicolor", "virginica"],
+            "target_probability": [0.8, 0.7, 0.7],
+            "lift": [2.0, 1.8, 1.7],
+            "entropy": [0.4, 0.6, 0.6],
+            "class_margin": [0.7, 0.5, 0.5],
+            "region_score": [0.95, 0.85, 0.75],
+            "support": [20, 18, 16],
+        }
+    )
+
+
+def _regression_regions():
+    return pd.DataFrame(
+        {
+            "cluster_id": [4, 5, 6],
+            "description": ["b <= 1", "b > 1", "b > 2"],
+            "target_mean": [105.5, 155.0, 205.25],
+            "target_median": [100.0, 150.0, 200.0],
+            "target_std": [15.0, 12.0, 10.0],
+            "target_iqr": [20.0, 18.0, 15.0],
+            "mean_shift": [-45.0, 4.5, 54.75],
+            "standardized_mean_shift": [-1.0, 0.1, 1.2],
+            "dispersion_reduction": [0.1, 0.2, 0.3],
+            "region_score": [0.7, 0.8, 0.9],
+            "support": [30, 25, 20],
+        }
+    )
+
+
+def test_generate_model_hypothesis_detects_traditional_model():
+    result = generate_model_hypothesis(FakeRegionEstimator(_traditional_regions()))
+    assert "clasificación" in result
+    assert "Región 10" in result
+    assert "Región 20" in result
+    assert "Probabilidad dominante" in result
+
+
+def test_generate_model_hypothesis_detects_multiclass_string_labels():
+    estimator = FakeRegionEstimator(
+        _multiclass_regions(), classes=["setosa", "versicolor", "virginica"]
+    )
+    result = generate_model_hypothesis(estimator)
+    assert "multiclase" in result
+    assert "setosa" in result
+    assert "versicolor" in result
+    assert "Distribución" in result
+
+
+def test_generate_model_hypothesis_regression_uses_numeric_language():
+    result = generate_model_hypothesis(FakeRegionEstimator(_regression_regions()))
+    assert "regresión" in result
+    assert "Región 4" in result
+    assert "Región 6" in result
+    assert "105.500" in result
+    assert "probabilidad" not in result.lower()
+    assert "%" not in result
+
+
+def test_generate_model_hypothesis_honors_explicit_region_ids():
+    result = generate_model_hypothesis(
+        FakeRegionEstimator(_traditional_regions()), region_ids=[30, 20]
+    )
+    assert result.index("Región 30") < result.index("Región 20")
+    assert "Región 10" not in result
+
+
+def test_generate_model_hypothesis_requires_fitted_estimator():
+    class UnfittedEstimator:
+        def explain_regions(self, top_n=None):
+            raise RuntimeError("not fitted")
+
+    with pytest.raises(ValueError, match="must be fitted"):
+        generate_model_hypothesis(UnfittedEstimator())
+
+
+def test_generate_model_hypothesis_requires_two_regions():
+    one_region = _traditional_regions().head(1)
+    with pytest.raises(ValueError, match="At least two"):
+        generate_model_hypothesis(FakeRegionEstimator(one_region))
+
+
+class FakeOpenAIClient:
+    def __init__(self, content=None, error=None):
+        self.content = content
+        self.error = error
+        self.calls = []
+        self.chat = self.Chat(self)
+
+    class Chat:
+        def __init__(self, owner):
+            self.completions = FakeOpenAIClient.Completions(owner)
+
+    class Completions:
+        def __init__(self, owner):
+            self.owner = owner
+
+        def create(self, **kwargs):
+            self.owner.calls.append(kwargs)
+            if self.owner.error:
+                raise self.owner.error
+            message = type("Message", (), {"content": self.owner.content})()
+            choice = type("Choice", (), {"message": message})()
+            return type("Response", (), {"choices": [choice]})()
+
+
+def test_generate_model_hypothesis_uses_injected_openai_client():
+    client = FakeOpenAIClient("## Informe generado")
+    result = generate_model_hypothesis(
+        FakeRegionEstimator(_traditional_regions()), use_gpt=True, client=client
+    )
+    assert result == "## Informe generado"
+    assert client.calls[0]["model"] == "gpt-4o-mini"
+
+
+def test_generate_model_hypothesis_falls_back_when_openai_fails(caplog):
+    client = FakeOpenAIClient(error=RuntimeError("offline"))
+    result = generate_model_hypothesis(
+        FakeRegionEstimator(_regression_regions()), use_gpt=True, client=client
+    )
+    assert "regresión" in result
+    assert "using the local report" in caplog.text
+
+
+def test_legacy_generate_hypothesis_initializes_openai_client(monkeypatch):
+    from InsideForest import descrip
+
+    client = FakeOpenAIClient("## Hipótesis API")
+    calls = []
+
+    def fake_get_client(api_key=None):
+        calls.append(api_key)
+        return client
+
+    monkeypatch.setattr(descrip, "get_openai_client", fake_get_client)
+    meta_df = pd.DataFrame(
+        {"rule_token": ["tok"], "identity.label_i18n.es": ["Etiqueta"]}
+    )
+    exp_df = pd.DataFrame(
+        {
+            "intersection": ["tok"],
+            "only_cluster_a": [""],
+            "only_cluster_b": [""],
+            "cluster_ef_a": [0.1],
+            "cluster_ef_b": [0.2],
+            "delta_ef": [0.1],
+        }
+    )
+    result = generate_hypothesis(
+        meta_df, exp_df, target="tok", use_gpt=True, api_key="test-key"
+    )
+    assert result == "## Hipótesis API"
+    assert calls == ["test-key"]
 
 
 def test_get_frontiers_basic():

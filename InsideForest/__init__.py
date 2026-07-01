@@ -41,6 +41,7 @@ from .region_quality import (
     summarize_region_quality,
     cluster_label_quality,
 )
+from .descrip import generate_model_hypothesis
 
 __version__ = "0.4.3"
 
