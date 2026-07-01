@@ -30,6 +30,11 @@ def test_use_case_notebook_is_packaged_and_contains_multiclass_example():
     assert notebook["nbformat"] == 4
     assert "InsideForestClassRegionClusterer" in source
     assert "InsideForestContinuousRegionClusterer" in source
+    assert "generate_model_hypothesis" in source
+    assert "RUN_OPENAI_DEMO = False" in source
+    assert "traditional, \"species\"" in source
+    assert "multiclass_model, \"wine_class\"" in source
+    assert "continuous_model, \"disease_progression\"" in source
     assert "load_wine" in source
     assert "regions_for_class" in source
     assert "ambiguous_regions" in source
@@ -99,6 +104,7 @@ for _name in (
     "InsideForestRegionClusterer",
     "InsideForestClassRegionClusterer",
     "InsideForestContinuousRegionClusterer",
+    "generate_model_hypothesis",
 ):
     assert hasattr(_insideforest, _name)
 """
